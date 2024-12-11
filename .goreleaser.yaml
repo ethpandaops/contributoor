@@ -21,10 +21,14 @@ dockers:
       - "ethpandaops/contributoor-test:{{ .Version }}"
       - "ethpandaops/contributoor-test:latest"
     dockerfile: Dockerfile
+    use: buildx
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - go.mod
+      - go.sum
 
 archives:
   - format: tar.gz
