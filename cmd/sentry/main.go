@@ -11,12 +11,12 @@ import (
 )
 
 var (
-	version = "0.0.1"
 	cfgFile string
 	log     = logrus.New()
 )
 
 type ContributoorConfig struct {
+	Version               string         `yaml:"version"`
 	ContributoorDirectory string         `yaml:"contributoorDirectory"`
 	Network               *NetworkConfig `yaml:"network"`
 }
@@ -44,7 +44,7 @@ var rootCmd = &cobra.Command{
 			"config_path":    config.ContributoorDirectory,
 			"network_name":   config.Network.Name.Value,
 			"beacon_address": config.Network.BeaconNodeAddress.Value,
-			"version":        version,
+			"version":        config.Version,
 		})
 
 		logCtx.Info("Starting sentry...")
