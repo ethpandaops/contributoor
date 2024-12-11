@@ -16,6 +16,16 @@ builds:
       - amd64
       - arm64
 
+dockers:
+  - image_templates:
+      - "ethpandaops/contributoor-test:{{ .Version }}"
+      - "ethpandaops/contributoor-test:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
 archives:
   - format: tar.gz
     name_template: >-
