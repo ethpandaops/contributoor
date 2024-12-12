@@ -18,17 +18,13 @@ var (
 type ContributoorConfig struct {
 	Version               string         `yaml:"version"`
 	ContributoorDirectory string         `yaml:"contributoorDirectory"`
+	RunMethod             string         `yaml:"runMethod"`
 	Network               *NetworkConfig `yaml:"network"`
 }
 
 type NetworkConfig struct {
-	Name              Parameter `yaml:"name"`
-	BeaconNodeAddress Parameter `yaml:"beaconNodeAddress"`
-}
-
-// A parameter that can be configured by the user
-type Parameter struct {
-	Value interface{} `yaml:"value,omitempty"`
+	Name              string `yaml:"name"`
+	BeaconNodeAddress string `yaml:"beaconNodeAddress"`
 }
 
 var rootCmd = &cobra.Command{
@@ -42,8 +38,8 @@ var rootCmd = &cobra.Command{
 
 		logCtx := log.WithFields(logrus.Fields{
 			"config_path":    config.ContributoorDirectory,
-			"network_name":   config.Network.Name.Value,
-			"beacon_address": config.Network.BeaconNodeAddress.Value,
+			"network_name":   config.Network.Name,
+			"beacon_address": config.Network.BeaconNodeAddress,
 			"version":        config.Version,
 		})
 
