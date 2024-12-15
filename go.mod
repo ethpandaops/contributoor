@@ -1,4 +1,4 @@
-module github.com/ethpandaops/contributoor-test
+module github.com/ethpandaops/contributoor
 
 go 1.23.4
 

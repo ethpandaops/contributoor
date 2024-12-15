@@ -1,4 +1,4 @@
-project_name: contributoor-test
+project_name: contributoor
 
 before:
   hooks:
@@ -18,8 +18,8 @@ builds:
 
 dockers:
   - image_templates:
-      - "ethpandaops/contributoor-test:{{ .Version }}"
-      - "ethpandaops/contributoor-test:latest"
+      - "ethpandaops/contributoor:{{ .Version }}"
+      - "ethpandaops/contributoor:latest"
     dockerfile: Dockerfile
     use: buildx
     build_flag_templates:
