@@ -16,15 +16,17 @@ var (
 )
 
 type ContributoorConfig struct {
-	Version               string         `yaml:"version"`
-	ContributoorDirectory string         `yaml:"contributoorDirectory"`
-	RunMethod             string         `yaml:"runMethod"`
-	Network               *NetworkConfig `yaml:"network"`
+	Version               string              `yaml:"version"`
+	ContributoorDirectory string              `yaml:"contributoorDirectory"`
+	RunMethod             string              `yaml:"runMethod"`
+	NetworkName           string              `yaml:"networkName"`
+	BeaconNodeAddress     string              `yaml:"beaconNodeAddress"`
+	OutputServer          *OutputServerConfig `yaml:"outputServer"`
 }
 
-type NetworkConfig struct {
-	Name              string `yaml:"name"`
-	BeaconNodeAddress string `yaml:"beaconNodeAddress"`
+type OutputServerConfig struct {
+	Address     string `yaml:"address"`
+	Credentials string `yaml:"credentials,omitempty"`
 }
 
 var rootCmd = &cobra.Command{
@@ -38,8 +40,9 @@ var rootCmd = &cobra.Command{
 
 		logCtx := log.WithFields(logrus.Fields{
 			"config_path":    config.ContributoorDirectory,
-			"network_name":   config.Network.Name,
-			"beacon_address": config.Network.BeaconNodeAddress,
+			"network_name":   config.NetworkName,
+			"beacon_address": config.BeaconNodeAddress,
+			"output_server":  config.OutputServer.Address,
 			"version":        config.Version,
 		})
 
