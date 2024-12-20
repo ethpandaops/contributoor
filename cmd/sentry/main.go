@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/bufbuild/protovalidate-go"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -30,6 +31,7 @@ var rootCmd = &cobra.Command{
 
 		logCtx := log.WithFields(logrus.Fields{
 			"config_path":    config.ContributoorDirectory,
+			"run_method":     config.RunMethod,
 			"network_name":   config.NetworkName,
 			"beacon_address": config.BeaconNodeAddress,
 			"output_server":  config.OutputServer.Address,
@@ -70,29 +72,6 @@ func loadConfig(path string) (*config.Config, error) {
 		return nil, err
 	}
 
-	// Convert string values to enum values
-	if networkName, ok := yamlMap["networkName"].(string); ok {
-		switch networkName {
-		case "mainnet":
-			yamlMap["networkName"] = "NETWORK_NAME_MAINNET"
-		case "sepolia":
-			yamlMap["networkName"] = "NETWORK_NAME_SEPOLIA"
-		case "holesky":
-			yamlMap["networkName"] = "NETWORK_NAME_HOLESKY"
-		}
-	}
-
-	if runMethod, ok := yamlMap["runMethod"].(string); ok {
-		switch runMethod {
-		case "docker":
-			yamlMap["runMethod"] = "RUN_METHOD_DOCKER"
-		case "systemd":
-			yamlMap["runMethod"] = "RUN_METHOD_SYSTEMD"
-		case "binary":
-			yamlMap["runMethod"] = "RUN_METHOD_BINARY"
-		}
-	}
-
 	// Convert YAML to JSON
 	jsonBytes, err := json.Marshal(yamlMap)
 	if err != nil {
@@ -101,6 +80,15 @@ func loadConfig(path string) (*config.Config, error) {
 
 	cfg := &config.Config{}
 	if err := protojson.Unmarshal(jsonBytes, cfg); err != nil {
+		return nil, err
+	}
+
+	validator, err := protovalidate.New()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = validator.Validate(cfg); err != nil {
 		return nil, err
 	}
 

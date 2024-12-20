@@ -4,6 +4,8 @@ package config.v1;
 
 option go_package = "github.com/ethpandaops/contributoor/proto/config/v1;config";
 
+import "buf/validate/validate.proto";
+
 // RunMethod defines how the service is run.
 enum RunMethod {
   // Invalid, should not be used.
@@ -37,11 +39,14 @@ message Config {
   // Directory where contributoor houses its configuration and related data.
   string contributoor_directory = 3;
   // RunMethod is the method used to run the contributoorservice.
-  RunMethod run_method = 4;
+  RunMethod run_method = 4 [(buf.validate.field).enum = { not_in: [0] }];
   // NetworkName is the name of the network the beacon node is running on.
-  NetworkName network_name = 5;
+  NetworkName network_name = 5 [(buf.validate.field).enum = { not_in: [0] }];
   // BeaconNodeAddress is the address of the beacon node.
-  string beacon_node_address = 6;
+  string beacon_node_address = 6 [
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
+  ];
   // OutputServer is the configuration for the output server.
   OutputServer output_server = 7;
 }
@@ -49,7 +54,10 @@ message Config {
 // OutputServer represents configuration for the output server.
 message OutputServer {
   // Address of the output server, eg: where the Xatu output server is running.
-  string address = 1;
+  string address = 1 [
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
+  ];
   // Optional credentials for authentication, this is a base64 encoded string in the format of "username:password".
   string credentials = 2;
-} 
+}
