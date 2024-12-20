@@ -1,0 +1,2 @@
+proto:
+	buf generate
