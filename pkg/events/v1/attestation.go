@@ -1,10 +1,11 @@
-package events
+package v1
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/ethpandaops/contributoor/pkg/events"
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
@@ -14,15 +15,15 @@ import (
 
 // AttestationEvent represents a beacon chain attestation event.
 type AttestationEvent struct {
-	BaseEvent
+	events.BaseEvent
 	data     *phase0.Attestation
-	beacon   BeaconDataProvider
+	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewAttestationEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *phase0.Attestation, recvTime time.Time) *AttestationEvent {
+func NewAttestationEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *phase0.Attestation, recvTime time.Time) *AttestationEvent {
 	return &AttestationEvent{
-		BaseEvent: NewBaseEvent(meta),
+		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
@@ -32,7 +33,10 @@ func NewAttestationEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *phase
 func (e *AttestationEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_ATTESTATION_V2.String()
 }
-func (e *AttestationEvent) Data() interface{} { return e.data }
+
+func (e *AttestationEvent) Data() interface{} {
+	return e.data
+}
 
 func (e *AttestationEvent) Decorated() *xatu.DecoratedEvent {
 	decorated := &xatu.DecoratedEvent{

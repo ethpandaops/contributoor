@@ -1,9 +1,10 @@
-package events
+package v1
 
 import (
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/ethpandaops/contributoor/pkg/events"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -11,23 +12,28 @@ import (
 
 // FinalizedCheckpointEvent represents a beacon chain finalization event.
 type FinalizedCheckpointEvent struct {
-	BaseEvent
+	events.BaseEvent
 	data     *eth2v1.FinalizedCheckpointEvent
-	beacon   BeaconDataProvider
+	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewFinalizedCheckpointEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *eth2v1.FinalizedCheckpointEvent, recvTime time.Time) *FinalizedCheckpointEvent {
+func NewFinalizedCheckpointEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.FinalizedCheckpointEvent, recvTime time.Time) *FinalizedCheckpointEvent {
 	return &FinalizedCheckpointEvent{
-		BaseEvent: NewBaseEvent(meta),
+		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
 	}
 }
 
-func (e *FinalizedCheckpointEvent) Type() string      { return "finalized_checkpoint" }
-func (e *FinalizedCheckpointEvent) Data() interface{} { return e.data }
+func (e *FinalizedCheckpointEvent) Type() string {
+	return xatu.Event_BEACON_API_ETH_V1_EVENTS_FINALIZED_CHECKPOINT_V2.String()
+}
+
+func (e *FinalizedCheckpointEvent) Data() interface{} {
+	return e.data
+}
 
 func (e *FinalizedCheckpointEvent) Decorated() *xatu.DecoratedEvent {
 	//TODO(@matty): Populate event data.

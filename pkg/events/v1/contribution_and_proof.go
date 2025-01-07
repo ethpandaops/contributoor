@@ -1,9 +1,10 @@
-package events
+package v1
 
 import (
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/altair"
+	"github.com/ethpandaops/contributoor/pkg/events"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -11,23 +12,28 @@ import (
 
 // ContributionAndProofEvent represents a sync committee contribution and proof event.
 type ContributionAndProofEvent struct {
-	BaseEvent
+	events.BaseEvent
 	data     *altair.SignedContributionAndProof
-	beacon   BeaconDataProvider
+	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewContributionAndProofEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *altair.SignedContributionAndProof, recvTime time.Time) *ContributionAndProofEvent {
+func NewContributionAndProofEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *altair.SignedContributionAndProof, recvTime time.Time) *ContributionAndProofEvent {
 	return &ContributionAndProofEvent{
-		BaseEvent: NewBaseEvent(meta),
+		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
 	}
 }
 
-func (e *ContributionAndProofEvent) Type() string      { return "contribution_and_proof" }
-func (e *ContributionAndProofEvent) Data() interface{} { return e.data }
+func (e *ContributionAndProofEvent) Type() string {
+	return xatu.Event_BEACON_API_ETH_V1_EVENTS_CONTRIBUTION_AND_PROOF_V2.String()
+}
+
+func (e *ContributionAndProofEvent) Data() interface{} {
+	return e.data
+}
 
 func (e *ContributionAndProofEvent) Decorated() *xatu.DecoratedEvent {
 	//TODO(@matty): Populate event data.

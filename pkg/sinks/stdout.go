@@ -63,7 +63,6 @@ func (s *stdoutSink) HandleEvent(ctx context.Context, event events.Event) error 
 	s.log.WithFields(logrus.Fields{
 		"event_type":  event.Type(),
 		"received_at": event.Time().Format(time.RFC3339),
-		"meta":        event.Meta(),
 	}).Info("event received")
 
 	return nil

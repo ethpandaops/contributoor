@@ -1,10 +1,11 @@
-package events
+package v1
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/ethpandaops/contributoor/pkg/events"
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
@@ -14,23 +15,28 @@ import (
 
 // VoluntaryExitEvent represents a validator voluntary exit event.
 type VoluntaryExitEvent struct {
-	BaseEvent
+	events.BaseEvent
 	data     *phase0.SignedVoluntaryExit
-	beacon   BeaconDataProvider
+	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewVoluntaryExitEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *phase0.SignedVoluntaryExit, recvTime time.Time) *VoluntaryExitEvent {
+func NewVoluntaryExitEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *phase0.SignedVoluntaryExit, recvTime time.Time) *VoluntaryExitEvent {
 	return &VoluntaryExitEvent{
-		BaseEvent: NewBaseEvent(meta),
+		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
 	}
 }
 
-func (e *VoluntaryExitEvent) Type() string      { return "voluntary_exit" }
-func (e *VoluntaryExitEvent) Data() interface{} { return e.data }
+func (e *VoluntaryExitEvent) Type() string {
+	return xatu.Event_BEACON_API_ETH_V1_EVENTS_VOLUNTARY_EXIT_V2.String()
+}
+
+func (e *VoluntaryExitEvent) Data() interface{} {
+	return e.data
+}
 
 func (e *VoluntaryExitEvent) Decorated() *xatu.DecoratedEvent {
 	decorated := &xatu.DecoratedEvent{

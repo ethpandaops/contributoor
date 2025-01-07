@@ -1,9 +1,10 @@
-package events
+package v1
 
 import (
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/ethpandaops/contributoor/pkg/events"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -11,23 +12,28 @@ import (
 
 // BlockEvent represents a beacon chain block event.
 type BlockEvent struct {
-	BaseEvent
+	events.BaseEvent
 	data     *eth2v1.BlockEvent
-	beacon   BeaconDataProvider
+	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewBlockEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *eth2v1.BlockEvent, recvTime time.Time) *BlockEvent {
+func NewBlockEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.BlockEvent, recvTime time.Time) *BlockEvent {
 	return &BlockEvent{
-		BaseEvent: NewBaseEvent(meta),
+		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
 	}
 }
 
-func (e *BlockEvent) Type() string      { return "block" }
-func (e *BlockEvent) Data() interface{} { return e.data }
+func (e *BlockEvent) Type() string {
+	return xatu.Event_BEACON_API_ETH_V1_EVENTS_BLOCK_V2.String()
+}
+
+func (e *BlockEvent) Data() interface{} {
+	return e.data
+}
 
 func (e *BlockEvent) Decorated() *xatu.DecoratedEvent {
 	//TODO(@matty): Populate event data.

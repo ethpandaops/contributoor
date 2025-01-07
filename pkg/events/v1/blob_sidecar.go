@@ -1,9 +1,10 @@
-package events
+package v1
 
 import (
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/ethpandaops/contributoor/pkg/events"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -11,23 +12,28 @@ import (
 
 // BlobSidecarEvent represents a blob sidecar event.
 type BlobSidecarEvent struct {
-	BaseEvent
+	events.BaseEvent
 	data     *eth2v1.BlobSidecarEvent
-	beacon   BeaconDataProvider
+	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewBlobSidecarEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *eth2v1.BlobSidecarEvent, recvTime time.Time) *BlobSidecarEvent {
+func NewBlobSidecarEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.BlobSidecarEvent, recvTime time.Time) *BlobSidecarEvent {
 	return &BlobSidecarEvent{
-		BaseEvent: NewBaseEvent(meta),
+		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
 	}
 }
 
-func (e *BlobSidecarEvent) Type() string      { return "blob_sidecar" }
-func (e *BlobSidecarEvent) Data() interface{} { return e.data }
+func (e *BlobSidecarEvent) Type() string {
+	return xatu.Event_BEACON_API_ETH_V1_EVENTS_BLOB_SIDECAR.String()
+}
+
+func (e *BlobSidecarEvent) Data() interface{} {
+	return e.data
+}
 
 func (e *BlobSidecarEvent) Decorated() *xatu.DecoratedEvent {
 	//TODO(@matty): Populate event data.

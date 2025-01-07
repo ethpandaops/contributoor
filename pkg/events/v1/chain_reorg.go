@@ -1,9 +1,10 @@
-package events
+package v1
 
 import (
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/ethpandaops/contributoor/pkg/events"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -11,23 +12,28 @@ import (
 
 // ChainReorgEvent represents a beacon chain reorganization event.
 type ChainReorgEvent struct {
-	BaseEvent
+	events.BaseEvent
 	data     *eth2v1.ChainReorgEvent
-	beacon   BeaconDataProvider
+	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewChainReorgEvent(beacon BeaconDataProvider, meta *xatu.Meta, data *eth2v1.ChainReorgEvent, recvTime time.Time) *ChainReorgEvent {
+func NewChainReorgEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.ChainReorgEvent, recvTime time.Time) *ChainReorgEvent {
 	return &ChainReorgEvent{
-		BaseEvent: NewBaseEvent(meta),
+		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
 	}
 }
 
-func (e *ChainReorgEvent) Type() string      { return "chain_reorg" }
-func (e *ChainReorgEvent) Data() interface{} { return e.data }
+func (e *ChainReorgEvent) Type() string {
+	return xatu.Event_BEACON_API_ETH_V1_EVENTS_CHAIN_REORG_V2.String()
+}
+
+func (e *ChainReorgEvent) Data() interface{} {
+	return e.data
+}
 
 func (e *ChainReorgEvent) Decorated() *xatu.DecoratedEvent {
 	//TODO(@matty): Populate event data.
