@@ -7,7 +7,9 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/ethpandaops/contributoor/pkg/sinks"
@@ -62,6 +64,16 @@ func main() {
 				"version":     cfg.Version,
 			}).Info("Starting sentry")
 
+			// Start clock drift service.
+			clockDriftService := clockdrift.NewService(log, &clockdrift.ClockDriftConfig{
+				NTPServer:    "pool.ntp.org",
+				SyncInterval: 5 * time.Minute,
+			})
+
+			if err := clockDriftService.Start(ctx); err != nil {
+				return err
+			}
+
 			var activeSinks []sinks.ContributoorSink
 
 			// Always create stdout sink in debug mode.
@@ -94,7 +106,7 @@ func main() {
 				OverrideNetworkName: name,
 			}
 
-			b, err := ethereum.NewBeaconNode(log, ethConf, name, activeSinks, &beaconOpts)
+			b, err := ethereum.NewBeaconNode(log, ethConf, name, activeSinks, clockDriftService, &beaconOpts)
 			if err != nil {
 				return err
 			}

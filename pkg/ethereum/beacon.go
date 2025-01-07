@@ -12,12 +12,12 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/altair"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
+	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/pkg/ethereum/services"
 	v1 "github.com/ethpandaops/contributoor/pkg/events/v1"
 	"github.com/ethpandaops/contributoor/pkg/sinks"
 	"github.com/ethpandaops/ethwallclock"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
-	"github.com/go-co-op/gocron"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -29,6 +29,7 @@ type BeaconNode struct {
 	log         logrus.FieldLogger
 	name        string
 	beacon      beacon.Node
+	clockDrift  clockdrift.ClockDrift
 	services    []services.Service
 	metadataSvc *services.MetadataService
 	dutiesSvc   *services.DutiesService
@@ -42,6 +43,7 @@ func NewBeaconNode(
 	config *Config,
 	name string,
 	sinks []sinks.ContributoorSink,
+	clockDrift clockdrift.ClockDrift,
 	opt *Options,
 ) (*BeaconNode, error) {
 	// Set default options and disable prometheus metrics.
@@ -77,6 +79,7 @@ func NewBeaconNode(
 		config:      config,
 		name:        name,
 		beacon:      node,
+		clockDrift:  clockDrift,
 		metadataSvc: &metadata,
 		dutiesSvc:   &duties,
 		sinks:       sinks,
@@ -88,7 +91,6 @@ func NewBeaconNode(
 // It waits for the node to become healthy before starting services.
 func (b *BeaconNode) Start(ctx context.Context) error {
 	var (
-		s           = gocron.NewScheduler(time.Local)
 		startupErrs = make(chan error, 1)
 		beaconReady = make(chan struct{})
 	)
@@ -115,7 +117,6 @@ func (b *BeaconNode) Start(ctx context.Context) error {
 		return nil
 	})
 
-	s.StartAsync()
 	b.beacon.StartAsync(ctx)
 
 	// Wait for the node to become healthy or timeout.
@@ -259,12 +260,14 @@ func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
 func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 	// Subscribe to attestations.
 	b.beacon.OnAttestation(ctx, func(ctx context.Context, attestation *phase0.Attestation) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewAttestationEvent(b, meta, attestation, time.Now())
+		event := v1.NewAttestationEvent(b, meta, attestation, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -278,12 +281,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 
 	// Subscribe to blocks.
 	b.beacon.OnBlock(ctx, func(ctx context.Context, block *eth2v1.BlockEvent) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewBlockEvent(b, meta, block, time.Now())
+		event := v1.NewBlockEvent(b, meta, block, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -297,12 +302,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 
 	// Subscribe to chain reorgs.
 	b.beacon.OnChainReOrg(ctx, func(ctx context.Context, chainReorg *eth2v1.ChainReorgEvent) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewChainReorgEvent(b, meta, chainReorg, time.Now())
+		event := v1.NewChainReorgEvent(b, meta, chainReorg, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -316,12 +323,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 
 	// Subscribe to head v1.
 	b.beacon.OnHead(ctx, func(ctx context.Context, head *eth2v1.HeadEvent) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewHeadEvent(b, meta, head, time.Now())
+		event := v1.NewHeadEvent(b, meta, head, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -335,12 +344,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 
 	// Subscribe to voluntary exits.
 	b.beacon.OnVoluntaryExit(ctx, func(ctx context.Context, voluntaryExit *phase0.SignedVoluntaryExit) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewVoluntaryExitEvent(b, meta, voluntaryExit, time.Now())
+		event := v1.NewVoluntaryExitEvent(b, meta, voluntaryExit, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -354,12 +365,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 
 	// Subscribe to contribution and proofs.
 	b.beacon.OnContributionAndProof(ctx, func(ctx context.Context, contributionAndProof *altair.SignedContributionAndProof) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewContributionAndProofEvent(b, meta, contributionAndProof, time.Now())
+		event := v1.NewContributionAndProofEvent(b, meta, contributionAndProof, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -373,12 +386,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 
 	// Subscribe to finalized checkpoints.
 	b.beacon.OnFinalizedCheckpoint(ctx, func(ctx context.Context, finalizedCheckpoint *eth2v1.FinalizedCheckpointEvent) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewFinalizedCheckpointEvent(b, meta, finalizedCheckpoint, time.Now())
+		event := v1.NewFinalizedCheckpointEvent(b, meta, finalizedCheckpoint, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -392,12 +407,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 
 	// Subscribe to blob sidecars.
 	b.beacon.OnBlobSidecar(ctx, func(ctx context.Context, blobSidecar *eth2v1.BlobSidecarEvent) error {
+		now := b.clockDrift.Now()
+
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := v1.NewBlobSidecarEvent(b, meta, blobSidecar, time.Now())
+		event := v1.NewBlobSidecarEvent(b, meta, blobSidecar, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -440,7 +457,6 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 	// TODO(@matty):
 	// - Handle Presets
 	// - Handle Labels
-	// - Handle Clock Drift
 
 	return &xatu.Meta{
 		Client: &xatu.ClientMeta{
@@ -450,6 +466,7 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 			Implementation: xatu.Implementation,
 			ModuleName:     xatu.ModuleName_SENTRY,
 			Os:             runtime.GOOS,
+			ClockDrift:     uint64(b.clockDrift.GetDrift().Milliseconds()),
 			Ethereum: &xatu.ClientMeta_Ethereum{
 				Network:   networkMeta,
 				Execution: &xatu.ClientMeta_Ethereum_Execution{},

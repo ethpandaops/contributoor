@@ -1,0 +1,19 @@
+mode: atomic
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:39.76,45.2 1 6
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:48.50,49.38 1 1
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:49.38,51.3 1 0
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:53.2,53.66 1 1
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:53.66,54.39 1 0
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:54.39,56.4 1 0
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:57.17,59.3 1 0
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:61.2,63.12 2 1
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:67.49,71.2 2 1
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:74.44,79.2 3 7
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:82.35,84.2 1 1
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:86.37,88.16 2 2
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:88.16,90.3 1 0
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:92.2,92.43 1 2
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:92.43,94.3 1 0
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:96.2,102.67 5 2
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:102.67,104.3 1 0
+github.com/ethpandaops/contributoor/internal/clockdrift/clockdrift.go:106.2,106.12 1 2
