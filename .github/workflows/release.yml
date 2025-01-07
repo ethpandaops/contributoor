@@ -1,4 +1,4 @@
-name: Release
+name: release
 
 on:
   push:
@@ -10,7 +10,21 @@ permissions:
   packages: write
 
 jobs:
+  go-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/workflows/go-setup
+      - run: go test -v -race ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: golangci/golangci-lint-action@v3
+
   goreleaser:
+    needs: [go-test, lint]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,9 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
+        uses: ./.github/workflows/go-setup
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -35,7 +47,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Run GoReleaser
+      - name: Release
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
