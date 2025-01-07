@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/creasty/defaults"
+	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
-	"github.com/ethpandaops/contributoor/pkg/events"
 	"github.com/ethpandaops/xatu/pkg/output"
 	"github.com/ethpandaops/xatu/pkg/output/xatu"
 	"github.com/ethpandaops/xatu/pkg/processor"

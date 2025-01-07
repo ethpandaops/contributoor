@@ -3,7 +3,7 @@ package sinks
 import (
 	"context"
 
-	"github.com/ethpandaops/contributoor/pkg/events"
+	"github.com/ethpandaops/contributoor/internal/events"
 )
 
 // ContributoorSink defines the interface for event sinks.

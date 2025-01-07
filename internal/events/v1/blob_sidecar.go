@@ -4,7 +4,7 @@ import (
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
-	"github.com/ethpandaops/contributoor/pkg/events"
+	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"

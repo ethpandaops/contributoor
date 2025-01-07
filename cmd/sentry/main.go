@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
+	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
-	"github.com/ethpandaops/contributoor/pkg/sinks"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
