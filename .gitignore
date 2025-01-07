@@ -1,0 +1,6 @@
+# Output of the go coverage tool.
+*.out
+
+# Any go workspace files a user may have created.
+go.work
+go.work.sum
