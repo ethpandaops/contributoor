@@ -13,7 +13,7 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/pkg/ethereum/services"
-	"github.com/ethpandaops/contributoor/pkg/events"
+	v1 "github.com/ethpandaops/contributoor/pkg/events/v1"
 	"github.com/ethpandaops/contributoor/pkg/sinks"
 	"github.com/ethpandaops/ethwallclock"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
@@ -264,7 +264,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := events.NewAttestationEvent(b, meta, attestation, time.Now())
+		event := v1.NewAttestationEvent(b, meta, attestation, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -283,7 +283,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := events.NewBlockEvent(b, meta, block, time.Now())
+		event := v1.NewBlockEvent(b, meta, block, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -302,7 +302,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := events.NewChainReorgEvent(b, meta, chainReorg, time.Now())
+		event := v1.NewChainReorgEvent(b, meta, chainReorg, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -314,14 +314,14 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 		return nil
 	})
 
-	// Subscribe to head events.
+	// Subscribe to head v1.
 	b.beacon.OnHead(ctx, func(ctx context.Context, head *eth2v1.HeadEvent) error {
 		meta, err := b.createEventMeta(ctx)
 		if err != nil {
 			return err
 		}
 
-		event := events.NewHeadEvent(b, meta, head, time.Now())
+		event := v1.NewHeadEvent(b, meta, head, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -340,7 +340,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := events.NewVoluntaryExitEvent(b, meta, voluntaryExit, time.Now())
+		event := v1.NewVoluntaryExitEvent(b, meta, voluntaryExit, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -359,7 +359,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := events.NewContributionAndProofEvent(b, meta, contributionAndProof, time.Now())
+		event := v1.NewContributionAndProofEvent(b, meta, contributionAndProof, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -378,7 +378,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := events.NewFinalizedCheckpointEvent(b, meta, finalizedCheckpoint, time.Now())
+		event := v1.NewFinalizedCheckpointEvent(b, meta, finalizedCheckpoint, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -397,7 +397,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := events.NewBlobSidecarEvent(b, meta, blobSidecar, time.Now())
+		event := v1.NewBlobSidecarEvent(b, meta, blobSidecar, time.Now())
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
