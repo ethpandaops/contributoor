@@ -70,8 +70,8 @@ func main() {
 				SyncInterval: 5 * time.Minute,
 			})
 
-			if err := clockDriftService.Start(ctx); err != nil {
-				return err
+			if cerr := clockDriftService.Start(ctx); cerr != nil {
+				return cerr
 			}
 
 			var activeSinks []sinks.ContributoorSink

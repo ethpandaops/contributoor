@@ -458,6 +458,7 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 	// - Handle Presets
 	// - Handle Labels
 
+	//nolint:gosec // fine for clock drift.
 	return &xatu.Meta{
 		Client: &xatu.ClientMeta{
 			Name:           clientName,
