@@ -47,7 +47,6 @@ func (e *ChainReorgEvent) Data() interface{} {
 }
 
 func (e *ChainReorgEvent) Decorated() *xatu.DecoratedEvent {
-	//TODO(@matty): Populate event data.
 	decorated := &xatu.DecoratedEvent{
 		Meta: e.Meta(),
 		Event: &xatu.Event{

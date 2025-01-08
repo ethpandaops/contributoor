@@ -47,7 +47,6 @@ func (e *FinalizedCheckpointEvent) Data() interface{} {
 }
 
 func (e *FinalizedCheckpointEvent) Decorated() *xatu.DecoratedEvent {
-	//TODO(@matty): Populate event data.
 	decorated := &xatu.DecoratedEvent{
 		Meta: e.Meta(),
 		Event: &xatu.Event{

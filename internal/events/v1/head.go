@@ -47,7 +47,6 @@ func (e *HeadEvent) Data() interface{} {
 }
 
 func (e *HeadEvent) Decorated() *xatu.DecoratedEvent {
-	//TODO(@matty): Populate event data.
 	decorated := &xatu.DecoratedEvent{
 		Meta: e.Meta(),
 		Event: &xatu.Event{
