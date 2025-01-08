@@ -8,6 +8,7 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -15,17 +16,19 @@ import (
 // ChainReorgEvent represents a beacon chain reorganization event.
 type ChainReorgEvent struct {
 	events.BaseEvent
+	log      logrus.FieldLogger
 	data     *eth2v1.ChainReorgEvent
 	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewChainReorgEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.ChainReorgEvent, recvTime time.Time) *ChainReorgEvent {
+func NewChainReorgEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.ChainReorgEvent, recvTime time.Time) *ChainReorgEvent {
 	return &ChainReorgEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
+		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_CHAIN_REORG_V2.String()),
 	}
 }
 

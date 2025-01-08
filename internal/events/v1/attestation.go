@@ -9,6 +9,7 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -16,17 +17,19 @@ import (
 // AttestationEvent represents a beacon chain attestation event.
 type AttestationEvent struct {
 	events.BaseEvent
+	log      logrus.FieldLogger
 	data     *phase0.Attestation
 	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewAttestationEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *phase0.Attestation, recvTime time.Time) *AttestationEvent {
+func NewAttestationEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *phase0.Attestation, recvTime time.Time) *AttestationEvent {
 	return &AttestationEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
+		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_ATTESTATION_V2.String()),
 	}
 }
 

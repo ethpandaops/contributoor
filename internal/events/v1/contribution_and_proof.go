@@ -8,6 +8,7 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -15,17 +16,19 @@ import (
 // ContributionAndProofEvent represents a sync committee contribution and proof event.
 type ContributionAndProofEvent struct {
 	events.BaseEvent
+	log      logrus.FieldLogger
 	data     *altair.SignedContributionAndProof
 	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewContributionAndProofEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *altair.SignedContributionAndProof, recvTime time.Time) *ContributionAndProofEvent {
+func NewContributionAndProofEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *altair.SignedContributionAndProof, recvTime time.Time) *ContributionAndProofEvent {
 	return &ContributionAndProofEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
+		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_CONTRIBUTION_AND_PROOF_V2.String()),
 	}
 }
 

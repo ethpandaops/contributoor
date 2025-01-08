@@ -10,6 +10,8 @@ import (
 
 // BeaconDataProvider defines the interface for getting beacon chain data needed by events.
 type BeaconDataProvider interface {
+	// GetWallclock returns the wallclock for the beacon chain.
+	GetWallclock() *ethwallclock.EthereumBeaconChain
 	// GetSlot returns the wallclock slot for a given slot number.
 	GetSlot(slot uint64) ethwallclock.Slot
 	// GetEpoch returns the wallclock epoch for a given epoch number.

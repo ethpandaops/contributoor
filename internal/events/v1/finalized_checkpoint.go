@@ -8,6 +8,7 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -15,17 +16,19 @@ import (
 // FinalizedCheckpointEvent represents a beacon chain finalization event.
 type FinalizedCheckpointEvent struct {
 	events.BaseEvent
+	log      logrus.FieldLogger
 	data     *eth2v1.FinalizedCheckpointEvent
 	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewFinalizedCheckpointEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.FinalizedCheckpointEvent, recvTime time.Time) *FinalizedCheckpointEvent {
+func NewFinalizedCheckpointEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.FinalizedCheckpointEvent, recvTime time.Time) *FinalizedCheckpointEvent {
 	return &FinalizedCheckpointEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
+		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_FINALIZED_CHECKPOINT_V2.String()),
 	}
 }
 

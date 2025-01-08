@@ -8,6 +8,7 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -15,17 +16,19 @@ import (
 // HeadEvent represents a beacon chain head event.
 type HeadEvent struct {
 	events.BaseEvent
+	log      logrus.FieldLogger
 	data     *eth2v1.HeadEvent
 	beacon   events.BeaconDataProvider
 	recvTime time.Time
 }
 
-func NewHeadEvent(beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.HeadEvent, recvTime time.Time) *HeadEvent {
+func NewHeadEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.HeadEvent, recvTime time.Time) *HeadEvent {
 	return &HeadEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
+		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_HEAD_V2.String()),
 	}
 }
 

@@ -209,6 +209,11 @@ func (b *BeaconNode) Metadata() *services.MetadataService {
 	return b.metadataSvc
 }
 
+// GetWallclock returns the wallclock for the beacon chain.
+func (b *BeaconNode) GetWallclock() *ethwallclock.EthereumBeaconChain {
+	return b.metadataSvc.Wallclock()
+}
+
 // GetSlot returns the wallclock slot for a given slot number.
 func (b *BeaconNode) GetSlot(slot uint64) ethwallclock.Slot {
 	return b.metadataSvc.Wallclock().Slots().FromNumber(slot)
@@ -267,7 +272,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewAttestationEvent(b, meta, attestation, now)
+		event := v1.NewAttestationEvent(b.log, b, meta, attestation, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -288,7 +293,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewBlockEvent(b, meta, block, now)
+		event := v1.NewBlockEvent(b.log, b, meta, block, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -309,7 +314,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewChainReorgEvent(b, meta, chainReorg, now)
+		event := v1.NewChainReorgEvent(b.log, b, meta, chainReorg, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -330,7 +335,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewHeadEvent(b, meta, head, now)
+		event := v1.NewHeadEvent(b.log, b, meta, head, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -351,7 +356,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewVoluntaryExitEvent(b, meta, voluntaryExit, now)
+		event := v1.NewVoluntaryExitEvent(b.log, b, meta, voluntaryExit, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -372,7 +377,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewContributionAndProofEvent(b, meta, contributionAndProof, now)
+		event := v1.NewContributionAndProofEvent(b.log, b, meta, contributionAndProof, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -393,7 +398,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewFinalizedCheckpointEvent(b, meta, finalizedCheckpoint, now)
+		event := v1.NewFinalizedCheckpointEvent(b.log, b, meta, finalizedCheckpoint, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -414,7 +419,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewBlobSidecarEvent(b, meta, blobSidecar, now)
+		event := v1.NewBlobSidecarEvent(b.log, b, meta, blobSidecar, now)
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
