@@ -65,25 +65,23 @@ func (e *BlobSidecarEvent) Decorated() *xatu.DecoratedEvent {
 		epoch    = e.beacon.GetEpochFromSlot(uint64(e.data.Slot))
 	)
 
-	extra := &xatu.ClientMeta_AdditionalEthV1EventsBlobSidecarData{
-		Slot: &xatu.SlotV2{
-			Number:        &wrapperspb.UInt64Value{Value: blobSlot.Number()},
-			StartDateTime: timestamppb.New(blobSlot.TimeWindow().Start()),
-		},
-		Epoch: &xatu.EpochV2{
-			Number:        &wrapperspb.UInt64Value{Value: epoch.Number()},
-			StartDateTime: timestamppb.New(epoch.TimeWindow().Start()),
-		},
-		Propagation: &xatu.PropagationV2{
-			SlotStartDiff: &wrapperspb.UInt64Value{
-				//nolint:gosec // not concerned in reality
-				Value: uint64(e.recvTime.Sub(blobSlot.TimeWindow().Start()).Milliseconds()),
+	decorated.Meta.Client.AdditionalData = &xatu.ClientMeta_EthV1EventsBlobSidecar{
+		EthV1EventsBlobSidecar: &xatu.ClientMeta_AdditionalEthV1EventsBlobSidecarData{
+			Slot: &xatu.SlotV2{
+				Number:        &wrapperspb.UInt64Value{Value: blobSlot.Number()},
+				StartDateTime: timestamppb.New(blobSlot.TimeWindow().Start()),
+			},
+			Epoch: &xatu.EpochV2{
+				Number:        &wrapperspb.UInt64Value{Value: epoch.Number()},
+				StartDateTime: timestamppb.New(epoch.TimeWindow().Start()),
+			},
+			Propagation: &xatu.PropagationV2{
+				SlotStartDiff: &wrapperspb.UInt64Value{
+					//nolint:gosec // not concerned in reality
+					Value: uint64(e.recvTime.Sub(blobSlot.TimeWindow().Start()).Milliseconds()),
+				},
 			},
 		},
-	}
-
-	decorated.Meta.Client.AdditionalData = &xatu.ClientMeta_EthV1EventsBlobSidecar{
-		EthV1EventsBlobSidecar: extra,
 	}
 
 	return decorated
