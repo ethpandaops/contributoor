@@ -255,13 +255,17 @@ func (s *contributoor) initSinks(ctx context.Context, debug bool) error {
 }
 
 func (s *contributoor) initBeaconNode() error {
-	beaconOpts := ethereum.Options{}
-	ethConf := &ethereum.Config{
-		BeaconNodeAddress:   s.config.BeaconNodeAddress,
-		OverrideNetworkName: s.name,
-	}
-
-	b, err := ethereum.NewBeaconNode(s.log, ethConf, s.name, s.sinks, s.clockDrift, &beaconOpts)
+	b, err := ethereum.NewBeaconNode(
+		s.log,
+		&ethereum.Config{
+			BeaconNodeAddress:   s.config.BeaconNodeAddress,
+			OverrideNetworkName: s.name,
+		},
+		s.name,
+		s.sinks,
+		s.clockDrift,
+		&ethereum.Options{},
+	)
 	if err != nil {
 		return err
 	}
