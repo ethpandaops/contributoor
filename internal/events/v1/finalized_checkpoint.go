@@ -22,7 +22,13 @@ type FinalizedCheckpointEvent struct {
 	recvTime time.Time
 }
 
-func NewFinalizedCheckpointEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.FinalizedCheckpointEvent, recvTime time.Time) *FinalizedCheckpointEvent {
+func NewFinalizedCheckpointEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *eth2v1.FinalizedCheckpointEvent,
+	recvTime time.Time,
+) *FinalizedCheckpointEvent {
 	return &FinalizedCheckpointEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,

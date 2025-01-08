@@ -8,6 +8,9 @@ import (
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 )
 
+//go:generate mockgen -package mock -destination mock/event.mock.go github.com/ethpandaops/contributoor/internal/events Event
+//go:generate mockgen -package mock -destination mock/beacon_data_provider.mock.go github.com/ethpandaops/contributoor/internal/events BeaconDataProvider
+
 // BeaconDataProvider defines the interface for getting beacon chain data needed by events.
 type BeaconDataProvider interface {
 	// GetWallclock returns the wallclock for the beacon chain.
@@ -19,7 +22,12 @@ type BeaconDataProvider interface {
 	// GetEpochFromSlot returns the wallclock epoch for a given slot number.
 	GetEpochFromSlot(slot uint64) ethwallclock.Epoch
 	// GetValidatorIndex returns the validator index for a given position in a committee.
-	GetValidatorIndex(epoch phase0.Epoch, slot phase0.Slot, committeeIndex phase0.CommitteeIndex, position uint64) (phase0.ValidatorIndex, error)
+	GetValidatorIndex(
+		epoch phase0.Epoch,
+		slot phase0.Slot,
+		committeeIndex phase0.CommitteeIndex,
+		position uint64,
+	) (phase0.ValidatorIndex, error)
 }
 
 // Event is the interface that all events must implement.

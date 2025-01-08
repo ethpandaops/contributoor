@@ -22,7 +22,13 @@ type BlobSidecarEvent struct {
 	recvTime time.Time
 }
 
-func NewBlobSidecarEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.BlobSidecarEvent, recvTime time.Time) *BlobSidecarEvent {
+func NewBlobSidecarEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *eth2v1.BlobSidecarEvent,
+	recvTime time.Time,
+) *BlobSidecarEvent {
 	return &BlobSidecarEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,

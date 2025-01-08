@@ -23,7 +23,13 @@ type AttestationEvent struct {
 	recvTime time.Time
 }
 
-func NewAttestationEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *phase0.Attestation, recvTime time.Time) *AttestationEvent {
+func NewAttestationEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *phase0.Attestation,
+	recvTime time.Time,
+) *AttestationEvent {
 	return &AttestationEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,

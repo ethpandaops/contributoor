@@ -22,7 +22,13 @@ type VoluntaryExitEvent struct {
 	recvTime time.Time
 }
 
-func NewVoluntaryExitEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *phase0.SignedVoluntaryExit, recvTime time.Time) *VoluntaryExitEvent {
+func NewVoluntaryExitEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *phase0.SignedVoluntaryExit,
+	recvTime time.Time,
+) *VoluntaryExitEvent {
 	return &VoluntaryExitEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,

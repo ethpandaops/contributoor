@@ -22,7 +22,13 @@ type HeadEvent struct {
 	recvTime time.Time
 }
 
-func NewHeadEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.HeadEvent, recvTime time.Time) *HeadEvent {
+func NewHeadEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *eth2v1.HeadEvent,
+	recvTime time.Time,
+) *HeadEvent {
 	return &HeadEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,

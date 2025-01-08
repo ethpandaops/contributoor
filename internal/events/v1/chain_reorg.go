@@ -22,7 +22,13 @@ type ChainReorgEvent struct {
 	recvTime time.Time
 }
 
-func NewChainReorgEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.ChainReorgEvent, recvTime time.Time) *ChainReorgEvent {
+func NewChainReorgEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *eth2v1.ChainReorgEvent,
+	recvTime time.Time,
+) *ChainReorgEvent {
 	return &ChainReorgEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,

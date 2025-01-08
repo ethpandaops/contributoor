@@ -22,7 +22,13 @@ type BlockEvent struct {
 	recvTime time.Time
 }
 
-func NewBlockEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *eth2v1.BlockEvent, recvTime time.Time) *BlockEvent {
+func NewBlockEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *eth2v1.BlockEvent,
+	recvTime time.Time,
+) *BlockEvent {
 	return &BlockEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,

@@ -22,7 +22,13 @@ type ContributionAndProofEvent struct {
 	recvTime time.Time
 }
 
-func NewContributionAndProofEvent(log logrus.FieldLogger, beacon events.BeaconDataProvider, meta *xatu.Meta, data *altair.SignedContributionAndProof, recvTime time.Time) *ContributionAndProofEvent {
+func NewContributionAndProofEvent(
+	log logrus.FieldLogger,
+	beacon events.BeaconDataProvider,
+	meta *xatu.Meta,
+	data *altair.SignedContributionAndProof,
+	recvTime time.Time,
+) *ContributionAndProofEvent {
 	return &ContributionAndProofEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
