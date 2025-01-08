@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof" //nolint:gosec // pprof only enabled if pprofAddr config is set.
 	"os"
 	"os/signal"
 	"strings"
@@ -13,11 +15,23 @@ import (
 	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
 var log = logrus.New()
+
+const defaultMetricsAddr = ":9090"
+
+type contributoor struct {
+	log        logrus.FieldLogger
+	config     *config.Config
+	name       string
+	beaconNode *ethereum.BeaconNode
+	clockDrift clockdrift.ClockDrift
+	sinks      []sinks.ContributoorSink
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -29,15 +43,13 @@ func main() {
 
 	go func() {
 		<-sigChan
-
 		log.Info("Received shutdown signal")
-
 		cancel()
 	}()
 
 	app := &cli.App{
-		Name:  "sentry",
-		Usage: "Contributoor sentry node",
+		Name:  "contributoor",
+		Usage: "Contributoor node",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "config",
@@ -51,63 +63,26 @@ func main() {
 			},
 		},
 		Action: func(c *cli.Context) error {
-			cfg, err := config.NewConfigFromPath(c.String("config"))
+			s, err := newContributoor(c)
 			if err != nil {
 				return err
 			}
 
-			name := fmt.Sprintf("%s_contributoor", strings.ToLower(cfg.NetworkName.String()))
+			s.log.WithFields(logrus.Fields{
+				"config_path": s.config.ContributoorDirectory,
+				"name":        s.name,
+				"version":     s.config.Version,
+			}).Info("Starting contributoor")
 
-			log.WithFields(logrus.Fields{
-				"config_path": cfg.ContributoorDirectory,
-				"name":        name,
-				"version":     cfg.Version,
-			}).Info("Starting sentry")
-
-			// Start clock drift service.
-			clockDriftService := clockdrift.NewService(log, &clockdrift.ClockDriftConfig{
-				NTPServer:    "pool.ntp.org",
-				SyncInterval: 5 * time.Minute,
-			})
-
-			if cerr := clockDriftService.Start(ctx); cerr != nil {
-				return cerr
-			}
-
-			var activeSinks []sinks.ContributoorSink
-
-			// Always create stdout sink in debug mode.
-			if c.Bool("debug") {
-				stdoutSink, serr := sinks.NewStdoutSink(log, cfg, name)
-				if serr != nil {
-					return serr
-				}
-
-				activeSinks = append(activeSinks, stdoutSink)
-			}
-
-			xatuSink, err := sinks.NewXatuSink(log, cfg, name)
-			if err != nil {
+			if err := s.initClockDrift(ctx); err != nil {
 				return err
 			}
 
-			activeSinks = append(activeSinks, xatuSink)
-
-			for _, sink := range activeSinks {
-				if serr := sink.Start(c.Context); serr != nil {
-					return serr
-				}
+			if err := s.initSinks(ctx, c.Bool("debug")); err != nil {
+				return err
 			}
 
-			// Create beacon node with sinks
-			beaconOpts := ethereum.Options{}
-			ethConf := &ethereum.Config{
-				BeaconNodeAddress:   cfg.BeaconNodeAddress,
-				OverrideNetworkName: name,
-			}
-
-			b, err := ethereum.NewBeaconNode(log, ethConf, name, activeSinks, clockDriftService, &beaconOpts)
-			if err != nil {
+			if err := s.initBeaconNode(); err != nil {
 				return err
 			}
 
@@ -117,24 +92,14 @@ func main() {
 			go func() {
 				<-c.Context.Done()
 
-				log.Info("Context cancelled, starting shutdown")
-
-				if err := b.Stop(context.Background()); err != nil {
-					log.WithError(err).Error("Failed to stop beacon node")
+				if err := s.stop(context.Background()); err != nil {
+					s.log.WithError(err).Error("Failed to stop contributoor")
 				}
-
-				for _, sink := range activeSinks {
-					if err := sink.Stop(context.Background()); err != nil {
-						log.WithError(err).WithField("sink", sink.Name()).Error("Failed to stop sink")
-					}
-				}
-
-				log.Info("Shutdown complete")
 
 				close(done)
 			}()
 
-			if err := b.Start(c.Context); err != nil {
+			if err := s.start(c.Context); err != nil {
 				if err == context.Canceled {
 					// Wait for cleanup to complete.
 					<-done
@@ -155,4 +120,153 @@ func main() {
 	if err := app.RunContext(ctx, os.Args); err != nil && err != context.Canceled {
 		log.Fatal(err)
 	}
+}
+
+func newContributoor(c *cli.Context) (*contributoor, error) {
+	cfg, err := config.NewConfigFromPath(c.String("config"))
+	if err != nil {
+		return nil, err
+	}
+
+	name := fmt.Sprintf("%s_contributoor", strings.ToLower(cfg.NetworkName.String()))
+
+	return &contributoor{
+		log:    log.WithField("module", "contributoor"),
+		config: cfg,
+		name:   name,
+	}, nil
+}
+
+func (s *contributoor) start(ctx context.Context) error {
+	if err := s.startMetricsServer(); err != nil {
+		return err
+	}
+
+	if err := s.startPProfServer(); err != nil {
+		return err
+	}
+
+	return s.beaconNode.Start(ctx)
+}
+
+func (s *contributoor) stop(ctx context.Context) error {
+	s.log.Info("Context cancelled, starting shutdown")
+
+	if err := s.beaconNode.Stop(ctx); err != nil {
+		s.log.WithError(err).Error("Failed to stop beacon node")
+	}
+
+	for _, sink := range s.sinks {
+		if err := sink.Stop(ctx); err != nil {
+			s.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to stop sink")
+		}
+	}
+
+	s.log.Info("Shutdown complete")
+
+	return nil
+}
+
+func (s *contributoor) startMetricsServer() error {
+	sm := http.NewServeMux()
+	sm.Handle("/metrics", promhttp.Handler())
+
+	if s.config.MetricsAddress == "" {
+		s.config.MetricsAddress = defaultMetricsAddr
+	}
+
+	server := &http.Server{
+		Addr:              s.config.MetricsAddress,
+		ReadHeaderTimeout: 15 * time.Second,
+		Handler:           sm,
+	}
+
+	s.log.Infof("Serving metrics at %s", s.config.MetricsAddress)
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			s.log.Fatal(err)
+		}
+	}()
+
+	return nil
+}
+
+func (s *contributoor) startPProfServer() error {
+	if s.config.PprofAddress == "" {
+		return nil
+	}
+
+	pprofServer := &http.Server{
+		Addr:              s.config.PprofAddress,
+		ReadHeaderTimeout: 120 * time.Second,
+	}
+
+	s.log.Infof("Serving pprof at %s", s.config.PprofAddress)
+
+	go func() {
+		if err := pprofServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			s.log.Fatal(err)
+		}
+	}()
+
+	return nil
+}
+
+func (s *contributoor) initClockDrift(ctx context.Context) error {
+	clockDriftService := clockdrift.NewService(s.log, &clockdrift.ClockDriftConfig{
+		NTPServer:    "pool.ntp.org",
+		SyncInterval: 5 * time.Minute,
+	})
+
+	if err := clockDriftService.Start(ctx); err != nil {
+		return err
+	}
+
+	s.clockDrift = clockDriftService
+
+	return nil
+}
+
+func (s *contributoor) initSinks(ctx context.Context, debug bool) error {
+	if debug {
+		stdoutSink, err := sinks.NewStdoutSink(log, s.config, s.name)
+		if err != nil {
+			return err
+		}
+
+		s.sinks = append(s.sinks, stdoutSink)
+	}
+
+	xatuSink, err := sinks.NewXatuSink(log, s.config, s.name)
+	if err != nil {
+		return err
+	}
+
+	s.sinks = append(s.sinks, xatuSink)
+
+	for _, sink := range s.sinks {
+		if err := sink.Start(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *contributoor) initBeaconNode() error {
+	beaconOpts := ethereum.Options{}
+	ethConf := &ethereum.Config{
+		BeaconNodeAddress:   s.config.BeaconNodeAddress,
+		OverrideNetworkName: s.name,
+	}
+
+	b, err := ethereum.NewBeaconNode(s.log, ethConf, s.name, s.sinks, s.clockDrift, &beaconOpts)
+	if err != nil {
+		return err
+	}
+
+	s.beaconNode = b
+
+	return nil
 }

@@ -48,6 +48,7 @@ func NewBeaconNode(
 ) (*BeaconNode, error) {
 	// Set default options and disable prometheus metrics.
 	opts := *beacon.DefaultOptions().DisablePrometheusMetrics()
+	opts.EnableDefaultBeaconSubscription()
 
 	// Configure beacon subscriptions if provided, otherwise use defaults.
 	if config.BeaconSubscriptions != nil {
@@ -55,8 +56,6 @@ func NewBeaconNode(
 			Enabled: true,
 			Topics:  *config.BeaconSubscriptions,
 		}
-	} else {
-		opts.EnableDefaultBeaconSubscription()
 	}
 
 	// Configure health check parameters.
@@ -460,7 +459,6 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 	}
 
 	// TODO(@matty):
-	// - Handle Presets
 	// - Handle Labels
 
 	//nolint:gosec // fine for clock drift.

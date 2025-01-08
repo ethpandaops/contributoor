@@ -68,6 +68,10 @@ func (m *Config) validate(all bool) error {
 
 	// no validation rules for BeaconNodeAddress
 
+	// no validation rules for MetricsAddress
+
+	// no validation rules for PprofAddress
+
 	if all {
 		switch v := interface{}(m.GetOutputServer()).(type) {
 		case interface{ ValidateAll() error }:
