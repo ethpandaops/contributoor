@@ -22,15 +22,15 @@ import (
 
 var log = logrus.New()
 
-const defaultMetricsAddr = ":9090"
-
 type contributoor struct {
-	log        logrus.FieldLogger
-	config     *config.Config
-	name       string
-	beaconNode *ethereum.BeaconNode
-	clockDrift clockdrift.ClockDrift
-	sinks      []sinks.ContributoorSink
+	log           logrus.FieldLogger
+	config        *config.Config
+	name          string
+	beaconNode    *ethereum.BeaconNode
+	clockDrift    clockdrift.ClockDrift
+	sinks         []sinks.ContributoorSink
+	metricsServer *http.Server
+	pprofServer   *http.Server
 }
 
 func main() {
@@ -90,24 +90,28 @@ func main() {
 			done := make(chan struct{})
 
 			go func() {
-				<-c.Context.Done()
+				<-ctx.Done()
 
-				if err := s.stop(context.Background()); err != nil {
+				if err := s.stop(ctx); err != nil {
 					s.log.WithError(err).Error("Failed to stop contributoor")
 				}
 
 				close(done)
 			}()
 
-			if err := s.start(c.Context); err != nil {
-				if err == context.Canceled {
-					// Wait for cleanup to complete.
-					<-done
+			if err := s.start(ctx); err != nil {
+				// Cancel context to trigger cleanup
+				cancel()
 
-					return nil
+				// Wait for cleanup to complete
+				<-done
+
+				// Only return the error if it's not due to context cancellation
+				if err != context.Canceled {
+					return err
 				}
 
-				return err
+				return nil
 			}
 
 			// Wait for shutdown to complete.
@@ -117,7 +121,7 @@ func main() {
 		},
 	}
 
-	if err := app.RunContext(ctx, os.Args); err != nil && err != context.Canceled {
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -152,13 +156,30 @@ func (s *contributoor) start(ctx context.Context) error {
 func (s *contributoor) stop(ctx context.Context) error {
 	s.log.Info("Context cancelled, starting shutdown")
 
-	if err := s.beaconNode.Stop(ctx); err != nil {
+	// Create a fresh context for shutdown
+	stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := s.beaconNode.Stop(stopCtx); err != nil {
 		s.log.WithError(err).Error("Failed to stop beacon node")
 	}
 
 	for _, sink := range s.sinks {
-		if err := sink.Stop(ctx); err != nil {
+		if err := sink.Stop(stopCtx); err != nil {
 			s.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to stop sink")
+		}
+	}
+
+	// Shutdown HTTP servers
+	if s.metricsServer != nil {
+		if err := s.metricsServer.Shutdown(stopCtx); err != nil {
+			s.log.WithError(err).Error("Failed to stop metrics server")
+		}
+	}
+
+	if s.pprofServer != nil {
+		if err := s.pprofServer.Shutdown(stopCtx); err != nil {
+			s.log.WithError(err).Error("Failed to stop pprof server")
 		}
 	}
 
@@ -171,20 +192,21 @@ func (s *contributoor) startMetricsServer() error {
 	sm := http.NewServeMux()
 	sm.Handle("/metrics", promhttp.Handler())
 
-	if s.config.MetricsAddress == "" {
-		s.config.MetricsAddress = defaultMetricsAddr
-	}
+	var (
+		metricsHost, metricsPort = s.config.GetMetricsHostPort()
+		addr                     = fmt.Sprintf("%s:%s", metricsHost, metricsPort)
+	)
 
-	server := &http.Server{
-		Addr:              s.config.MetricsAddress,
+	s.metricsServer = &http.Server{
+		Addr:              addr,
 		ReadHeaderTimeout: 15 * time.Second,
 		Handler:           sm,
 	}
 
-	s.log.Infof("Serving metrics at %s", s.config.MetricsAddress)
+	s.log.Infof("Serving metrics at %s", addr)
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := s.metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			s.log.Fatal(err)
 		}
 	}()
@@ -193,19 +215,22 @@ func (s *contributoor) startMetricsServer() error {
 }
 
 func (s *contributoor) startPProfServer() error {
-	if s.config.PprofAddress == "" {
+	pprofHost, pprofPort := s.config.GetPprofHostPort()
+	if pprofHost == "" {
 		return nil
 	}
 
-	pprofServer := &http.Server{
-		Addr:              s.config.PprofAddress,
+	var addr = fmt.Sprintf("%s:%s", pprofHost, pprofPort)
+
+	s.pprofServer = &http.Server{
+		Addr:              addr,
 		ReadHeaderTimeout: 120 * time.Second,
 	}
 
-	s.log.Infof("Serving pprof at %s", s.config.PprofAddress)
+	s.log.Infof("Serving pprof at %s", addr)
 
 	go func() {
-		if err := pprofServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := s.pprofServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			s.log.Fatal(err)
 		}
 	}()

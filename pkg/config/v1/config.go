@@ -2,11 +2,21 @@ package config
 
 import (
 	"encoding/json"
+	"net"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/bufbuild/protovalidate-go"
 	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	defaultMetricsHost = "127.0.0.1"
+	defaultMetricsPort = "9090"
+	defaultPprofHost   = "127.0.0.1"
+	defaultPprofPort   = "6060"
 )
 
 // NewConfigFromPath loads a config from a YAML file and validates it.
@@ -69,4 +79,51 @@ func (r RunMethod) DisplayName() string {
 	default:
 		return "Unknown"
 	}
+}
+
+// ParseAddress parses an address string into host and port components.
+// If the address is empty, returns the default host and port.
+// If only port is specified (":8080"), returns default host and the specified port.
+func ParseAddress(address, defaultHost, defaultPort string) (host, port string) {
+	if address == "" {
+		return defaultHost, defaultPort
+	}
+
+	// Handle ":port" format.
+	if strings.HasPrefix(address, ":") {
+		return defaultHost, strings.TrimPrefix(address, ":")
+	}
+
+	// Parse as URL to handle http:// format.
+	u, err := url.Parse(address)
+	if err == nil && u.Host != "" {
+		h, p, e := net.SplitHostPort(u.Host)
+		if e == nil {
+			return h, p
+		}
+	}
+
+	// Try to split raw host:port.
+	host, port, err = net.SplitHostPort(address)
+	if err == nil {
+		return host, port
+	}
+
+	return defaultHost, defaultPort
+}
+
+// GetMetricsHostPort returns the metrics host and port.
+// If MetricsAddress is not set, returns default values.
+func (c *Config) GetMetricsHostPort() (host, port string) {
+	return ParseAddress(c.MetricsAddress, defaultMetricsHost, defaultMetricsPort)
+}
+
+// GetPprofHostPort returns the pprof host and port.
+// If PprofAddress is not set, returns empty strings.
+func (c *Config) GetPprofHostPort() (host, port string) {
+	if c.PprofAddress == "" {
+		return "", ""
+	}
+
+	return ParseAddress(c.PprofAddress, defaultPprofHost, defaultPprofPort)
 }

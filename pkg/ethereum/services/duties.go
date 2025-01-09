@@ -212,8 +212,6 @@ func (m *DutiesService) Start(ctx context.Context) error {
 }
 
 func (m *DutiesService) Stop(ctx context.Context) error {
-	m.beaconCommittees.Stop()
-
 	return nil
 }
 
