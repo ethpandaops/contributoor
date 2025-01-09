@@ -31,6 +31,7 @@ type contributoor struct {
 	clockDrift    clockdrift.ClockDrift
 	sinks         []sinks.ContributoorSink
 	cache         *events.DuplicateCache
+	summary       *events.Summary
 	metricsServer *http.Server
 	pprofServer   *http.Server
 }
@@ -89,6 +90,10 @@ func main() {
 			}
 
 			if err := s.initBeaconNode(); err != nil {
+				return err
+			}
+
+			if err := s.initSummary(); err != nil {
 				return err
 			}
 
@@ -293,11 +298,17 @@ func (s *contributoor) initCache() error {
 	return nil
 }
 
+func (s *contributoor) initSummary() error {
+	s.summary = events.NewSummary(s.log, 10*time.Second, s.beaconNode)
+
+	return nil
+}
+
 func (s *contributoor) initBeaconNode() error {
 	b, err := ethereum.NewBeaconNode(
 		s.log,
 		&ethereum.Config{
-			BeaconNodeAddress:   s.config.BeaconNodeAddress,
+			BeaconNodeAddress:   s.config.NodeAddress(),
 			OverrideNetworkName: s.name,
 		},
 		s.name,

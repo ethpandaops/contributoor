@@ -19,6 +19,28 @@ const (
 	defaultPprofPort   = "6060"
 )
 
+var localHostnames = map[string]bool{
+	"localhost": true,
+	"127.0.0.1": true,
+	"0.0.0.0":   true,
+}
+
+// isRunningInDocker checks if we're actually running inside a Docker container
+// by looking for container-specific files and environment variables.
+var isRunningInDocker = func() bool {
+	// Check for .dockerenv file.
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	// Check for docker-specific cgroup.
+	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
+		return strings.Contains(string(data), "docker")
+	}
+
+	return false
+}
+
 // NewConfigFromPath loads a config from a YAML file and validates it.
 func NewConfigFromPath(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
@@ -126,4 +148,33 @@ func (c *Config) GetPprofHostPort() (host, port string) {
 	}
 
 	return ParseAddress(c.PprofAddress, defaultPprofHost, defaultPprofPort)
+}
+
+// NodeAddress returns the beacon node address, rewriting local addresses
+// to use host.docker.internal when running in Docker.
+// Docker containers can't directly access the host via localhost/127.0.0.1.
+// We rewrite these to host.docker.internal which resolves differently per platform:
+// - macOS: Built-in DNS name that points to the Docker Desktop VM's gateway
+// - Linux: Maps to host-gateway via extra_hosts in docker-compose.yml
+// This provides a consistent way to access the host machine across platforms.
+func (c *Config) NodeAddress() string {
+	// Only rewrite if:
+	// 1. We have a beacon node address.
+	// 2. Docker is configured as the run method.
+	// 3. We're actually running inside a Docker container.
+	if c.BeaconNodeAddress == "" ||
+		c.RunMethod != RunMethod_RUN_METHOD_DOCKER ||
+		!isRunningInDocker() {
+		return c.BeaconNodeAddress
+	}
+
+	// Check if URL points to a local address.
+	for hostname := range localHostnames {
+		if strings.Contains(c.BeaconNodeAddress, hostname) {
+			// Replace the local hostname with host.docker.internal.
+			return strings.Replace(c.BeaconNodeAddress, hostname, "host.docker.internal", 1)
+		}
+	}
+
+	return c.BeaconNodeAddress
 }

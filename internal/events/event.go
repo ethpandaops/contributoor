@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/ethwallclock"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 )
@@ -31,6 +32,8 @@ type BeaconDataProvider interface {
 	) (phase0.ValidatorIndex, error)
 	// Synced returns true if the beacon node is synced.
 	Synced(ctx context.Context) error
+	// Node returns the underlying beacon node instance.
+	Node() beacon.Node
 }
 
 // Event is the interface that all events must implement.

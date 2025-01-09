@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	phase0 "github.com/attestantio/go-eth2-client/spec/phase0"
+	beacon "github.com/ethpandaops/beacon/pkg/beacon"
 	ethwallclock "github.com/ethpandaops/ethwallclock"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -110,6 +111,20 @@ func (m *MockBeaconDataProvider) GetWallclock() *ethwallclock.EthereumBeaconChai
 func (mr *MockBeaconDataProviderMockRecorder) GetWallclock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWallclock", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetWallclock))
+}
+
+// Node mocks base method.
+func (m *MockBeaconDataProvider) Node() beacon.Node {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Node")
+	ret0, _ := ret[0].(beacon.Node)
+	return ret0
+}
+
+// Node indicates an expected call of Node.
+func (mr *MockBeaconDataProviderMockRecorder) Node() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Node", reflect.TypeOf((*MockBeaconDataProvider)(nil).Node))
 }
 
 // Synced mocks base method.
