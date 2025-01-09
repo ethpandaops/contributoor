@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/ethpandaops/contributoor/internal/events/mock"
 	"github.com/ethpandaops/ethwallclock"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -26,15 +29,16 @@ func TestVoluntaryExitEvent_Decorated(t *testing.T) {
 		mockBeacon    = mock.NewMockBeaconDataProvider(ctrl)
 		mockEpoch     = ethwallclock.NewEpoch(epoch, now.Add(-5*time.Minute), now)
 		mockWallclock = ethwallclock.NewEthereumBeaconChain(genesis, slotDuration, 32)
-		signature     = phase0.BLSSignature{} // 96-byte zero signature
+		signature     = phase0.BLSSignature{}             // 96-byte zero signature
+		cache         = ttlcache.New[string, time.Time]() // Create a new cache for testing
 	)
 
 	mockBeacon.EXPECT().GetEpoch(epoch).Return(mockEpoch)
 	mockBeacon.EXPECT().GetWallclock().Return(mockWallclock)
-
 	event := NewVoluntaryExitEvent(
 		logrus.New(),
 		mockBeacon,
+		cache,
 		&xatu.Meta{
 			Client: &xatu.ClientMeta{},
 		},
@@ -69,4 +73,65 @@ func TestVoluntaryExitEvent_Decorated(t *testing.T) {
 	require.Equal(t, epoch, metaData.Epoch.Number.Value)
 	require.Equal(t, slot, metaData.WallclockSlot.Number.Value)
 	require.Equal(t, epoch, metaData.WallclockEpoch.Number.Value)
+}
+
+func TestVoluntaryExitEvent_Ignore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		now        = time.Now()
+		epoch      = uint64(123)
+		mockBeacon = mock.NewMockBeaconDataProvider(ctrl)
+		signature  = phase0.BLSSignature{}
+		cache      = ttlcache.New[string, time.Time]()
+	)
+
+	exit := &phase0.SignedVoluntaryExit{
+		Message: &phase0.VoluntaryExit{
+			Epoch:          phase0.Epoch(epoch),
+			ValidatorIndex: 1,
+		},
+		Signature: signature,
+	}
+
+	t.Run("cache miss", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(fmt.Errorf("not synced"))
+
+		event := NewVoluntaryExitEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			exit,
+			now,
+		)
+
+		ignore, err := event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.True(t, ignore)
+	})
+
+	t.Run("cache hit", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+
+		event := NewVoluntaryExitEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			exit,
+			now,
+		)
+
+		// First call should not be ignored
+		ignore, err := event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore)
+
+		// Second call with same data should be ignored
+		ignore, err = event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.True(t, ignore)
+	})
 }

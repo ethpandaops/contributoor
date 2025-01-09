@@ -10,6 +10,7 @@
 package mock
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -66,6 +67,21 @@ func (m *MockEvent) Decorated() *xatu.DecoratedEvent {
 func (mr *MockEventMockRecorder) Decorated() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decorated", reflect.TypeOf((*MockEvent)(nil).Decorated))
+}
+
+// Ignore mocks base method.
+func (m *MockEvent) Ignore(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ignore", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Ignore indicates an expected call of Ignore.
+func (mr *MockEventMockRecorder) Ignore(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ignore", reflect.TypeOf((*MockEvent)(nil).Ignore), arg0)
 }
 
 // Meta mocks base method.

@@ -10,6 +10,7 @@
 package mock
 
 import (
+	context "context"
 	reflect "reflect"
 
 	phase0 "github.com/attestantio/go-eth2-client/spec/phase0"
@@ -109,4 +110,18 @@ func (m *MockBeaconDataProvider) GetWallclock() *ethwallclock.EthereumBeaconChai
 func (mr *MockBeaconDataProviderMockRecorder) GetWallclock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWallclock", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetWallclock))
+}
+
+// Synced mocks base method.
+func (m *MockBeaconDataProvider) Synced(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Synced", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Synced indicates an expected call of Synced.
+func (mr *MockBeaconDataProviderMockRecorder) Synced(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Synced", reflect.TypeOf((*MockBeaconDataProvider)(nil).Synced), arg0)
 }

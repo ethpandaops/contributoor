@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/ethpandaops/contributoor/internal/events/mock"
 	"github.com/ethpandaops/ethwallclock"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -23,8 +26,9 @@ func TestFinalizedCheckpointEvent_Decorated(t *testing.T) {
 		epoch      = uint64(3)
 		mockBeacon = mock.NewMockBeaconDataProvider(ctrl)
 		mockEpoch  = ethwallclock.NewEpoch(epoch, now.Add(-5*time.Minute), now)
-		block      = phase0.Root{0x1} // Simple root for testing
-		state      = phase0.Root{0x2} // Simple root for testing
+		block      = phase0.Root{0x1}                  // Simple root for testing
+		state      = phase0.Root{0x2}                  // Simple root for testing
+		cache      = ttlcache.New[string, time.Time]() // Create a new cache for testing
 	)
 
 	mockBeacon.EXPECT().GetEpoch(epoch).Return(mockEpoch)
@@ -32,6 +36,7 @@ func TestFinalizedCheckpointEvent_Decorated(t *testing.T) {
 	event := NewFinalizedCheckpointEvent(
 		logrus.New(),
 		mockBeacon,
+		cache,
 		&xatu.Meta{
 			Client: &xatu.ClientMeta{},
 		},
@@ -62,4 +67,62 @@ func TestFinalizedCheckpointEvent_Decorated(t *testing.T) {
 	// Assert metadata.
 	require.NotNil(t, metaData)
 	require.Equal(t, epoch, metaData.Epoch.Number.Value)
+}
+
+func TestFinalizedCheckpointEvent_Ignore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		now        = time.Now()
+		epoch      = uint64(123)
+		mockBeacon = mock.NewMockBeaconDataProvider(ctrl)
+		blockRoot  = phase0.Root{0x1}
+		cache      = ttlcache.New[string, time.Time]()
+	)
+
+	checkpoint := &eth2v1.FinalizedCheckpointEvent{
+		Block: blockRoot,
+		Epoch: phase0.Epoch(epoch),
+	}
+
+	t.Run("cache miss", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(fmt.Errorf("not synced"))
+
+		event := NewFinalizedCheckpointEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			checkpoint,
+			now,
+		)
+
+		ignore, err := event.Ignore(context.Background())
+		require.Error(t, err)
+		require.True(t, ignore)
+	})
+
+	t.Run("cache hit", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+
+		event := NewFinalizedCheckpointEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			checkpoint,
+			now,
+		)
+
+		// First call should not be ignored
+		ignore, err := event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore)
+
+		// Second call with same data should be ignored
+		ignore, err = event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.True(t, ignore)
+	})
 }

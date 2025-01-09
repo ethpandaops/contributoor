@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,6 +10,8 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/jellydator/ttlcache/v3"
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -20,12 +23,14 @@ type AttestationEvent struct {
 	log      logrus.FieldLogger
 	data     *phase0.Attestation
 	beacon   events.BeaconDataProvider
+	cache    *ttlcache.Cache[string, time.Time]
 	recvTime time.Time
 }
 
 func NewAttestationEvent(
 	log logrus.FieldLogger,
 	beacon events.BeaconDataProvider,
+	cache *ttlcache.Cache[string, time.Time],
 	meta *xatu.Meta,
 	data *phase0.Attestation,
 	recvTime time.Time,
@@ -34,6 +39,7 @@ func NewAttestationEvent(
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
+		cache:     cache,
 		recvTime:  recvTime,
 		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_ATTESTATION_V2.String()),
 	}
@@ -140,4 +146,28 @@ func (e *AttestationEvent) Decorated() *xatu.DecoratedEvent {
 	}
 
 	return decorated
+}
+
+func (e *AttestationEvent) Ignore(ctx context.Context) (bool, error) {
+	if err := e.beacon.Synced(ctx); err != nil {
+		return true, err
+	}
+
+	hash, err := hashstructure.Hash(e.data, hashstructure.FormatV2, nil)
+	if err != nil {
+		return true, err
+	}
+
+	item, retrieved := e.cache.GetOrSet(fmt.Sprint(hash), e.recvTime, ttlcache.WithTTL[string, time.Time](ttlcache.DefaultTTL))
+	if retrieved {
+		e.log.WithFields(logrus.Fields{
+			"hash":                  hash,
+			"time_since_first_item": time.Since(item.Value()),
+			"slot":                  e.data.Data.Slot,
+		}).Debug("Duplicate attestation event received")
+
+		return true, nil
+	}
+
+	return false, nil
 }

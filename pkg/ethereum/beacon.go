@@ -13,6 +13,7 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
+	"github.com/ethpandaops/contributoor/internal/events"
 	v1 "github.com/ethpandaops/contributoor/internal/events/v1"
 	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/ethereum/services"
@@ -34,6 +35,7 @@ type BeaconNode struct {
 	metadataSvc *services.MetadataService
 	dutiesSvc   *services.DutiesService
 	sinks       []sinks.ContributoorSink
+	cache       *events.DuplicateCache
 }
 
 // NewBeaconNode creates a new beacon node instance with the given configuration. It initializes any services and
@@ -44,6 +46,7 @@ func NewBeaconNode(
 	name string,
 	sinks []sinks.ContributoorSink,
 	clockDrift clockdrift.ClockDrift,
+	cache *events.DuplicateCache,
 	opt *Options,
 ) (*BeaconNode, error) {
 	// Set default options and disable prometheus metrics.
@@ -83,6 +86,7 @@ func NewBeaconNode(
 		dutiesSvc:   &duties,
 		sinks:       sinks,
 		services:    []services.Service{&metadata, &duties},
+		cache:       cache,
 	}, nil
 }
 
@@ -261,6 +265,7 @@ func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
 	return nil
 }
 
+//nolint:gocyclo // splitting apart is unnecessary, keep subscriptions together.
 func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 	// Subscribe to attestations.
 	b.beacon.OnAttestation(ctx, func(ctx context.Context, attestation *phase0.Attestation) error {
@@ -271,7 +276,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewAttestationEvent(b.log, b, meta, attestation, now)
+		event := v1.NewAttestationEvent(b.log, b, b.cache.BeaconETHV1EventsAttestation, meta, attestation, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -292,7 +306,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewBlockEvent(b.log, b, meta, block, now)
+		event := v1.NewBlockEvent(b.log, b, b.cache.BeaconETHV1EventsBlock, meta, block, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -313,7 +336,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewChainReorgEvent(b.log, b, meta, chainReorg, now)
+		event := v1.NewChainReorgEvent(b.log, b, b.cache.BeaconETHV1EventsChainReorg, meta, chainReorg, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -325,7 +357,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 		return nil
 	})
 
-	// Subscribe to head v1.
+	// Subscribe to head events.
 	b.beacon.OnHead(ctx, func(ctx context.Context, head *eth2v1.HeadEvent) error {
 		now := b.clockDrift.Now()
 
@@ -334,7 +366,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewHeadEvent(b.log, b, meta, head, now)
+		event := v1.NewHeadEvent(b.log, b, b.cache.BeaconETHV1EventsHead, meta, head, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -355,7 +396,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewVoluntaryExitEvent(b.log, b, meta, voluntaryExit, now)
+		event := v1.NewVoluntaryExitEvent(b.log, b, b.cache.BeaconETHV1EventsVoluntaryExit, meta, voluntaryExit, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -376,7 +426,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewContributionAndProofEvent(b.log, b, meta, contributionAndProof, now)
+		event := v1.NewContributionAndProofEvent(b.log, b, b.cache.BeaconETHV1EventsContributionAndProof, meta, contributionAndProof, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -397,7 +456,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewFinalizedCheckpointEvent(b.log, b, meta, finalizedCheckpoint, now)
+		event := v1.NewFinalizedCheckpointEvent(b.log, b, b.cache.BeaconETHV1EventsFinalizedCheckpoint, meta, finalizedCheckpoint, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {
@@ -418,7 +486,16 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewBlobSidecarEvent(b.log, b, meta, blobSidecar, now)
+		event := v1.NewBlobSidecarEvent(b.log, b, b.cache.BeaconETHV1EventsBlobSidecar, meta, blobSidecar, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 
 		// Send directly to sinks.
 		for _, sink := range b.sinks {

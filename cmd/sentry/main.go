@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
+	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
@@ -29,6 +30,7 @@ type contributoor struct {
 	beaconNode    *ethereum.BeaconNode
 	clockDrift    clockdrift.ClockDrift
 	sinks         []sinks.ContributoorSink
+	cache         *events.DuplicateCache
 	metricsServer *http.Server
 	pprofServer   *http.Server
 }
@@ -82,6 +84,10 @@ func main() {
 				return err
 			}
 
+			if err := s.initCache(); err != nil {
+				return err
+			}
+
 			if err := s.initBeaconNode(); err != nil {
 				return err
 			}
@@ -100,13 +106,13 @@ func main() {
 			}()
 
 			if err := s.start(ctx); err != nil {
-				// Cancel context to trigger cleanup
+				// Cancel context to trigger cleanup.
 				cancel()
 
-				// Wait for cleanup to complete
+				// Wait for cleanup to complete.
 				<-done
 
-				// Only return the error if it's not due to context cancellation
+				// Only return the error if it's not due to context cancellation.
 				if err != context.Canceled {
 					return err
 				}
@@ -149,6 +155,8 @@ func (s *contributoor) start(ctx context.Context) error {
 	if err := s.startPProfServer(); err != nil {
 		return err
 	}
+
+	s.cache.Start()
 
 	return s.beaconNode.Start(ctx)
 }
@@ -279,6 +287,12 @@ func (s *contributoor) initSinks(ctx context.Context, debug bool) error {
 	return nil
 }
 
+func (s *contributoor) initCache() error {
+	s.cache = events.NewDuplicateCache()
+
+	return nil
+}
+
 func (s *contributoor) initBeaconNode() error {
 	b, err := ethereum.NewBeaconNode(
 		s.log,
@@ -289,6 +303,7 @@ func (s *contributoor) initBeaconNode() error {
 		s.name,
 		s.sinks,
 		s.clockDrift,
+		s.cache,
 		&ethereum.Options{},
 	)
 	if err != nil {

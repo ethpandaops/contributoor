@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/ethpandaops/ethwallclock"
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -34,6 +37,7 @@ func TestAttestationEvent_Decorated(t *testing.T) {
 		targetRoot  = phase0.Root{0x3}                     // Simple root for testing
 		signature   = phase0.BLSSignature{}                // Zero signature
 		aggrBits    = bitfield.Bitlist([]byte{0x01, 0x01}) // Single bit set
+		cache       = ttlcache.New[string, time.Time]()    // Create a new cache for testing
 	)
 
 	mockBeacon.EXPECT().GetSlot(slot).Return(mockSlot)
@@ -50,6 +54,7 @@ func TestAttestationEvent_Decorated(t *testing.T) {
 	event := NewAttestationEvent(
 		logrus.New(),
 		mockBeacon,
+		cache,
 		&xatu.Meta{
 			Client: &xatu.ClientMeta{},
 		},
@@ -124,4 +129,81 @@ func TestAttestationEvent_Decorated(t *testing.T) {
 	require.NotNil(t, metaData.AttestingValidator)
 	require.Equal(t, uint64(0), metaData.AttestingValidator.CommitteeIndex.Value)
 	require.Equal(t, uint64(789), metaData.AttestingValidator.Index.Value)
+}
+
+func TestAttestationEvent_Ignore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		now         = time.Now()
+		slot        = uint64(123)
+		sourceEpoch = uint64(2)
+		targetEpoch = uint64(3)
+		mockBeacon  = mock.NewMockBeaconDataProvider(ctrl)
+		blockRoot   = phase0.Root{0x1}
+		sourceRoot  = phase0.Root{0x2}
+		targetRoot  = phase0.Root{0x3}
+		signature   = phase0.BLSSignature{}
+		aggrBits    = bitfield.Bitlist([]byte{0x01, 0x01})
+		cache       = ttlcache.New[string, time.Time]()
+	)
+
+	attestation := &phase0.Attestation{
+		AggregationBits: aggrBits,
+		Data: &phase0.AttestationData{
+			Slot:            phase0.Slot(slot),
+			Index:           phase0.CommitteeIndex(1),
+			BeaconBlockRoot: blockRoot,
+			Source: &phase0.Checkpoint{
+				Epoch: phase0.Epoch(sourceEpoch),
+				Root:  sourceRoot,
+			},
+			Target: &phase0.Checkpoint{
+				Epoch: phase0.Epoch(targetEpoch),
+				Root:  targetRoot,
+			},
+		},
+		Signature: signature,
+	}
+
+	t.Run("cache miss", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(fmt.Errorf("not synced"))
+
+		event := NewAttestationEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			attestation,
+			now,
+		)
+
+		ignore, err := event.Ignore(context.Background())
+		require.Error(t, err)
+		require.True(t, ignore)
+	})
+
+	t.Run("cache hit", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+
+		event := NewAttestationEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			attestation,
+			now,
+		)
+
+		// First call should not be ignored
+		ignore, err := event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore)
+
+		// Second call with same data should be ignored
+		ignore, err = event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.True(t, ignore)
+	})
 }

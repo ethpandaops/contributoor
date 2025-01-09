@@ -1,6 +1,7 @@
 package events
 
 import (
+	"context"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -28,6 +29,8 @@ type BeaconDataProvider interface {
 		committeeIndex phase0.CommitteeIndex,
 		position uint64,
 	) (phase0.ValidatorIndex, error)
+	// Synced returns true if the beacon node is synced.
+	Synced(ctx context.Context) error
 }
 
 // Event is the interface that all events must implement.
@@ -42,6 +45,8 @@ type Event interface {
 	Data() interface{}
 	// Decorated returns the decorated event.
 	Decorated() *xatu.DecoratedEvent
+	// Ignore returns true if the event should be ignored.
+	Ignore(ctx context.Context) (bool, error)
 }
 
 // BaseEvent provides common functionality for all events.

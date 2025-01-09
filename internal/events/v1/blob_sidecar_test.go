@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/ethpandaops/ethwallclock"
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -30,6 +33,7 @@ func TestBlobSidecarEvent_Decorated(t *testing.T) {
 		kzgCommitment = deneb.KZGCommitment{} // Zero commitment
 		versionedHash = deneb.VersionedHash{} // Zero hash
 		index         = deneb.BlobIndex(1)
+		cache         = ttlcache.New[string, time.Time]() // Create a new cache for testing
 	)
 
 	mockBeacon.EXPECT().GetSlot(slot).Return(mockSlot)
@@ -38,6 +42,7 @@ func TestBlobSidecarEvent_Decorated(t *testing.T) {
 	event := NewBlobSidecarEvent(
 		logrus.New(),
 		mockBeacon,
+		cache,
 		&xatu.Meta{
 			Client: &xatu.ClientMeta{},
 		},
@@ -73,4 +78,68 @@ func TestBlobSidecarEvent_Decorated(t *testing.T) {
 	require.NotNil(t, metaData)
 	require.Equal(t, slot, metaData.Slot.Number.Value)
 	require.Equal(t, uint64(3), metaData.Epoch.Number.Value)
+}
+
+func TestBlobSidecarEvent_Ignore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		now           = time.Now()
+		slot          = uint64(123)
+		mockBeacon    = mock.NewMockBeaconDataProvider(ctrl)
+		blockRoot     = phase0.Root{0x1}
+		kzgCommitment = deneb.KZGCommitment{}
+		versionedHash = deneb.VersionedHash{}
+		index         = deneb.BlobIndex(1)
+		cache         = ttlcache.New[string, time.Time]()
+	)
+
+	blobSidecar := &eth2v1.BlobSidecarEvent{
+		Slot:          phase0.Slot(slot),
+		BlockRoot:     blockRoot,
+		Index:         index,
+		KZGCommitment: kzgCommitment,
+		VersionedHash: versionedHash,
+	}
+
+	t.Run("cache miss", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(fmt.Errorf("not synced"))
+
+		event := NewBlobSidecarEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			blobSidecar,
+			now,
+		)
+
+		ignore, err := event.Ignore(context.Background())
+		require.Error(t, err)
+		require.True(t, ignore)
+	})
+
+	t.Run("cache hit", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+
+		event := NewBlobSidecarEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			blobSidecar,
+			now,
+		)
+
+		// First call should not be ignored
+		ignore, err := event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore)
+
+		// Second call with same data should be ignored
+		ignore, err = event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.True(t, ignore)
+	})
 }

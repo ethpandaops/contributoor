@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/altair"
@@ -8,6 +10,8 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/jellydator/ttlcache/v3"
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -19,12 +23,14 @@ type ContributionAndProofEvent struct {
 	log      logrus.FieldLogger
 	data     *altair.SignedContributionAndProof
 	beacon   events.BeaconDataProvider
+	cache    *ttlcache.Cache[string, time.Time]
 	recvTime time.Time
 }
 
 func NewContributionAndProofEvent(
 	log logrus.FieldLogger,
 	beacon events.BeaconDataProvider,
+	cache *ttlcache.Cache[string, time.Time],
 	meta *xatu.Meta,
 	data *altair.SignedContributionAndProof,
 	recvTime time.Time,
@@ -33,6 +39,7 @@ func NewContributionAndProofEvent(
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
+		cache:     cache,
 		recvTime:  recvTime,
 		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_CONTRIBUTION_AND_PROOF_V2.String()),
 	}
@@ -105,4 +112,27 @@ func (e *ContributionAndProofEvent) Decorated() *xatu.DecoratedEvent {
 	}
 
 	return decorated
+}
+
+func (e *ContributionAndProofEvent) Ignore(ctx context.Context) (bool, error) {
+	if err := e.beacon.Synced(ctx); err != nil {
+		return true, err
+	}
+
+	hash, err := hashstructure.Hash(e.data, hashstructure.FormatV2, nil)
+	if err != nil {
+		return true, err
+	}
+
+	item, retrieved := e.cache.GetOrSet(fmt.Sprint(hash), e.recvTime, ttlcache.WithTTL[string, time.Time](ttlcache.DefaultTTL))
+	if retrieved {
+		e.log.WithFields(logrus.Fields{
+			"hash":                  hash,
+			"time_since_first_item": time.Since(item.Value()),
+		}).Debug("Duplicate contribution and proof event received")
+
+		return true, nil
+	}
+
+	return false, nil
 }

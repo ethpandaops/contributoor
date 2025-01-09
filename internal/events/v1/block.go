@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
@@ -8,6 +10,8 @@ import (
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
+	"github.com/jellydator/ttlcache/v3"
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -19,12 +23,14 @@ type BlockEvent struct {
 	log      logrus.FieldLogger
 	data     *eth2v1.BlockEvent
 	beacon   events.BeaconDataProvider
+	cache    *ttlcache.Cache[string, time.Time]
 	recvTime time.Time
 }
 
 func NewBlockEvent(
 	log logrus.FieldLogger,
 	beacon events.BeaconDataProvider,
+	cache *ttlcache.Cache[string, time.Time],
 	meta *xatu.Meta,
 	data *eth2v1.BlockEvent,
 	recvTime time.Time,
@@ -34,6 +40,7 @@ func NewBlockEvent(
 		data:      data,
 		beacon:    beacon,
 		recvTime:  recvTime,
+		cache:     cache,
 		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_BLOCK_V2.String()),
 	}
 }
@@ -92,4 +99,28 @@ func (e *BlockEvent) Decorated() *xatu.DecoratedEvent {
 	}
 
 	return decorated
+}
+
+func (e *BlockEvent) Ignore(ctx context.Context) (bool, error) {
+	if err := e.beacon.Synced(ctx); err != nil {
+		return true, err
+	}
+
+	hash, err := hashstructure.Hash(e.data, hashstructure.FormatV2, nil)
+	if err != nil {
+		return true, err
+	}
+
+	item, retrieved := e.cache.GetOrSet(fmt.Sprint(hash), e.recvTime, ttlcache.WithTTL[string, time.Time](ttlcache.DefaultTTL))
+	if retrieved {
+		e.log.WithFields(logrus.Fields{
+			"hash":                  hash,
+			"time_since_first_item": time.Since(item.Value()),
+			"slot":                  e.data.Slot,
+		}).Debug("Duplicate block event received")
+
+		return true, nil
+	}
+
+	return false, nil
 }
