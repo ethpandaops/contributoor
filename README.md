@@ -6,7 +6,8 @@ Contributoor is a lightweight service that runs alongside an Ethereum consensus 
 
 See the [contributoor-installer](https://github.com/ethpandaops/contributoor-installer) repository for supported platforms and installation instructions.
 
-There are three ways to install Contributoor:
+## Running
+There are three ways you can run Contributoor:
 
 1. **Docker (Recommended)**
    - Provides the most consistent environment
