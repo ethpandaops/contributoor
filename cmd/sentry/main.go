@@ -193,8 +193,8 @@ func (s *contributoor) startMetricsServer() error {
 	sm.Handle("/metrics", promhttp.Handler())
 
 	var (
-		metricsHost, metricsPort = s.config.GetMetricsHostPort()
-		addr                     = fmt.Sprintf("%s:%s", metricsHost, metricsPort)
+		_, metricsPort = s.config.GetMetricsHostPort()
+		addr           = fmt.Sprintf(":%s", metricsPort)
 	)
 
 	s.metricsServer = &http.Server{
@@ -220,7 +220,7 @@ func (s *contributoor) startPProfServer() error {
 		return nil
 	}
 
-	var addr = fmt.Sprintf("%s:%s", pprofHost, pprofPort)
+	var addr = fmt.Sprintf(":%s", pprofPort)
 
 	s.pprofServer = &http.Server{
 		Addr:              addr,
