@@ -2,6 +2,7 @@ package sinks
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -66,7 +67,7 @@ func TestXatuSink(t *testing.T) {
 			if tt.config.OutputServer.Credentials != "" {
 				xatuSink, ok := sink.(*xatuSink)
 				require.True(t, ok)
-				assert.Equal(t, tt.config.OutputServer.Credentials, xatuSink.conf.Headers["authorization"])
+				assert.Equal(t, fmt.Sprintf("Basic %s", tt.config.OutputServer.Credentials), xatuSink.conf.Headers["authorization"])
 			}
 		})
 	}

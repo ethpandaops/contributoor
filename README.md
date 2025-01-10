@@ -38,8 +38,9 @@ networkName: NETWORK_NAME_MAINNET
 
 # The output server configuration (credentials are base64 encoded and required if a pandaops server is used).
 outputServer:
-    address: https://xatu.primary.production.platform.ethpandaops.io
+    address: xatu.primary.production.platform.ethpandaops.io:443
     credentials: YWRtaW46YWRtaW4=
+    tls: true
 
 # The contributoor version to use.
 version: 0.0.8

@@ -64,4 +64,6 @@ message OutputServer {
   ];
   // Optional credentials for authentication, this is a base64 encoded string in the format of "username:password".
   string credentials = 2;
+  // TLS is whether to use TLS for the output server.
+  bool tls = 3;
 }

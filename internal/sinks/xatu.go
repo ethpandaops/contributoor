@@ -2,6 +2,7 @@ package sinks
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/creasty/defaults"
 	"github.com/ethpandaops/contributoor/internal/events"
@@ -27,11 +28,12 @@ func NewXatuSink(log *logrus.Logger, config *config.Config, networkName string) 
 		return nil, err
 	}
 
+	conf.TLS = config.OutputServer.Tls
 	conf.Address = config.OutputServer.Address
 
 	if config.OutputServer.Credentials != "" {
 		conf.Headers = map[string]string{
-			"authorization": config.OutputServer.Credentials,
+			"authorization": fmt.Sprintf("Basic %s", config.OutputServer.Credentials),
 		}
 	}
 

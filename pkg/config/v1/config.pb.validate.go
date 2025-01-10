@@ -204,6 +204,8 @@ func (m *OutputServer) validate(all bool) error {
 
 	// no validation rules for Credentials
 
+	// no validation rules for Tls
+
 	if len(errors) > 0 {
 		return OutputServerMultiError(errors)
 	}
