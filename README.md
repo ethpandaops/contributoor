@@ -48,6 +48,7 @@ version: 0.0.8
 contributoorDirectory: /Users/username/.contributoor
 
 # The method to run contributoor (RUN_METHOD_DOCKER, RUN_METHOD_BINARY, RUN_METHOD_SYSTEMD).
+runMethod: RUN_METHOD_DOCKER
 ```
 
 If you encounter configuration issues, you can:
