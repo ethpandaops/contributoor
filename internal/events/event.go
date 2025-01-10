@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/ethwallclock"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
@@ -23,13 +22,6 @@ type BeaconDataProvider interface {
 	GetEpoch(epoch uint64) ethwallclock.Epoch
 	// GetEpochFromSlot returns the wallclock epoch for a given slot number.
 	GetEpochFromSlot(slot uint64) ethwallclock.Epoch
-	// GetValidatorIndex returns the validator index for a given position in a committee.
-	GetValidatorIndex(
-		epoch phase0.Epoch,
-		slot phase0.Slot,
-		committeeIndex phase0.CommitteeIndex,
-		position uint64,
-	) (phase0.ValidatorIndex, error)
 	// Synced returns true if the beacon node is synced.
 	Synced(ctx context.Context) error
 	// Node returns the underlying beacon node instance.

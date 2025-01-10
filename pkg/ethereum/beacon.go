@@ -5,12 +5,9 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"sync"
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
-	"github.com/attestantio/go-eth2-client/spec/altair"
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/internal/events"
@@ -31,9 +28,7 @@ type BeaconNode struct {
 	name        string
 	beacon      beacon.Node
 	clockDrift  clockdrift.ClockDrift
-	services    []services.Service
 	metadataSvc *services.MetadataService
-	dutiesSvc   *services.DutiesService
 	sinks       []sinks.ContributoorSink
 	cache       *events.DuplicateCache
 	summary     *events.Summary
@@ -78,7 +73,6 @@ func NewBeaconNode(
 
 	// Initialize services.
 	metadata := services.NewMetadataService(log, node, config.OverrideNetworkName)
-	duties := services.NewDutiesService(log, node, &metadata, true, true)
 
 	return &BeaconNode{
 		log:         log.WithField("module", "contributoor/ethereum/beacon"),
@@ -87,9 +81,7 @@ func NewBeaconNode(
 		beacon:      node,
 		clockDrift:  clockDrift,
 		metadataSvc: &metadata,
-		dutiesSvc:   &duties,
 		sinks:       sinks,
-		services:    []services.Service{&metadata, &duties},
 		cache:       cache,
 		summary:     summary,
 		metrics:     metrics,
@@ -153,12 +145,10 @@ func (b *BeaconNode) Start(ctx context.Context) error {
 func (b *BeaconNode) Stop(ctx context.Context) error {
 	b.log.Info("Stopping beacon node")
 
-	for _, service := range b.services {
-		b.log.WithField("service", service.Name()).Info("Stopping service")
+	b.log.WithField("service", b.metadataSvc.Name()).Info("Stopping service")
 
-		if err := service.Stop(ctx); err != nil {
-			b.log.WithError(err).WithField("service", service.Name()).Error("Failed to stop service")
-		}
+	if err := b.metadataSvc.Stop(ctx); err != nil {
+		b.log.WithError(err).WithField("service", b.metadataSvc.Name()).Error("Failed to stop service")
 	}
 
 	if err := b.beacon.Stop(ctx); err != nil {
@@ -198,11 +188,8 @@ func (b *BeaconNode) Synced(ctx context.Context) error {
 		return fmt.Errorf("beacon node is too far behind head, head slot is %d, current slot is %d", syncState.HeadSlot, currentSlot.Number())
 	}
 
-	// Check if all services are ready
-	for _, service := range b.services {
-		if err := service.Ready(ctx); err != nil {
-			return errors.Wrapf(err, "service %s is not ready", service.Name())
-		}
+	if err := b.metadataSvc.Ready(ctx); err != nil {
+		return errors.Wrapf(err, "service %s is not ready", b.metadataSvc.Name())
 	}
 
 	return nil
@@ -238,69 +225,30 @@ func (b *BeaconNode) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
 	return b.metadataSvc.Wallclock().Epochs().FromSlot(slot)
 }
 
-// GetValidatorIndex returns the validator index for a given position in a committee.
-func (b *BeaconNode) GetValidatorIndex(epoch phase0.Epoch, slot phase0.Slot, committeeIndex phase0.CommitteeIndex, position uint64) (phase0.ValidatorIndex, error) {
-	return b.dutiesSvc.GetValidatorIndex(epoch, slot, committeeIndex, position)
-}
-
 func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
-	wg := sync.WaitGroup{}
+	b.metadataSvc.OnReady(ctx, func(ctx context.Context) error {
+		b.log.WithField("service", b.metadataSvc.Name()).Info("Service is ready")
 
-	for _, service := range b.services {
-		wg.Add(1)
+		return nil
+	})
 
-		service.OnReady(ctx, func(ctx context.Context) error {
-			b.log.WithField("service", service.Name()).Info("Service is ready")
+	b.log.WithField("service", b.metadataSvc.Name()).Info("Starting service")
 
-			wg.Done()
-
-			return nil
-		})
-
-		b.log.WithField("service", service.Name()).Info("Starting service")
-
-		if err := service.Start(ctx); err != nil {
-			errs <- fmt.Errorf("failed to start service: %w", err)
-		}
-
-		b.log.WithField("service", service.Name()).Info("Waiting for service to be ready")
-
-		wg.Wait()
+	if err := b.metadataSvc.Start(ctx); err != nil {
+		errs <- fmt.Errorf("failed to start service: %w", err)
 	}
+
+	b.log.WithField("service", b.metadataSvc.Name()).Info("Waiting for service to be ready")
 
 	return nil
 }
 
-//nolint:gocyclo // splitting apart is unnecessary, keep subscriptions together.
 func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 	// Track events received.
 	b.beacon.OnEvent(ctx, func(ctx context.Context, event *eth2v1.Event) error {
 		b.summary.AddEventStreamEvents(event.Topic, 1)
 
 		return nil
-	})
-
-	// Subscribe to attestations.
-	b.beacon.OnAttestation(ctx, func(ctx context.Context, attestation *phase0.Attestation) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewAttestationEvent(b.log, b, b.cache.BeaconETHV1EventsAttestation, meta, attestation, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to blocks.
@@ -359,52 +307,6 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 		}
 
 		event := v1.NewHeadEvent(b.log, b, b.cache.BeaconETHV1EventsHead, meta, head, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	// Subscribe to voluntary exits.
-	b.beacon.OnVoluntaryExit(ctx, func(ctx context.Context, voluntaryExit *phase0.SignedVoluntaryExit) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewVoluntaryExitEvent(b.log, b, b.cache.BeaconETHV1EventsVoluntaryExit, meta, voluntaryExit, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	// Subscribe to contribution and proofs.
-	b.beacon.OnContributionAndProof(ctx, func(ctx context.Context, contributionAndProof *altair.SignedContributionAndProof) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewContributionAndProofEvent(b.log, b, b.cache.BeaconETHV1EventsContributionAndProof, meta, contributionAndProof, now)
 
 		ignore, err := event.Ignore(ctx)
 		if err != nil || ignore {

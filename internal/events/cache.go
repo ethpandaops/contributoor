@@ -7,14 +7,11 @@ import (
 )
 
 type DuplicateCache struct {
-	BeaconETHV1EventsAttestation          *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsBlock                *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsChainReorg           *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsFinalizedCheckpoint  *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsHead                 *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsVoluntaryExit        *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsContributionAndProof *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsBlobSidecar          *ttlcache.Cache[string, time.Time]
+	BeaconETHV1EventsBlock               *ttlcache.Cache[string, time.Time]
+	BeaconETHV1EventsChainReorg          *ttlcache.Cache[string, time.Time]
+	BeaconETHV1EventsFinalizedCheckpoint *ttlcache.Cache[string, time.Time]
+	BeaconETHV1EventsHead                *ttlcache.Cache[string, time.Time]
+	BeaconETHV1EventsBlobSidecar         *ttlcache.Cache[string, time.Time]
 }
 
 const (
@@ -24,9 +21,6 @@ const (
 
 func NewDuplicateCache() *DuplicateCache {
 	return &DuplicateCache{
-		BeaconETHV1EventsAttestation: ttlcache.New(
-			ttlcache.WithTTL[string, time.Time](TTL),
-		),
 		BeaconETHV1EventsBlock: ttlcache.New(
 			ttlcache.WithTTL[string, time.Time](TTL),
 		),
@@ -39,12 +33,6 @@ func NewDuplicateCache() *DuplicateCache {
 		BeaconETHV1EventsHead: ttlcache.New(
 			ttlcache.WithTTL[string, time.Time](TTL),
 		),
-		BeaconETHV1EventsVoluntaryExit: ttlcache.New(
-			ttlcache.WithTTL[string, time.Time](TTL),
-		),
-		BeaconETHV1EventsContributionAndProof: ttlcache.New(
-			ttlcache.WithTTL[string, time.Time](TTL),
-		),
 		BeaconETHV1EventsBlobSidecar: ttlcache.New(
 			ttlcache.WithTTL[string, time.Time](TTL),
 		),
@@ -52,12 +40,9 @@ func NewDuplicateCache() *DuplicateCache {
 }
 
 func (d *DuplicateCache) Start() {
-	go d.BeaconETHV1EventsAttestation.Start()
 	go d.BeaconETHV1EventsBlock.Start()
 	go d.BeaconETHV1EventsChainReorg.Start()
 	go d.BeaconETHV1EventsFinalizedCheckpoint.Start()
 	go d.BeaconETHV1EventsHead.Start()
-	go d.BeaconETHV1EventsVoluntaryExit.Start()
-	go d.BeaconETHV1EventsContributionAndProof.Start()
 	go d.BeaconETHV1EventsBlobSidecar.Start()
 }
