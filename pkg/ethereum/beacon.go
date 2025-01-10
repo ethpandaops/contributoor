@@ -538,9 +538,7 @@ func (b *BeaconNode) handleDecoratedEvent(ctx context.Context, event events.Even
 		eventType = unknown
 	}
 
-	if b.metrics != nil {
-		b.metrics.AddDecoratedEvent(1, eventType, networkStr)
-	}
+	b.metrics.AddDecoratedEvent(1, eventType, networkStr)
 	b.summary.AddEventsExported(1)
 
 	// Send to all sinks.
