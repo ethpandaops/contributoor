@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,7 +16,6 @@ import (
 type Summary struct {
 	log               logrus.FieldLogger
 	printInterval     time.Duration
-	beacon            BeaconDataProvider
 	eventStreamEvents sync.Map
 	eventsExported    atomic.Uint64
 	failedEvents      atomic.Uint64
@@ -30,11 +28,10 @@ type topicCount struct {
 }
 
 // NewSummary creates a new summary with the given print interval.
-func NewSummary(log logrus.FieldLogger, printInterval time.Duration, beacon BeaconDataProvider) *Summary {
+func NewSummary(log logrus.FieldLogger, printInterval time.Duration) *Summary {
 	return &Summary{
 		log:           log,
 		printInterval: printInterval,
-		beacon:        beacon,
 	}
 }
 
@@ -56,18 +53,12 @@ func (s *Summary) Start(ctx context.Context) {
 
 // Print prints the summary on interval.
 func (s *Summary) Print() {
+	// Build a sorted slice of event stream topics and counts.
 	var (
-		isSyncing = "unknown"
-		status    = s.beacon.Node().Status()
-		events    = s.GetEventStreamEvents()
+		events       = s.GetEventStreamEvents()
+		sortedEvents = make([]topicCount, 0, len(events))
 	)
 
-	if status != nil {
-		isSyncing = strconv.FormatBool(status.Syncing())
-	}
-
-	// Build a sorted slice of event stream topics and counts.
-	sortedEvents := make([]topicCount, 0, len(events))
 	for topic, count := range events {
 		sortedEvents = append(sortedEvents, topicCount{topic, count})
 	}
@@ -87,8 +78,6 @@ func (s *Summary) Print() {
 	s.log.WithFields(logrus.Fields{
 		"events_exported":     s.GetEventsExported(),
 		"events_failed":       s.GetFailedEvents(),
-		"node_is_healthy":     s.beacon.Node().Healthy(),
-		"node_is_syncing":     isSyncing,
 		"event_stream_events": eventStream,
 	}).Infof("Summary of the last %s", s.printInterval)
 
@@ -117,11 +106,13 @@ func (s *Summary) GetFailedEvents() uint64 {
 
 // AddEventStreamEvents adds the given count to the event stream topic.
 func (s *Summary) AddEventStreamEvents(topic string, count uint64) {
-	current, _ := s.eventStreamEvents.LoadOrStore(topic, count)
-
-	curr, _ := current.(uint64)
-
-	s.eventStreamEvents.Store(topic, curr+count)
+	value, loaded := s.eventStreamEvents.Load(topic)
+	if loaded {
+		currentCount, _ := value.(uint64)
+		s.eventStreamEvents.Store(topic, currentCount+count)
+	} else {
+		s.eventStreamEvents.Store(topic, count)
+	}
 }
 
 // GetEventStreamEvents returns the event stream topics and counts.
@@ -141,5 +132,11 @@ func (s *Summary) GetEventStreamEvents() map[string]uint64 {
 func (s *Summary) Reset() {
 	s.eventsExported.Store(0)
 	s.failedEvents.Store(0)
-	s.eventStreamEvents = sync.Map{}
+
+	// Clear the map by deleting all entries.
+	s.eventStreamEvents.Range(func(key, _ interface{}) bool {
+		s.eventStreamEvents.Delete(key)
+
+		return true
+	})
 }

@@ -32,6 +32,7 @@ type contributoor struct {
 	sinks         []sinks.ContributoorSink
 	cache         *events.DuplicateCache
 	summary       *events.Summary
+	metrics       *events.Metrics
 	metricsServer *http.Server
 	pprofServer   *http.Server
 }
@@ -89,11 +90,15 @@ func main() {
 				return err
 			}
 
-			if err := s.initBeaconNode(); err != nil {
+			if err := s.initMetrics(); err != nil {
 				return err
 			}
 
 			if err := s.initSummary(); err != nil {
+				return err
+			}
+
+			if err := s.initBeaconNode(); err != nil {
 				return err
 			}
 
@@ -162,6 +167,7 @@ func (s *contributoor) start(ctx context.Context) error {
 	}
 
 	s.cache.Start()
+	go s.summary.Start(ctx)
 
 	return s.beaconNode.Start(ctx)
 }
@@ -298,8 +304,14 @@ func (s *contributoor) initCache() error {
 	return nil
 }
 
+func (s *contributoor) initMetrics() error {
+	s.metrics = events.NewMetrics("contributoor")
+
+	return nil
+}
+
 func (s *contributoor) initSummary() error {
-	s.summary = events.NewSummary(s.log, 10*time.Second, s.beaconNode)
+	s.summary = events.NewSummary(s.log, 10*time.Second)
 
 	return nil
 }
@@ -315,6 +327,8 @@ func (s *contributoor) initBeaconNode() error {
 		s.sinks,
 		s.clockDrift,
 		s.cache,
+		s.summary,
+		s.metrics,
 		&ethereum.Options{},
 	)
 	if err != nil {

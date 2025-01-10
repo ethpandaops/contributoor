@@ -36,6 +36,8 @@ type BeaconNode struct {
 	dutiesSvc   *services.DutiesService
 	sinks       []sinks.ContributoorSink
 	cache       *events.DuplicateCache
+	summary     *events.Summary
+	metrics     *events.Metrics
 }
 
 // NewBeaconNode creates a new beacon node instance with the given configuration. It initializes any services and
@@ -47,6 +49,8 @@ func NewBeaconNode(
 	sinks []sinks.ContributoorSink,
 	clockDrift clockdrift.ClockDrift,
 	cache *events.DuplicateCache,
+	summary *events.Summary,
+	metrics *events.Metrics,
 	opt *Options,
 ) (*BeaconNode, error) {
 	// Set default options and disable prometheus metrics.
@@ -87,6 +91,8 @@ func NewBeaconNode(
 		sinks:       sinks,
 		services:    []services.Service{&metadata, &duties},
 		cache:       cache,
+		summary:     summary,
+		metrics:     metrics,
 	}, nil
 }
 
@@ -267,6 +273,13 @@ func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
 
 //nolint:gocyclo // splitting apart is unnecessary, keep subscriptions together.
 func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
+	// Track events received.
+	b.beacon.OnEvent(ctx, func(ctx context.Context, event *eth2v1.Event) error {
+		b.summary.AddEventStreamEvents(event.Topic, 1)
+
+		return nil
+	})
+
 	// Subscribe to attestations.
 	b.beacon.OnAttestation(ctx, func(ctx context.Context, attestation *phase0.Attestation) error {
 		now := b.clockDrift.Now()
@@ -287,14 +300,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to blocks.
@@ -317,14 +323,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to chain reorgs.
@@ -347,14 +346,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to head events.
@@ -377,14 +369,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to voluntary exits.
@@ -407,14 +392,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to contribution and proofs.
@@ -437,14 +415,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to finalized checkpoints.
@@ -467,14 +438,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	// Subscribe to blob sidecars.
@@ -497,14 +461,7 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 			return nil
 		}
 
-		// Send directly to sinks.
-		for _, sink := range b.sinks {
-			if err := sink.HandleEvent(ctx, event); err != nil {
-				b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-			}
-		}
-
-		return nil
+		return b.handleDecoratedEvent(ctx, event)
 	})
 
 	return nil
@@ -558,4 +515,48 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 			},
 		},
 	}, nil
+}
+
+func (b *BeaconNode) handleDecoratedEvent(ctx context.Context, event events.Event) error {
+	if err := b.Synced(ctx); err != nil {
+		return err
+	}
+
+	var (
+		unknown    = "unknown"
+		network    = event.Meta().GetClient().GetEthereum().GetNetwork().GetId()
+		networkStr = fmt.Sprintf("%d", network)
+		eventType  = event.Type()
+		failure    = false
+	)
+
+	if networkStr == "" || networkStr == "0" {
+		networkStr = unknown
+	}
+
+	if eventType == "" {
+		eventType = unknown
+	}
+
+	if b.metrics != nil {
+		b.metrics.AddDecoratedEvent(1, eventType, networkStr)
+	}
+	b.summary.AddEventsExported(1)
+
+	// Send to all sinks.
+	for _, sink := range b.sinks {
+		if err := sink.HandleEvent(ctx, event); err != nil {
+			b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
+
+			failure = true
+
+			continue
+		}
+	}
+
+	if failure {
+		b.summary.AddFailedEvents(1)
+	}
+
+	return nil
 }
