@@ -1,0 +1,39 @@
+# Wait for GitHub to register the PR with retries
+echo "Waiting for GitHub to register the PR..."
+for i in {1..5}; do
+  if gh pr view "$PR_URL" &>/dev/null; then
+    echo "PR found!"
+    break
+  fi
+  echo "Attempt $i: PR not found, waiting 30 seconds..."
+  sleep 30
+  if [ $i -eq 5 ]; then
+    echo "PR not found after 5 attempts: $PR_URL"
+    exit 1
+  fi
+done
+
+# Wait for checks to complete (timeout after 15 minutes)
+echo "Waiting for checks to complete..." 
+
+# Enable auto-merge
+gh pr merge --auto --merge "$PR_URL"
+
+# Wait for PR to be mergeable (checks to complete)
+echo "Waiting for checks to complete..."
+while true; do
+  STATUS=$(gh pr view $PR_NUMBER --json mergeable,state -q '.mergeable + "," + .state')
+  if [[ "$STATUS" == "MERGEABLE,MERGED" ]]; then
+    echo "PR merged successfully!"
+    break
+  elif [[ "$STATUS" == "CONFLICTING"* ]]; then
+    echo "PR has conflicts"
+    exit 1
+  elif [[ "$STATUS" == "UNKNOWN"* ]]; then
+    echo "Checks still running..."
+    sleep 30
+  else
+    echo "Current status: $STATUS"
+    sleep 30
+  fi
+done 
