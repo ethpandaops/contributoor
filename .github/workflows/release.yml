@@ -67,7 +67,7 @@ jobs:
       - name: Trigger contributoor-installer update
         uses: peter-evans/repository-dispatch@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PANDA_OPS_BOT_PAT }}
           repository: ethpandaops/contributoor-installer
           event-type: update-contributoor
           client-payload: '{"version": "${{ steps.get_version.outputs.VERSION }}"}'
