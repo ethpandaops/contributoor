@@ -4,3 +4,7 @@
 # Any go workspace files a user may have created.
 go.work
 go.work.sum
+
+# Contributoor
+config.yaml
+dist

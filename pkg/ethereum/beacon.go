@@ -10,6 +10,7 @@ import (
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
+	"github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	v1 "github.com/ethpandaops/contributoor/internal/events/v1"
 	"github.com/ethpandaops/contributoor/internal/sinks"
@@ -411,10 +412,10 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 	return &xatu.Meta{
 		Client: &xatu.ClientMeta{
 			Name:           clientName,
-			Version:        xatu.Short(),
+			Version:        contributoor.Short(),
 			Id:             uuid.New().String(),
-			Implementation: xatu.Implementation,
-			ModuleName:     xatu.ModuleName_SENTRY,
+			Implementation: contributoor.Implementation,
+			ModuleName:     contributoor.Module,
 			Os:             runtime.GOOS,
 			ClockDrift:     uint64(b.clockDrift.GetDrift().Milliseconds()),
 			Ethereum: &xatu.ClientMeta_Ethereum{

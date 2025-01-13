@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
+	contr "github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
@@ -76,6 +77,8 @@ func main() {
 				"config_path": s.config.ContributoorDirectory,
 				"name":        s.name,
 				"version":     s.config.Version,
+				"commit":      contr.GitCommit,
+				"release":     contr.Release,
 			}).Info("Starting contributoor")
 
 			if err := s.initClockDrift(ctx); err != nil {
