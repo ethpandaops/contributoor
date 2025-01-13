@@ -15,6 +15,9 @@ builds:
     goarch:
       - amd64
       - arm64
+    ldflags:
+      - -s -w -X github.com/ethpandaops/contributoor/internal/contributoor.Release={{.Tag}} -X github.com/ethpandaops/contributoor/internal/contributoor.GitCommit={{.ShortCommit}} -X github.com/ethpandaops/contributoor/internal/contributoor.GOOS={{.Os}} -X github.com/ethpandaops/contributoor/internal/contributoor.GOARCH={{.Arch}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
 
 dockers:
   - image_templates:
