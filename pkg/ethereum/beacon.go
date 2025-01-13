@@ -50,7 +50,17 @@ func NewBeaconNode(
 ) (*BeaconNode, error) {
 	// Set default options and disable prometheus metrics.
 	opts := *beacon.DefaultOptions().DisablePrometheusMetrics()
-	opts.EnableDefaultBeaconSubscription()
+
+	opts.BeaconSubscription = beacon.BeaconSubscriptionOptions{
+		Enabled: true,
+		Topics: []string{
+			"block",
+			"head",
+			"finalized_checkpoint",
+			"blob_sidecar",
+			"chain_reorg",
+		},
+	}
 
 	// Configure beacon subscriptions if provided, otherwise use defaults.
 	if config.BeaconSubscriptions != nil {
