@@ -55,3 +55,19 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trigger-installer-update:
+    needs: [goreleaser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Trigger contributoor-installer update
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ethpandaops/contributoor-installer
+          event-type: update-contributoor
+          client-payload: '{"version": "${{ steps.get_version.outputs.VERSION }}"}'
