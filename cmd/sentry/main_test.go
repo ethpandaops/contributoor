@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethpandaops/contributoor/pkg/config/v1"
+	config "github.com/ethpandaops/bamboo/proto/contributoor/config/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

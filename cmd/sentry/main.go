@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ethpandaops/contributoor/internal/clockdrift"
+	"github.com/ethpandaops/bamboo/pkg/clockdrift"
+	config "github.com/ethpandaops/bamboo/proto/contributoor/config/v1"
 	contr "github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/internal/sinks"
-	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
