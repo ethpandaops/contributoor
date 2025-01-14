@@ -169,10 +169,10 @@ func TestConfig_GetMetricsHostPort(t *testing.T) {
 		expectedPort string
 	}{
 		{
-			name:         "empty address returns defaults",
+			name:         "empty address returns empty strings",
 			config:       &Config{MetricsAddress: ""},
-			expectedHost: defaultMetricsHost,
-			expectedPort: defaultMetricsPort,
+			expectedHost: "",
+			expectedPort: "",
 		},
 		{
 			name:         "port only",
