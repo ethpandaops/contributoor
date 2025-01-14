@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec // pprof only enabled if pprofAddr config is set.
 	"os"
@@ -211,24 +212,34 @@ func (s *contributoor) stop(ctx context.Context) error {
 }
 
 func (s *contributoor) startMetricsServer() error {
+	metricsHost, metricsPort := s.config.GetMetricsHostPort()
+	if metricsHost == "" {
+		return nil
+	}
+
+	var addr = fmt.Sprintf(":%s", metricsPort)
+
+	// Start listening before creating the server to catch invalid addresses.
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to start metrics server: %w", err)
+	}
+
 	sm := http.NewServeMux()
 	sm.Handle("/metrics", promhttp.Handler())
 
-	var (
-		_, metricsPort = s.config.GetMetricsHostPort()
-		addr           = fmt.Sprintf(":%s", metricsPort)
-	)
-
-	s.metricsServer = &http.Server{
+	server := &http.Server{
 		Addr:              addr,
 		ReadHeaderTimeout: 15 * time.Second,
 		Handler:           sm,
 	}
 
+	s.metricsServer = server
+
 	s.log.Infof("Serving metrics at %s", addr)
 
 	go func() {
-		if err := s.metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			s.log.Fatal(err)
 		}
 	}()
@@ -244,15 +255,23 @@ func (s *contributoor) startPProfServer() error {
 
 	var addr = fmt.Sprintf(":%s", pprofPort)
 
-	s.pprofServer = &http.Server{
+	// Start listening before creating the server to catch invalid addresses.
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to start pprof server: %w", err)
+	}
+
+	server := &http.Server{
 		Addr:              addr,
 		ReadHeaderTimeout: 120 * time.Second,
 	}
 
+	s.pprofServer = server
+
 	s.log.Infof("Serving pprof at %s", addr)
 
 	go func() {
-		if err := s.pprofServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			s.log.Fatal(err)
 		}
 	}()

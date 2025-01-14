@@ -137,6 +137,10 @@ func ParseAddress(address, defaultHost, defaultPort string) (host, port string) 
 // GetMetricsHostPort returns the metrics host and port.
 // If MetricsAddress is not set, returns default values.
 func (c *Config) GetMetricsHostPort() (host, port string) {
+	if c.MetricsAddress == "" {
+		return "", ""
+	}
+
 	return ParseAddress(c.MetricsAddress, defaultMetricsHost, defaultMetricsPort)
 }
 
