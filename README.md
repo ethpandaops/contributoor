@@ -27,7 +27,7 @@ The [contributoor-installer](https://github.com/ethpandaops/contributoor-install
 # The address of your beacon node's HTTP API.
 beaconNodeAddress: http://127.0.0.1:64692
 
-# The address of your metrics server (defaults to :9090).
+# The address of your metrics server (optional, disabled if empty).
 metricsAddress: ":9090"
 
 # The log level (debug, info, warn, error).
