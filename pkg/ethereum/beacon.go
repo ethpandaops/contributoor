@@ -240,6 +240,13 @@ func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
 	b.metadataSvc.OnReady(ctx, func(ctx context.Context) error {
 		b.log.WithField("service", b.metadataSvc.Name()).Info("Service is ready")
 
+		hashed, err := b.metadataSvc.NodeIDHash()
+		if err != nil {
+			return err
+		}
+
+		b.log.WithField("node_id", hashed).Info("Beacon node ID hash")
+
 		return nil
 	})
 
