@@ -1,18 +1,18 @@
 module github.com/ethpandaops/contributoor
 
-go 1.23
+go 1.23.4
+
+replace github.com/ethpandaops/bamboo => ../bamboo
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.35.2-20241127180247-a33202765966.1
 	github.com/attestantio/go-eth2-client v0.21.9
-	github.com/beevik/ntp v1.4.3
-	github.com/bufbuild/protovalidate-go v0.8.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/creasty/defaults v1.8.0
+	github.com/ethpandaops/bamboo v0.0.0-00010101000000-000000000000
 	github.com/ethpandaops/beacon v0.45.0
 	github.com/ethpandaops/ethwallclock v0.3.0
 	github.com/ethpandaops/xatu v1.0.24
-	github.com/go-co-op/gocron v1.27.1
+	github.com/go-co-op/gocron v1.37.0
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
@@ -22,11 +22,11 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.5
 	go.uber.org/mock v0.5.0
-	google.golang.org/protobuf v1.36.0
-	gopkg.in/yaml.v3 v3.0.1
+	google.golang.org/protobuf v1.36.2
 )
 
 require (
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.2-20241127180247-a33202765966.1 // indirect
 	cel.dev/expr v0.18.0 // indirect
 	github.com/IBM/sarama v1.43.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
@@ -36,9 +36,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kinesis v1.27.3 // indirect
 	github.com/aws/smithy-go v1.20.1 // indirect
+	github.com/beevik/ntp v1.4.3 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
+	github.com/bufbuild/protovalidate-go v0.8.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chuckpreslar/emission v0.0.0-20170206194824-a7ddd980baf9 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
@@ -201,5 +203,6 @@ require (
 	gopkg.in/Knetic/govaluate.v3 v3.0.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )

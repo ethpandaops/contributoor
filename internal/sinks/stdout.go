@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/creasty/defaults"
+	"github.com/ethpandaops/bamboo/proto/contributoor/config/v1"
 	"github.com/ethpandaops/contributoor/internal/events"
-	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/xatu/pkg/output"
 	"github.com/ethpandaops/xatu/pkg/output/stdout"
 	"github.com/ethpandaops/xatu/pkg/processor"

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/ethpandaops/bamboo/pkg/clockdrift"
 	"github.com/ethpandaops/beacon/pkg/beacon"
-	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	v1 "github.com/ethpandaops/contributoor/internal/events/v1"
