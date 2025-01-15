@@ -152,12 +152,10 @@ func newContributoor(c *cli.Context) (*contributoor, error) {
 		return nil, err
 	}
 
-	name := fmt.Sprintf("%s_contributoor", strings.ToLower(cfg.NetworkName.String()))
-
 	return &contributoor{
 		log:    log.WithField("module", "contributoor"),
 		config: cfg,
-		name:   name,
+		name:   strings.ToLower(cfg.NetworkName.DisplayName()),
 	}, nil
 }
 
