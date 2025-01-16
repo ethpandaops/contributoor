@@ -204,9 +204,16 @@ func main() {
 }
 
 func newContributoor(c *cli.Context) (*contributoor, error) {
-	cfg, err := config.NewConfigFromPath(c.String("config"))
-	if err != nil {
-		return nil, err
+	cfg := config.NewDefaultConfig()
+
+	configLocation := c.String("config")
+	if configLocation != "" {
+		configFromFile, err := config.NewConfigFromPath(configLocation)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg = configFromFile
 	}
 
 	if err := applyConfigOverridesFromFlags(cfg, c); err != nil {
