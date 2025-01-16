@@ -131,6 +131,10 @@ go test -race -failfast -cover -coverpkg=./... -coverprofile=coverage.out ./... 
 
 </details>
 
-## 🤝 Contributing
+## 📊 Share Your Node Data
+
+Help improve Ethereum by contributing your node's data to our research. Data is published openly in a privacy-focused manner and used for research and analysis. Let us know if you're interested by completing this [form](https://docs.google.com/forms/d/e/1FAIpQLSfSCHLZv2xdDKceQ3ajzYbkm2jkQnG0lVBhjEX4c1Jxvf8QfA/viewform).
+
+## 🤝 Contributing Code
 
 Contributoor is part of EthPandaOps' suite of tools for Ethereum network operations. Contributions are welcome! Please check our [GitHub repository](https://github.com/ethpandaops) for more information.
