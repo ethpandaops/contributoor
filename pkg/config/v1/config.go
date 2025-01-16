@@ -88,7 +88,7 @@ func NewDefaultConfig() *Config {
 		PprofAddress:          "",
 		OutputServer: &OutputServer{
 			Address:     "xatu.primary.production.platform.ethpandaops.io:443",
-			Credentials: "YWRtaW46YWRtaW4=",
+			Credentials: "",
 			Tls:         true,
 		},
 	}
