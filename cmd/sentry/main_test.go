@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"encoding/base64"
+
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 )
 
 func TestStartMetricsServer(t *testing.T) {
@@ -152,4 +155,132 @@ func waitForServer(t *testing.T, addr string) {
 	}
 
 	t.Fatalf("Server at %s did not start within deadline", addr)
+}
+
+func TestApplyConfigOverridesFromFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		validate func(*testing.T, *config.Config)
+	}{
+		{
+			name: "network override",
+			args: []string{"--network", "sepolia"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				assert.Equal(t, config.NetworkName_NETWORK_NAME_SEPOLIA, cfg.NetworkName)
+			},
+		},
+		{
+			name: "beacon node address override",
+			args: []string{"--beacon-node-address", "http://localhost:5052"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				assert.Equal(t, "http://localhost:5052", cfg.BeaconNodeAddress)
+			},
+		},
+		{
+			name: "metrics address override",
+			args: []string{"--metrics-address", "localhost:9091"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				assert.Equal(t, "localhost:9091", cfg.MetricsAddress)
+			},
+		},
+		{
+			name: "log level override",
+			args: []string{"--log-level", "debug"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				assert.Equal(t, "debug", cfg.LogLevel)
+			},
+		},
+		{
+			name: "output server address override",
+			args: []string{"--output-server-address", "localhost:8080"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.OutputServer)
+				assert.Equal(t, "localhost:8080", cfg.OutputServer.Address)
+			},
+		},
+		{
+			name: "output server credentials override",
+			args: []string{"--username", "user", "--password", "pass"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.OutputServer)
+				expected := base64.StdEncoding.EncodeToString([]byte("user:pass"))
+				assert.Equal(t, expected, cfg.OutputServer.Credentials)
+			},
+		},
+		{
+			name: "output server tls override",
+			args: []string{"--output-server-tls", "true"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.OutputServer)
+				assert.True(t, cfg.OutputServer.Tls)
+			},
+		},
+		{
+			name: "multiple overrides",
+			args: []string{
+				"--network", "sepolia",
+				"--beacon-node-address", "http://localhost:5052",
+				"--metrics-address", "localhost:9091",
+				"--log-level", "debug",
+			},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				assert.Equal(t, config.NetworkName_NETWORK_NAME_SEPOLIA, cfg.NetworkName)
+				assert.Equal(t, "http://localhost:5052", cfg.BeaconNodeAddress)
+				assert.Equal(t, "localhost:9091", cfg.MetricsAddress)
+				assert.Equal(t, "debug", cfg.LogLevel)
+			},
+		},
+		{
+			name: "output server credentials override with special chars",
+			args: []string{"--username", "user", "--password", "pass!@#$%^&*()"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.OutputServer)
+				expected := base64.StdEncoding.EncodeToString([]byte("user:pass!@#$%^&*()"))
+				assert.Equal(t, expected, cfg.OutputServer.Credentials)
+
+				// Verify it's valid base64 and decodes back correctly
+				decoded, err := base64.StdEncoding.DecodeString(cfg.OutputServer.Credentials)
+				require.NoError(t, err)
+				assert.Equal(t, "user:pass!@#$%^&*()", string(decoded))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.StringFlag{Name: "network"},
+				&cli.StringFlag{Name: "beacon-node-address"},
+				&cli.StringFlag{Name: "metrics-address"},
+				&cli.StringFlag{Name: "log-level"},
+				&cli.StringFlag{Name: "output-server-address"},
+				&cli.StringFlag{Name: "username"},
+				&cli.StringFlag{Name: "password"},
+				&cli.StringFlag{Name: "output-server-tls"},
+			}
+
+			// Create a base config
+			cfg := &config.Config{}
+
+			app.Action = func(c *cli.Context) error {
+				return applyConfigOverridesFromFlags(cfg, c)
+			}
+
+			err := app.Run(append([]string{"contributoor"}, tt.args...))
+			require.NoError(t, err)
+
+			tt.validate(t, cfg)
+		})
+	}
 }
