@@ -422,7 +422,7 @@ func (s *contributoor) initBeaconNode() error {
 	b, err := ethereum.NewBeaconNode(
 		s.log,
 		&ethereum.Config{
-			BeaconNodeAddress:   s.config.NodeAddress(),
+			BeaconNodeAddress:   s.config.BeaconNodeAddress,
 			OverrideNetworkName: s.name,
 		},
 		s.name,
