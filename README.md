@@ -78,6 +78,37 @@ The `config.yaml` would have been generated for you by the installer.
 </details>
 
 <details>
+  <summary>Available CLI Flags</summary>
+
+All configuration options can be overridden via CLI flags:
+
+```bash
+--config string                    # Config file path
+--debug                           # Enable debug mode
+--network string                  # Ethereum network name (mainnet, sepolia, holesky)
+--beacon-node-address string      # Address of the beacon node API (e.g. http://localhost:5052)
+--metrics-address string          # Address of the metrics server (e.g. :9091)
+--log-level string               # Log level (debug, info, warn, error)
+--username string                # Username for the output server
+--password string                # Password for the output server
+--output-server-address string    # Address of the output server (e.g. xatu.primary.production.platform.ethpandaops.io:443)
+--output-server-tls string       # Enable TLS for the output server (true/false)
+--contributoor-directory string   # Directory where contributoor stores configuration and data
+```
+
+Example with multiple flags:
+```bash
+go run ./cmd/sentry/main.go \
+  --config ./config.yaml \
+  --debug true \
+  --network sepolia \
+  --beacon-node-address http://localhost:5052 \
+  --metrics-address localhost:9091 \
+  --log-level debug
+```
+</details>
+
+<details>
   <summary>Code Generation</summary>
 
 Generate protocol buffers and other generated code:
