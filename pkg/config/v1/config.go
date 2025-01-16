@@ -182,3 +182,90 @@ func (c *Config) NodeAddress() string {
 
 	return c.BeaconNodeAddress
 }
+
+// SetNetwork sets the network name.
+func (c *Config) SetNetwork(network string) {
+	if network == "" {
+		return
+	}
+
+	switch strings.ToLower(network) {
+	case "mainnet":
+		c.NetworkName = NetworkName_NETWORK_NAME_MAINNET
+	case "sepolia":
+		c.NetworkName = NetworkName_NETWORK_NAME_SEPOLIA
+	case "holesky":
+		c.NetworkName = NetworkName_NETWORK_NAME_HOLESKY
+	}
+}
+
+// SetBeaconNodeAddress sets the beacon node address.
+func (c *Config) SetBeaconNodeAddress(address string) {
+	if address == "" {
+		return
+	}
+
+	c.BeaconNodeAddress = address
+}
+
+// SetMetricsAddress sets the metrics address.
+func (c *Config) SetMetricsAddress(address string) {
+	if address == "" {
+		return
+	}
+
+	c.MetricsAddress = address
+}
+
+// SetLogLevel sets the log level.
+func (c *Config) SetLogLevel(level string) {
+	if level == "" {
+		return
+	}
+
+	c.LogLevel = level
+}
+
+// SetOutputServerAddress sets the output server address.
+func (c *Config) SetOutputServerAddress(address string) {
+	if address == "" {
+		return
+	}
+
+	if c.OutputServer == nil {
+		c.OutputServer = &OutputServer{}
+	}
+
+	c.OutputServer.Address = address
+}
+
+// SetOutputServerCredentials sets the output server credentials.
+func (c *Config) SetOutputServerCredentials(creds string) {
+	if creds == "" {
+		return
+	}
+
+	if c.OutputServer == nil {
+		c.OutputServer = &OutputServer{}
+	}
+
+	c.OutputServer.Credentials = creds
+}
+
+// SetOutputServerTLS sets whether to use TLS for the output server.
+func (c *Config) SetOutputServerTLS(useTLS bool) {
+	if c.OutputServer == nil {
+		c.OutputServer = &OutputServer{}
+	}
+
+	c.OutputServer.Tls = useTLS
+}
+
+// SetContributoorDirectory sets the contributoor directory.
+func (c *Config) SetContributoorDirectory(dir string) {
+	if dir == "" {
+		return
+	}
+
+	c.ContributoorDirectory = dir
+}

@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec // pprof only enabled if pprofAddr config is set.
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -60,12 +63,66 @@ func main() {
 			&cli.StringFlag{
 				Name:     "config",
 				Usage:    "config file path",
-				Required: true,
+				Required: false,
 			},
 			&cli.BoolFlag{
 				Name:  "debug",
 				Usage: "debug mode",
 				Value: false,
+			},
+			&cli.StringFlag{
+				Name:     "network",
+				Usage:    "ethereum network name (mainnet, sepolia, holesky)",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "beacon-node-address",
+				Usage:    "address of the beacon node api (e.g. http://localhost:5052)",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "metrics-address",
+				Usage:    "address of the metrics server",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "log-level",
+				Usage:    "log level (debug, info, warn, error)",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "output-server-address",
+				Usage:    "address of the output server",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "username",
+				Usage:    "username for the output server",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "password",
+				Usage:    "password for the output server",
+				Value:    "",
+				Required: false,
+			},
+			// Can't use bool flag here because it doesn't have a "nil" value.
+			&cli.StringFlag{
+				Name:     "output-server-tls",
+				Usage:    "enable TLS for the output server",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "contributoor-directory",
+				Usage:    "directory where contributoor stores configuration and data",
+				Required: false,
 			},
 		},
 		Action: func(c *cli.Context) error {
@@ -150,6 +207,10 @@ func newContributoor(c *cli.Context) (*contributoor, error) {
 	cfg, err := config.NewConfigFromPath(c.String("config"))
 	if err != nil {
 		return nil, err
+	}
+
+	if err := applyConfigOverridesFromFlags(cfg, c); err != nil {
+		return nil, errors.Wrap(err, "failed to apply config overrides from cli flags")
 	}
 
 	return &contributoor{
@@ -356,6 +417,63 @@ func (s *contributoor) initBeaconNode() error {
 	}
 
 	s.beaconNode = b
+
+	return nil
+}
+
+// applyConfigOverridesFromFlags applies CLI flags to the config if they are set.
+func applyConfigOverridesFromFlags(cfg *config.Config, c *cli.Context) error {
+	// Apply CLI flags to config if they are set.
+	if c.String("network") != "" {
+		log.Infof("Overriding network to %s", c.String("network"))
+
+		cfg.SetNetwork(c.String("network"))
+	}
+
+	if c.String("beacon-node-address") != "" {
+		log.Infof("Overriding beacon node address")
+
+		cfg.SetBeaconNodeAddress(c.String("beacon-node-address"))
+	}
+
+	if c.String("metrics-address") != "" {
+		log.Infof("Overriding metrics address to %s", c.String("metrics-address"))
+
+		cfg.SetMetricsAddress(c.String("metrics-address"))
+	}
+
+	if c.String("log-level") != "" {
+		log.Infof("Overriding log level to %s", c.String("log-level"))
+
+		cfg.SetLogLevel(c.String("log-level"))
+	}
+
+	if c.String("output-server-address") != "" {
+		log.Infof("Overriding output server address")
+
+		cfg.SetOutputServerAddress(c.String("output-server-address"))
+	}
+
+	if c.String("username") != "" || c.String("password") != "" {
+		log.Infof("Overriding output server credentials")
+
+		cfg.SetOutputServerCredentials(
+			base64.StdEncoding.EncodeToString(
+				[]byte(fmt.Sprintf("%s:%s", c.String("username"), c.String("password"))),
+			),
+		)
+	}
+
+	if c.String("output-server-tls") != "" {
+		log.Infof("Overriding output server tls to %s", c.String("output-server-tls"))
+
+		tls, err := strconv.ParseBool(c.String("output-server-tls"))
+		if err != nil {
+			return errors.Wrap(err, "failed to parse output server tls flag")
+		}
+
+		cfg.SetOutputServerTLS(tls)
+	}
 
 	return nil
 }
