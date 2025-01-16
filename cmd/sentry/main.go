@@ -124,6 +124,20 @@ func main() {
 				Usage:    "directory where contributoor stores configuration and data",
 				Required: false,
 			},
+			&cli.BoolFlag{
+				Name:     "release",
+				Usage:    "print release and exit",
+				Required: false,
+			},
+		},
+		Before: func(c *cli.Context) error {
+			if c.Bool("release") {
+				fmt.Printf("%s\n", contr.Release)
+
+				os.Exit(0)
+			}
+
+			return nil
 		},
 		Action: func(c *cli.Context) error {
 			s, err := newContributoor(c)
