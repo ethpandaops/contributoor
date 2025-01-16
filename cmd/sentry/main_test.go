@@ -167,6 +167,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			name: "network override",
 			args: []string{"--network", "sepolia"},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				assert.Equal(t, config.NetworkName_NETWORK_NAME_SEPOLIA, cfg.NetworkName)
 			},
 		},
@@ -174,6 +175,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			name: "beacon node address override",
 			args: []string{"--beacon-node-address", "http://localhost:5052"},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				assert.Equal(t, "http://localhost:5052", cfg.BeaconNodeAddress)
 			},
 		},
@@ -181,6 +183,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			name: "metrics address override",
 			args: []string{"--metrics-address", "localhost:9091"},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				assert.Equal(t, "localhost:9091", cfg.MetricsAddress)
 			},
 		},
@@ -188,6 +191,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			name: "log level override",
 			args: []string{"--log-level", "debug"},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				assert.Equal(t, "debug", cfg.LogLevel)
 			},
 		},
@@ -195,6 +199,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			name: "output server address override",
 			args: []string{"--output-server-address", "localhost:8080"},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				require.NotNil(t, cfg.OutputServer)
 				assert.Equal(t, "localhost:8080", cfg.OutputServer.Address)
 			},
@@ -203,6 +208,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			name: "output server credentials override",
 			args: []string{"--username", "user", "--password", "pass"},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				require.NotNil(t, cfg.OutputServer)
 				expected := base64.StdEncoding.EncodeToString([]byte("user:pass"))
 				assert.Equal(t, expected, cfg.OutputServer.Credentials)
@@ -212,6 +218,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			name: "output server tls override",
 			args: []string{"--output-server-tls", "true"},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				require.NotNil(t, cfg.OutputServer)
 				assert.True(t, cfg.OutputServer.Tls)
 			},
@@ -225,10 +232,26 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 				"--log-level", "debug",
 			},
 			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
 				assert.Equal(t, config.NetworkName_NETWORK_NAME_SEPOLIA, cfg.NetworkName)
 				assert.Equal(t, "http://localhost:5052", cfg.BeaconNodeAddress)
 				assert.Equal(t, "localhost:9091", cfg.MetricsAddress)
 				assert.Equal(t, "debug", cfg.LogLevel)
+			},
+		},
+		{
+			name: "output server credentials override with special chars",
+			args: []string{"--username", "user", "--password", "pass!@#$%^&*()"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.OutputServer)
+				expected := base64.StdEncoding.EncodeToString([]byte("user:pass!@#$%^&*()"))
+				assert.Equal(t, expected, cfg.OutputServer.Credentials)
+
+				// Verify it's valid base64 and decodes back correctly
+				decoded, err := base64.StdEncoding.DecodeString(cfg.OutputServer.Credentials)
+				require.NoError(t, err)
+				assert.Equal(t, "user:pass!@#$%^&*()", string(decoded))
 			},
 		},
 	}
