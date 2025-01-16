@@ -63,20 +63,6 @@ runMethod: RUN_METHOD_DOCKER
 ```
 </details>
 
-## 🔨 Development
-
-<details>
-  <summary>Running Locally</summary>
-
-To run Contributoor in development mode:
-
-```bash
-go run ./cmd/sentry/main.go --config /path/to/.contributoor/config.yaml --debug true
-```
-
-The `config.yaml` would have been generated for you by the installer.
-</details>
-
 <details>
   <summary>Available CLI Flags</summary>
 
@@ -107,6 +93,21 @@ go run ./cmd/sentry/main.go \
   --log-level debug
 ```
 </details>
+
+## 🔨 Development
+
+<details>
+  <summary>Running Locally</summary>
+
+To run Contributoor in development mode:
+
+```bash
+go run ./cmd/sentry/main.go --config /path/to/.contributoor/config.yaml --debug true
+```
+
+The `config.yaml` would have been generated for you by the installer.
+</details>
+
 
 <details>
   <summary>Code Generation</summary>

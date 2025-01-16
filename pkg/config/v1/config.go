@@ -75,6 +75,25 @@ func NewConfigFromPath(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// NewDefaultConfig returns a new default config.
+func NewDefaultConfig() *Config {
+	return &Config{
+		LogLevel:              "info",
+		Version:               "",
+		ContributoorDirectory: "~/.contributoor",
+		RunMethod:             RunMethod_RUN_METHOD_DOCKER,
+		NetworkName:           NetworkName_NETWORK_NAME_MAINNET,
+		BeaconNodeAddress:     "http://localhost:5052",
+		MetricsAddress:        "",
+		PprofAddress:          "",
+		OutputServer: &OutputServer{
+			Address:     "xatu.primary.production.platform.ethpandaops.io:443",
+			Credentials: "YWRtaW46YWRtaW4=",
+			Tls:         true,
+		},
+	}
+}
+
 // DisplayName returns the display name of the network.
 func (n NetworkName) DisplayName() string {
 	switch n {
