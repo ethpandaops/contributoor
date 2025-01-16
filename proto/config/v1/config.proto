@@ -53,6 +53,8 @@ message Config {
   string pprof_address = 8;
   // OutputServer is the configuration for the output server.
   OutputServer output_server = 9;
+  // DockerNetwork is the name of the docker network to use.
+  string docker_network = 10;
 }
 
 // OutputServer represents configuration for the output server.
