@@ -20,18 +20,45 @@ builds:
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 dockers:
-  - image_templates:
-      - "ethpandaops/contributoor:{{ .Version }}"
-      - "ethpandaops/contributoor:latest"
+  - use: buildx
+    goos: linux
+    goarch: amd64
     dockerfile: Dockerfile
-    use: buildx
+    image_templates:
+      - "ethpandaops/contributoor:{{ .Version }}-amd64"
+      - "ethpandaops/contributoor:latest-amd64"
     build_flag_templates:
-      - "--platform=linux/amd64,linux/arm64"
+      - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
     extra_files:
       - go.mod
       - go.sum
+
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile
+    image_templates:
+      - "ethpandaops/contributoor:{{ .Version }}-arm64v8"
+      - "ethpandaops/contributoor:latest-arm64v8"
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - go.mod
+      - go.sum
+
+docker_manifests:
+  - name_template: ethpandaops/contributoor:{{ .Version }}
+    image_templates:
+      - ethpandaops/contributoor:{{ .Version }}-amd64
+      - ethpandaops/contributoor:{{ .Version }}-arm64v8
+  - name_template: ethpandaops/contributoor:latest
+    image_templates:
+      - ethpandaops/contributoor:latest-amd64
+      - ethpandaops/contributoor:latest-arm64v8
 
 archives:
   - format: tar.gz
