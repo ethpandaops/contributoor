@@ -397,6 +397,7 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 			networkMeta.Name = b.config.OverrideNetworkName
 		}
 	}
+
 	hashed, err := b.metadataSvc.NodeIDHash()
 	if err != nil {
 		return nil, err
