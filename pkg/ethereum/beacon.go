@@ -26,7 +26,6 @@ import (
 type BeaconNode struct {
 	config      *Config
 	log         logrus.FieldLogger
-	name        string
 	beacon      beacon.Node
 	clockDrift  clockdrift.ClockDrift
 	metadataSvc *services.MetadataService
@@ -41,7 +40,6 @@ type BeaconNode struct {
 func NewBeaconNode(
 	log logrus.FieldLogger,
 	config *Config,
-	name string,
 	sinks []sinks.ContributoorSink,
 	clockDrift clockdrift.ClockDrift,
 	cache *events.DuplicateCache,
@@ -77,7 +75,6 @@ func NewBeaconNode(
 
 	// Create the beacon node.
 	node := beacon.NewNode(log, &beacon.Config{
-		Name:    name,
 		Addr:    config.BeaconNodeAddress,
 		Headers: config.BeaconNodeHeaders,
 	}, "contributoor", opts)
@@ -88,7 +85,6 @@ func NewBeaconNode(
 	return &BeaconNode{
 		log:         log.WithField("module", "contributoor/ethereum/beacon"),
 		config:      config,
-		name:        name,
 		beacon:      node,
 		clockDrift:  clockDrift,
 		metadataSvc: &metadata,
@@ -401,15 +397,9 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 			networkMeta.Name = b.config.OverrideNetworkName
 		}
 	}
-
-	clientName := b.name
-	if clientName == "" {
-		hashed, err := b.metadataSvc.NodeIDHash()
-		if err != nil {
-			return nil, err
-		}
-
-		clientName = hashed
+	hashed, err := b.metadataSvc.NodeIDHash()
+	if err != nil {
+		return nil, err
 	}
 
 	// TODO(@matty):
@@ -418,7 +408,7 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 	//nolint:gosec // fine for clock drift.
 	return &xatu.Meta{
 		Client: &xatu.ClientMeta{
-			Name:           clientName,
+			Name:           hashed,
 			Version:        contributoor.Short(),
 			Id:             uuid.New().String(),
 			Implementation: contributoor.Implementation,
