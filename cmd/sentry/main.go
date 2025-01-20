@@ -31,7 +31,6 @@ var log = logrus.New()
 type contributoor struct {
 	log           logrus.FieldLogger
 	config        *config.Config
-	name          string
 	beaconNode    *ethereum.BeaconNode
 	clockDrift    clockdrift.ClockDrift
 	sinks         []sinks.ContributoorSink
@@ -147,7 +146,6 @@ func main() {
 
 			s.log.WithFields(logrus.Fields{
 				"config_path": s.config.ContributoorDirectory,
-				"name":        s.name,
 				"version":     s.config.Version,
 				"commit":      contr.GitCommit,
 				"release":     contr.Release,
@@ -237,7 +235,6 @@ func newContributoor(c *cli.Context) (*contributoor, error) {
 	return &contributoor{
 		log:    log.WithField("module", "contributoor"),
 		config: cfg,
-		name:   strings.ToLower(cfg.NetworkName.DisplayName()),
 	}, nil
 }
 
@@ -376,7 +373,7 @@ func (s *contributoor) initClockDrift(ctx context.Context) error {
 
 func (s *contributoor) initSinks(ctx context.Context, debug bool) error {
 	if debug {
-		stdoutSink, err := sinks.NewStdoutSink(log, s.config, s.name)
+		stdoutSink, err := sinks.NewStdoutSink(log, s.config, s.config.NetworkName.DisplayName())
 		if err != nil {
 			return err
 		}
@@ -384,7 +381,7 @@ func (s *contributoor) initSinks(ctx context.Context, debug bool) error {
 		s.sinks = append(s.sinks, stdoutSink)
 	}
 
-	xatuSink, err := sinks.NewXatuSink(log, s.config, s.name)
+	xatuSink, err := sinks.NewXatuSink(log, s.config, s.config.NetworkName.DisplayName())
 	if err != nil {
 		return err
 	}
@@ -423,9 +420,8 @@ func (s *contributoor) initBeaconNode() error {
 		s.log,
 		&ethereum.Config{
 			BeaconNodeAddress:   s.config.BeaconNodeAddress,
-			OverrideNetworkName: s.name,
+			OverrideNetworkName: strings.ToLower(s.config.NetworkName.DisplayName()),
 		},
-		s.name,
 		s.sinks,
 		s.clockDrift,
 		s.cache,
