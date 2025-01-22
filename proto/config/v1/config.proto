@@ -47,14 +47,16 @@ message Config {
     (buf.validate.field).string.uri = true,
     (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
   ];
-  // MetricsAddress is the address to serve metrics on.
+  // MetricsAddress is the (optional) address to serve metrics on.
   string metrics_address = 7;
-  // PprofAddress is the address to serve pprof on.
+  // PprofAddress is the (optional) address to serve pprof on.
   string pprof_address = 8;
   // OutputServer is the configuration for the output server.
   OutputServer output_server = 9;
   // DockerNetwork is the name of the docker network to use.
   string docker_network = 10;
+  // HealthCheckAddress is the (optional) address to serve healthcheck on.
+  string health_check_address = 11;
 }
 
 // OutputServer represents configuration for the output server.

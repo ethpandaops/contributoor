@@ -13,10 +13,12 @@ import (
 )
 
 const (
-	defaultMetricsHost = "127.0.0.1"
-	defaultMetricsPort = "9090"
-	defaultPprofHost   = "127.0.0.1"
-	defaultPprofPort   = "6060"
+	defaultMetricsHost     = "127.0.0.1"
+	defaultMetricsPort     = "9090"
+	defaultPprofHost       = "127.0.0.1"
+	defaultPprofPort       = "6060"
+	defaultHealthCheckHost = "127.0.0.1"
+	defaultHealthCheckPort = "9191"
 )
 
 // NewConfigFromPath loads a config from a YAML file and validates it.
@@ -151,6 +153,16 @@ func (c *Config) GetPprofHostPort() (host, port string) {
 	return ParseAddress(c.PprofAddress, defaultPprofHost, defaultPprofPort)
 }
 
+// GetHealthCheckHostPort returns the health check host and port.
+// If HealthCheckAddress is not set, returns empty strings.
+func (c *Config) GetHealthCheckHostPort() (host, port string) {
+	if c.HealthCheckAddress == "" {
+		return "", ""
+	}
+
+	return ParseAddress(c.HealthCheckAddress, defaultHealthCheckHost, defaultHealthCheckPort)
+}
+
 // SetNetwork sets the network name.
 func (c *Config) SetNetwork(network string) {
 	if network == "" {
@@ -183,6 +195,15 @@ func (c *Config) SetMetricsAddress(address string) {
 	}
 
 	c.MetricsAddress = address
+}
+
+// SetHealthCheckAddress sets the health check address.
+func (c *Config) SetHealthCheckAddress(address string) {
+	if address == "" {
+		return
+	}
+
+	c.HealthCheckAddress = address
 }
 
 // SetLogLevel sets the log level.
