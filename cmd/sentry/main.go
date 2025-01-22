@@ -29,16 +29,17 @@ import (
 var log = logrus.New()
 
 type contributoor struct {
-	log           logrus.FieldLogger
-	config        *config.Config
-	beaconNode    *ethereum.BeaconNode
-	clockDrift    clockdrift.ClockDrift
-	sinks         []sinks.ContributoorSink
-	cache         *events.DuplicateCache
-	summary       *events.Summary
-	metrics       *events.Metrics
-	metricsServer *http.Server
-	pprofServer   *http.Server
+	log               logrus.FieldLogger
+	config            *config.Config
+	beaconNode        *ethereum.BeaconNode
+	clockDrift        clockdrift.ClockDrift
+	sinks             []sinks.ContributoorSink
+	cache             *events.DuplicateCache
+	summary           *events.Summary
+	metrics           *events.Metrics
+	metricsServer     *http.Server
+	pprofServer       *http.Server
+	healthCheckServer *http.Server
 }
 
 func main() {
@@ -84,6 +85,12 @@ func main() {
 			&cli.StringFlag{
 				Name:     "metrics-address",
 				Usage:    "address of the metrics server",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "health-check-address",
+				Usage:    "address of the health check server",
 				Value:    "",
 				Required: false,
 			},
@@ -247,6 +254,10 @@ func (s *contributoor) start(ctx context.Context) error {
 		return err
 	}
 
+	if err := s.startHealthCheckServer(); err != nil {
+		return err
+	}
+
 	s.cache.Start()
 	go s.summary.Start(ctx)
 
@@ -280,6 +291,12 @@ func (s *contributoor) stop(ctx context.Context) error {
 	if s.pprofServer != nil {
 		if err := s.pprofServer.Shutdown(stopCtx); err != nil {
 			s.log.WithError(err).Error("Failed to stop pprof server")
+		}
+	}
+
+	if s.healthCheckServer != nil {
+		if err := s.healthCheckServer.Shutdown(stopCtx); err != nil {
+			s.log.WithError(err).Error("Failed to stop health check server")
 		}
 	}
 
@@ -346,6 +363,45 @@ func (s *contributoor) startPProfServer() error {
 	s.pprofServer = server
 
 	s.log.Infof("Serving pprof at %s", addr)
+
+	go func() {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			s.log.Fatal(err)
+		}
+	}()
+
+	return nil
+}
+
+func (s *contributoor) startHealthCheckServer() error {
+	healthCheckHost, healthCheckPort := s.config.GetHealthCheckHostPort()
+	if healthCheckHost == "" {
+		return nil
+	}
+
+	var addr = fmt.Sprintf(":%s", healthCheckPort)
+
+	// Start listening before creating the server to catch invalid addresses.
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to start health check server: %w", err)
+	}
+
+	sm := http.NewServeMux()
+	sm.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	server := &http.Server{
+		Addr:              addr,
+		ReadHeaderTimeout: 15 * time.Second,
+		Handler:           sm,
+	}
+
+	s.healthCheckServer = server
+
+	s.log.Infof("Serving health check at %s", addr)
 
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
@@ -457,6 +513,12 @@ func applyConfigOverridesFromFlags(cfg *config.Config, c *cli.Context) error {
 		log.Infof("Overriding metrics address to %s", c.String("metrics-address"))
 
 		cfg.SetMetricsAddress(c.String("metrics-address"))
+	}
+
+	if c.String("health-check-address") != "" {
+		log.Infof("Overriding health check address to %s", c.String("health-check-address"))
+
+		cfg.SetHealthCheckAddress(c.String("health-check-address"))
 	}
 
 	if c.String("log-level") != "" {

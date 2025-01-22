@@ -188,6 +188,14 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			},
 		},
 		{
+			name: "health check address override",
+			args: []string{"--health-check-address", "localhost:9191"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				assert.Equal(t, "localhost:9191", cfg.HealthCheckAddress)
+			},
+		},
+		{
 			name: "log level override",
 			args: []string{"--log-level", "debug"},
 			validate: func(t *testing.T, cfg *config.Config) {
@@ -263,6 +271,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 				&cli.StringFlag{Name: "network"},
 				&cli.StringFlag{Name: "beacon-node-address"},
 				&cli.StringFlag{Name: "metrics-address"},
+				&cli.StringFlag{Name: "health-check-address"},
 				&cli.StringFlag{Name: "log-level"},
 				&cli.StringFlag{Name: "output-server-address"},
 				&cli.StringFlag{Name: "username"},

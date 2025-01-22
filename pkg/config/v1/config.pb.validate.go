@@ -103,6 +103,8 @@ func (m *Config) validate(all bool) error {
 
 	// no validation rules for DockerNetwork
 
+	// no validation rules for HealthCheckAddress
+
 	if len(errors) > 0 {
 		return ConfigMultiError(errors)
 	}

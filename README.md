@@ -37,8 +37,11 @@ If you encounter configuration issues, you can:
 # The address of your beacon node's HTTP API.
 beaconNodeAddress: http://127.0.0.1:64692
 
-# The address of your metrics server (optional, disabled if empty).
+# The address to serve metrics on (optional, disabled if empty).
 metricsAddress: ":9090"
+
+# The address to serve a health check on (optional, disabled if empty).
+healthCheckAddress: ":9191"
 
 # The log level (debug, info, warn, error).
 logLevel: info
@@ -49,7 +52,7 @@ networkName: NETWORK_NAME_MAINNET
 # The output server configuration (credentials are base64 encoded and required if a pandaops server is used).
 outputServer:
     address: xatu.primary.production.platform.ethpandaops.io:443
-    credentials: YWRtaW46YWRtaW4=
+    credentials: <base64-encoded-value>
     tls: true
 
 # The contributoor version to use.
@@ -74,6 +77,7 @@ All configuration options can be overridden via CLI flags:
 --network string                  # Ethereum network name (mainnet, sepolia, holesky)
 --beacon-node-address string      # Address of the beacon node API (e.g. http://localhost:5052)
 --metrics-address string          # Address of the metrics server (e.g. :9091)
+--health-check-address string     # Address of the health check server (e.g. :9191)
 --log-level string               # Log level (debug, info, warn, error)
 --username string                # Username for the output server
 --password string                # Password for the output server
