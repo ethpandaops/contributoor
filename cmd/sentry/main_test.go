@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -290,6 +292,175 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			require.NoError(t, err)
 
 			tt.validate(t, cfg)
+		})
+	}
+}
+
+func TestConfigOverridePrecedence(t *testing.T) {
+	tests := []struct {
+		name          string
+		configValue   string
+		envValue      string
+		cliValue      string
+		expectedValue string
+		envVar        string
+		cliFlag       string
+		setter        func(*config.Config, string)
+		getter        func(*config.Config) string
+	}{
+		{
+			name:          "CLI overrides env and config - network",
+			configValue:   "mainnet",
+			envValue:      "sepolia",
+			cliValue:      "holesky",
+			expectedValue: "holesky",
+			envVar:        "CONTRIBUTOOR_NETWORK",
+			cliFlag:       "network",
+			setter:        func(c *config.Config, v string) { c.SetNetwork(v) },
+			getter:        func(c *config.Config) string { return strings.ToLower(c.NetworkName.DisplayName()) },
+		},
+		{
+			name:          "Env overrides config but not CLI - beacon node",
+			configValue:   "http://localhost:5052",
+			envValue:      "http://beacon:5052",
+			cliValue:      "",
+			expectedValue: "http://beacon:5052",
+			envVar:        "CONTRIBUTOOR_BEACON_NODE_ADDRESS",
+			cliFlag:       "beacon-node-address",
+			setter:        func(c *config.Config, v string) { c.SetBeaconNodeAddress(v) },
+			getter:        func(c *config.Config) string { return c.BeaconNodeAddress },
+		},
+		{
+			name:          "Config value preserved when no overrides",
+			configValue:   ":9090",
+			envValue:      "",
+			cliValue:      "",
+			expectedValue: ":9090",
+			envVar:        "CONTRIBUTOOR_METRICS_ADDRESS",
+			cliFlag:       "metrics-address",
+			setter:        func(c *config.Config, v string) { c.SetMetricsAddress(v) },
+			getter:        func(c *config.Config) string { return c.MetricsAddress },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup initial config
+			cfg := config.NewDefaultConfig()
+			tt.setter(cfg, tt.configValue)
+
+			// Set env var if provided
+			if tt.envValue != "" {
+				os.Setenv(tt.envVar, tt.envValue)
+				defer os.Unsetenv(tt.envVar)
+			}
+
+			// Create CLI app with all flags
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.StringFlag{Name: "network"},
+				&cli.StringFlag{Name: "beacon-node-address"},
+				&cli.StringFlag{Name: "metrics-address"},
+				&cli.StringFlag{Name: "health-check-address"},
+				&cli.StringFlag{Name: "log-level"},
+				&cli.StringFlag{Name: "output-server-address"},
+				&cli.StringFlag{Name: "username"},
+				&cli.StringFlag{Name: "password"},
+				&cli.StringFlag{Name: "output-server-tls"},
+			}
+
+			// Set up action to apply config
+			app.Action = func(c *cli.Context) error {
+				return applyConfigOverridesFromFlags(cfg, c)
+			}
+
+			// Build args
+			args := []string{"app"}
+			if tt.cliValue != "" {
+				args = append(args, fmt.Sprintf("--%s", tt.cliFlag), tt.cliValue)
+			}
+
+			// Run app with args
+			err := app.Run(args)
+			require.NoError(t, err)
+
+			// Verify final value
+			assert.Equal(t, tt.expectedValue, tt.getter(cfg))
+		})
+	}
+}
+
+func TestCredentialsPrecedence(t *testing.T) {
+	tests := []struct {
+		name          string
+		envUser       string
+		envPass       string
+		cliUser       string
+		cliPass       string
+		expectedCreds string
+	}{
+		{
+			name:          "CLI credentials override env",
+			envUser:       "env_user",
+			envPass:       "env_pass",
+			cliUser:       "cli_user",
+			cliPass:       "cli_pass",
+			expectedCreds: "cli_user:cli_pass",
+		},
+		{
+			name:          "Env credentials used when no CLI",
+			envUser:       "env_user",
+			envPass:       "env_pass",
+			cliUser:       "",
+			cliPass:       "",
+			expectedCreds: "env_user:env_pass",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.NewDefaultConfig()
+
+			// Set env vars if provided
+			if tt.envUser != "" {
+				os.Setenv("CONTRIBUTOOR_USERNAME", tt.envUser)
+				defer os.Unsetenv("CONTRIBUTOOR_USERNAME")
+			}
+			if tt.envPass != "" {
+				os.Setenv("CONTRIBUTOOR_PASSWORD", tt.envPass)
+				defer os.Unsetenv("CONTRIBUTOOR_PASSWORD")
+			}
+
+			// Create CLI app with all flags
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.StringFlag{Name: "username"},
+				&cli.StringFlag{Name: "password"},
+			}
+
+			// Set up action to apply config
+			app.Action = func(c *cli.Context) error {
+				return applyConfigOverridesFromFlags(cfg, c)
+			}
+
+			// Build args
+			args := []string{"app"}
+			if tt.cliUser != "" {
+				args = append(args, "--username", tt.cliUser)
+			}
+			if tt.cliPass != "" {
+				args = append(args, "--password", tt.cliPass)
+			}
+
+			// Run app with args
+			err := app.Run(args)
+			require.NoError(t, err)
+
+			// Decode and verify credentials
+			require.NotNil(t, cfg.OutputServer)
+			decoded, err := base64.StdEncoding.DecodeString(cfg.OutputServer.Credentials)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCreds, string(decoded))
 		})
 	}
 }
