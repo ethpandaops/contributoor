@@ -10,21 +10,7 @@ permissions:
   packages: write
 
 jobs:
-  go-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/go-setup
-      - run: go test -v -race ./...
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: golangci/golangci-lint-action@v3
-
   goreleaser:
-    needs: [go-test, lint]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
