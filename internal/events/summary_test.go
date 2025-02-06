@@ -13,13 +13,13 @@ func TestNewSummary(t *testing.T) {
 	log := logrus.New()
 	interval := 5 * time.Second
 
-	summary := NewSummary(log, interval)
+	summary := NewSummary(log, "test-trace-id", interval)
 	assert.NotNil(t, summary)
 	assert.Equal(t, interval, summary.printInterval)
 }
 
 func TestSummary_EventsExported(t *testing.T) {
-	summary := NewSummary(logrus.New(), time.Second)
+	summary := NewSummary(logrus.New(), "test-trace-id", time.Second)
 
 	// Test adding and getting events exported
 	summary.AddEventsExported(5)
@@ -30,7 +30,7 @@ func TestSummary_EventsExported(t *testing.T) {
 }
 
 func TestSummary_FailedEvents(t *testing.T) {
-	summary := NewSummary(logrus.New(), time.Second)
+	summary := NewSummary(logrus.New(), "test-trace-id", time.Second)
 
 	// Test adding and getting failed events
 	summary.AddFailedEvents(2)
@@ -41,7 +41,7 @@ func TestSummary_FailedEvents(t *testing.T) {
 }
 
 func TestSummary_EventStreamEvents(t *testing.T) {
-	summary := NewSummary(logrus.New(), time.Second)
+	summary := NewSummary(logrus.New(), "test-trace-id", time.Second)
 
 	// Test adding and getting event stream events
 	summary.AddEventStreamEvents("topic1", 3)
@@ -54,7 +54,7 @@ func TestSummary_EventStreamEvents(t *testing.T) {
 }
 
 func TestSummary_Reset(t *testing.T) {
-	summary := NewSummary(logrus.New(), time.Second)
+	summary := NewSummary(logrus.New(), "test-trace-id", time.Second)
 
 	// Add some data
 	summary.AddEventsExported(5)
@@ -70,7 +70,7 @@ func TestSummary_Reset(t *testing.T) {
 }
 
 func TestSummary_Start(t *testing.T) {
-	summary := NewSummary(logrus.New(), 100*time.Millisecond)
+	summary := NewSummary(logrus.New(), "test-trace-id", 100*time.Millisecond)
 
 	// Add some test data
 	summary.AddEventsExported(5)
@@ -94,7 +94,7 @@ func TestSummary_Start(t *testing.T) {
 }
 
 func TestSummary_Print(t *testing.T) {
-	summary := NewSummary(logrus.New(), time.Second)
+	summary := NewSummary(logrus.New(), "test-trace-id", time.Second)
 
 	// Add test data
 	summary.AddEventsExported(10)

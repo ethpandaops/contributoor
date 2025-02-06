@@ -15,6 +15,7 @@ import (
 // Summary is a struct that holds the summary of the sentry.
 type Summary struct {
 	log               logrus.FieldLogger
+	traceID           string
 	printInterval     time.Duration
 	eventStreamEvents sync.Map
 	eventsExported    atomic.Uint64
@@ -28,16 +29,20 @@ type topicCount struct {
 }
 
 // NewSummary creates a new summary with the given print interval.
-func NewSummary(log logrus.FieldLogger, printInterval time.Duration) *Summary {
+func NewSummary(log logrus.FieldLogger, traceID string, printInterval time.Duration) *Summary {
 	return &Summary{
 		log:           log,
+		traceID:       traceID,
 		printInterval: printInterval,
 	}
 }
 
 // Start starts the summary ticker.
 func (s *Summary) Start(ctx context.Context) {
-	s.log.WithField("interval", s.printInterval).Info("Starting summary")
+	s.log.WithFields(logrus.Fields{
+		"interval": s.printInterval,
+		"trace_id": s.traceID,
+	}).Info("Starting summary")
 
 	ticker := time.NewTicker(s.printInterval)
 
@@ -76,10 +81,11 @@ func (s *Summary) Print() {
 	eventStream := strings.Join(eventTopics, ", ")
 
 	s.log.WithFields(logrus.Fields{
+		"trace_id":            s.traceID,
 		"events_exported":     s.GetEventsExported(),
 		"events_failed":       s.GetFailedEvents(),
 		"event_stream_events": eventStream,
-	}).Infof("Summary of the last %s", s.printInterval)
+	}).Infof("Summary of the last %s for %s", s.printInterval, s.traceID)
 
 	s.Reset()
 }

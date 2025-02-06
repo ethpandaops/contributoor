@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -28,18 +29,23 @@ import (
 
 var log = logrus.New()
 
+type beaconNodeInstance struct {
+	node    *ethereum.BeaconNode
+	cache   *events.DuplicateCache
+	sinks   []sinks.ContributoorSink
+	metrics *events.Metrics
+	summary *events.Summary
+}
+
 type contributoor struct {
 	log               logrus.FieldLogger
 	config            *config.Config
-	beaconNode        *ethereum.BeaconNode
 	clockDrift        clockdrift.ClockDrift
-	sinks             []sinks.ContributoorSink
-	cache             *events.DuplicateCache
-	summary           *events.Summary
-	metrics           *events.Metrics
+	beaconNodes       map[string]*beaconNodeInstance // traceID -> instance
 	metricsServer     *http.Server
 	pprofServer       *http.Server
 	healthCheckServer *http.Server
+	debug             bool
 }
 
 func main() {
@@ -78,7 +84,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:     "beacon-node-address",
-				Usage:    "address of the beacon node api (e.g. http://localhost:5052)",
+				Usage:    "comma-separated addresses of beacon node apis (e.g. http://localhost:5052,http://localhost:5053)",
 				Value:    "",
 				Required: false,
 			},
@@ -162,23 +168,7 @@ func main() {
 				return err
 			}
 
-			if err := s.initSinks(ctx, c.Bool("debug")); err != nil {
-				return err
-			}
-
-			if err := s.initCache(); err != nil {
-				return err
-			}
-
-			if err := s.initMetrics(); err != nil {
-				return err
-			}
-
-			if err := s.initSummary(); err != nil {
-				return err
-			}
-
-			if err := s.initBeaconNode(); err != nil {
+			if err := s.initBeaconNodes(ctx); err != nil {
 				return err
 			}
 
@@ -242,6 +232,7 @@ func newContributoor(c *cli.Context) (*contributoor, error) {
 	return &contributoor{
 		log:    log.WithField("module", "contributoor"),
 		config: cfg,
+		debug:  c.Bool("debug"),
 	}, nil
 }
 
@@ -258,10 +249,12 @@ func (s *contributoor) start(ctx context.Context) error {
 		return err
 	}
 
-	s.cache.Start()
-	go s.summary.Start(ctx)
+	for _, instance := range s.beaconNodes {
+		instance.cache.Start()
+		go instance.summary.Start(ctx)
+	}
 
-	return s.beaconNode.Start(ctx)
+	return s.startBeaconNodes(ctx)
 }
 
 func (s *contributoor) stop(ctx context.Context) error {
@@ -271,13 +264,19 @@ func (s *contributoor) stop(ctx context.Context) error {
 	stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	if err := s.beaconNode.Stop(stopCtx); err != nil {
-		s.log.WithError(err).Error("Failed to stop beacon node")
-	}
+	for traceID, instance := range s.beaconNodes {
+		// Stop the beacon + any sinks we have.
+		if err := instance.node.Stop(stopCtx); err != nil {
+			s.log.WithError(err).WithField("trace_id", traceID).Error("Failed to stop beacon node")
+		}
 
-	for _, sink := range s.sinks {
-		if err := sink.Stop(stopCtx); err != nil {
-			s.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to stop sink")
+		for _, sink := range instance.sinks {
+			if err := sink.Stop(stopCtx); err != nil {
+				s.log.WithError(err).WithFields(logrus.Fields{
+					"trace_id": traceID,
+					"sink":     sink.Name(),
+				}).Error("Failed to stop sink")
+			}
 		}
 	}
 
@@ -330,7 +329,7 @@ func (s *contributoor) startMetricsServer() error {
 
 	s.metricsServer = server
 
-	s.log.Infof("Serving metrics at %s", addr)
+	s.log.WithField("endpoint", "/metrics").Infof("Serving metrics at %s", addr)
 
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
@@ -362,7 +361,7 @@ func (s *contributoor) startPProfServer() error {
 
 	s.pprofServer = server
 
-	s.log.Infof("Serving pprof at %s", addr)
+	s.log.WithField("endpoint", "/debug/pprof").Infof("Serving pprof at %s", addr)
 
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
@@ -401,13 +400,50 @@ func (s *contributoor) startHealthCheckServer() error {
 
 	s.healthCheckServer = server
 
-	s.log.Infof("Serving health check at %s", addr)
+	s.log.WithField("endpoint", "/healthz").Infof("Serving health check at %s", addr)
 
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			s.log.Fatal(err)
 		}
 	}()
+
+	return nil
+}
+
+func (s *contributoor) startBeaconNodes(ctx context.Context) error {
+	var (
+		errChan  = make(chan error, len(s.beaconNodes))
+		doneChan = make(chan struct{}, len(s.beaconNodes))
+		timeout  = time.After(10 * time.Minute)
+	)
+
+	// Start all beacons concurrently.
+	for traceID, instance := range s.beaconNodes {
+		go func() {
+			if err := instance.node.Start(ctx); err != nil {
+				errChan <- fmt.Errorf("failed to start beacon node %s: %w", traceID, err)
+
+				return
+			}
+
+			doneChan <- struct{}{}
+		}()
+	}
+
+	// Wait for all nodes to start or error.
+	for i := 0; i < len(s.beaconNodes); i++ {
+		select {
+		case err := <-errChan:
+			return err
+		case <-doneChan:
+			continue
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for beacon nodes to start")
+		}
+	}
 
 	return nil
 }
@@ -427,71 +463,132 @@ func (s *contributoor) initClockDrift(ctx context.Context) error {
 	return nil
 }
 
-func (s *contributoor) initSinks(ctx context.Context, debug bool) error {
-	if debug {
-		stdoutSink, err := sinks.NewStdoutSink(log, s.config, s.config.NetworkName.DisplayName())
-		if err != nil {
-			return err
-		}
+func (s *contributoor) initBeaconNodes(ctx context.Context) error {
+	addresses := strings.Split(s.config.BeaconNodeAddress, ",")
 
-		s.sinks = append(s.sinks, stdoutSink)
-	}
-
-	xatuSink, err := sinks.NewXatuSink(log, s.config, s.config.NetworkName.DisplayName())
+	traceIDs, err := generateBeaconTraceIDs(addresses)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to generate trace IDs: %w", err)
 	}
 
-	s.sinks = append(s.sinks, xatuSink)
+	s.beaconNodes = make(map[string]*beaconNodeInstance)
 
-	for _, sink := range s.sinks {
-		if err := sink.Start(ctx); err != nil {
-			return err
+	s.log.WithFields(logrus.Fields{
+		"count":     len(addresses),
+		"trace_ids": traceIDs,
+		"addresses": addresses,
+	}).Info("Initializing beacon nodes")
+
+	for i, address := range addresses {
+		address = strings.TrimSpace(address)
+		traceID := traceIDs[i]
+
+		logCtx := s.log.WithField("trace_id", traceID)
+
+		instance, err := s.createBeaconNodeInstance(ctx, address, traceID, logCtx)
+		if err != nil {
+			return fmt.Errorf("failed to create beacon node instance: %w", err)
 		}
+
+		s.beaconNodes[traceID] = instance
 	}
 
 	return nil
 }
 
-func (s *contributoor) initCache() error {
-	s.cache = events.NewDuplicateCache()
-
-	return nil
-}
-
-func (s *contributoor) initMetrics() error {
-	s.metrics = events.NewMetrics("contributoor")
-
-	return nil
-}
-
-func (s *contributoor) initSummary() error {
-	s.summary = events.NewSummary(s.log, 10*time.Second)
-
-	return nil
-}
-
-func (s *contributoor) initBeaconNode() error {
-	b, err := ethereum.NewBeaconNode(
-		s.log,
+func (s *contributoor) initBeaconNode(log logrus.FieldLogger, address, traceID string, sinks []sinks.ContributoorSink, cache *events.DuplicateCache, summary *events.Summary, metrics *events.Metrics) (*ethereum.BeaconNode, error) {
+	return ethereum.NewBeaconNode(
+		log,
+		traceID,
 		&ethereum.Config{
-			BeaconNodeAddress:   s.config.BeaconNodeAddress,
+			BeaconNodeAddress:   address,
 			OverrideNetworkName: strings.ToLower(s.config.NetworkName.DisplayName()),
 		},
-		s.sinks,
+		sinks,
 		s.clockDrift,
-		s.cache,
-		s.summary,
-		s.metrics,
+		cache,
+		summary,
+		metrics,
 		&ethereum.Options{},
 	)
-	if err != nil {
-		return err
+}
+
+func (s *contributoor) initCache() (*events.DuplicateCache, error) {
+	return events.NewDuplicateCache(), nil
+}
+
+func (s *contributoor) initMetrics(traceID string) (*events.Metrics, error) {
+	return events.NewMetrics(
+		strings.ReplaceAll(fmt.Sprintf("contributoor_%s", traceID), "-", "_"),
+	), nil
+}
+
+func (s *contributoor) initSummary(log logrus.FieldLogger, traceID string) (*events.Summary, error) {
+	return events.NewSummary(log, traceID, 10*time.Second), nil
+}
+
+func (s *contributoor) initSinks(ctx context.Context, log logrus.FieldLogger) ([]sinks.ContributoorSink, error) {
+	eventSinks := make([]sinks.ContributoorSink, 0)
+
+	if s.debug {
+		stdoutSink, err := sinks.NewStdoutSink(log, s.config, strings.ToLower(s.config.NetworkName.DisplayName()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create stdout sink: %w", err)
+		}
+
+		eventSinks = append(eventSinks, stdoutSink)
 	}
 
-	s.beaconNode = b
+	xatuSink, err := sinks.NewXatuSink(log, s.config, strings.ToLower(s.config.NetworkName.DisplayName()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create xatu sink: %w", err)
+	}
 
-	return nil
+	eventSinks = append(eventSinks, xatuSink)
+
+	// Start all the sinks.
+	for _, sink := range eventSinks {
+		if err := sink.Start(ctx); err != nil {
+			return nil, fmt.Errorf("failed to start sink %s: %w", sink.Name(), err)
+		}
+	}
+
+	return eventSinks, nil
+}
+
+func (s *contributoor) createBeaconNodeInstance(ctx context.Context, address, traceID string, log logrus.FieldLogger) (*beaconNodeInstance, error) {
+	cache, err := s.initCache()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init cache: %w", err)
+	}
+
+	metrics, err := s.initMetrics(traceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init metrics: %w", err)
+	}
+
+	summary, err := s.initSummary(log, traceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init summary: %w", err)
+	}
+
+	sinks, err := s.initSinks(ctx, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init sinks: %w", err)
+	}
+
+	node, err := s.initBeaconNode(log, address, traceID, sinks, cache, summary, metrics)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init beacon node: %w", err)
+	}
+
+	return &beaconNodeInstance{
+		node:    node,
+		cache:   cache,
+		sinks:   sinks,
+		metrics: metrics,
+		summary: summary,
+	}, nil
 }
 
 // applyConfigOverridesFromFlags applies CLI flags to the config if they are set.
@@ -605,4 +702,20 @@ func applyConfigOverridesFromFlags(cfg *config.Config, c *cli.Context) error {
 	}
 
 	return nil
+}
+
+// generateBeaconTraceIDs generates a short identifier for the beacon node, allows us to distinguish
+// between multiple nodes in logs and across summaries.
+func generateBeaconTraceIDs(addresses []string) ([]string, error) {
+	traceIDs := make([]string, len(addresses))
+
+	for i, address := range addresses {
+		if len(address) > 30 {
+			address = address[len(address)-30:]
+		}
+
+		traceIDs[i] = fmt.Sprintf("bn_%x", sha256.Sum256([]byte(address)))[0:8]
+	}
+
+	return traceIDs, nil
 }

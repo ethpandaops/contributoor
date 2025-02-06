@@ -16,13 +16,13 @@ import (
 
 // xatuSink is the xatu sink.
 type xatuSink struct {
-	log  *logrus.Logger
+	log  logrus.FieldLogger
 	conf *xatu.Config
 	sink output.Sink
 }
 
 // NewXatuSink creates a new XatuSink.
-func NewXatuSink(log *logrus.Logger, config *config.Config, networkName string) (ContributoorSink, error) {
+func NewXatuSink(log logrus.FieldLogger, config *config.Config, networkName string) (ContributoorSink, error) {
 	conf := &xatu.Config{}
 	if err := defaults.Set(conf); err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func NewXatuSink(log *logrus.Logger, config *config.Config, networkName string) 
 
 // Start starts the xatu sink.
 func (s *xatuSink) Start(ctx context.Context) error {
-	s.log.WithField("type", s.sink.Type()).WithField("name", s.sink.Name()).Info("Starting sink")
+	s.log.WithField("type", s.sink.Type()).WithField("name", s.sink.Name()).Debug("Starting sink")
 
 	if err := s.sink.Start(ctx); err != nil {
 		return err

@@ -33,12 +33,14 @@ type BeaconNode struct {
 	cache       *events.DuplicateCache
 	summary     *events.Summary
 	metrics     *events.Metrics
+	traceID     string
 }
 
 // NewBeaconNode creates a new beacon node instance with the given configuration. It initializes any services and
 // configures the beacon subscriptions.
 func NewBeaconNode(
 	log logrus.FieldLogger,
+	traceID string,
 	config *Config,
 	sinks []sinks.ContributoorSink,
 	clockDrift clockdrift.ClockDrift,
@@ -47,6 +49,10 @@ func NewBeaconNode(
 	metrics *events.Metrics,
 	opt *Options,
 ) (*BeaconNode, error) {
+	// Attach 'trace_id' to the log context to allow us to distinguish between multiple
+	// nodes in logs and across summaries.
+	log = log.WithField("trace_id", traceID)
+
 	// Set default options and disable prometheus metrics.
 	opts := *beacon.DefaultOptions().DisablePrometheusMetrics()
 
@@ -83,7 +89,7 @@ func NewBeaconNode(
 	metadata := services.NewMetadataService(log, node, config.OverrideNetworkName)
 
 	return &BeaconNode{
-		log:         log.WithField("module", "contributoor/ethereum/beacon"),
+		log:         log,
 		config:      config,
 		beacon:      node,
 		clockDrift:  clockDrift,
@@ -92,6 +98,7 @@ func NewBeaconNode(
 		cache:       cache,
 		summary:     summary,
 		metrics:     metrics,
+		traceID:     traceID,
 	}, nil
 }
 
@@ -105,7 +112,7 @@ func (b *BeaconNode) Start(ctx context.Context) error {
 
 	// Register callback for when the node becomes healthy.
 	b.beacon.OnFirstTimeHealthy(ctx, func(ctx context.Context, event *beacon.FirstTimeHealthyEvent) error {
-		b.log.Info("Upstream beacon node is healthy")
+		b.log.Debug("Upstream beacon node is healthy")
 
 		close(beaconReady)
 
@@ -113,9 +120,9 @@ func (b *BeaconNode) Start(ctx context.Context) error {
 			return err
 		}
 
-		b.log.Info("All services are ready")
+		b.log.Debug("All services are ready")
 
-		b.log.Info("Setting up beacon node event subscriptions")
+		b.log.Debug("Setting up beacon node event subscriptions")
 
 		// Set up event subscriptions.
 		if err := b.setupSubscriptions(ctx); err != nil {
@@ -234,7 +241,7 @@ func (b *BeaconNode) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
 
 func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
 	b.metadataSvc.OnReady(ctx, func(ctx context.Context) error {
-		b.log.WithField("service", b.metadataSvc.Name()).Info("Service is ready")
+		b.log.WithField("service", b.metadataSvc.Name()).Debug("Service is ready")
 
 		hashed, err := b.metadataSvc.NodeIDHash()
 		if err != nil {
@@ -246,13 +253,13 @@ func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
 		return nil
 	})
 
-	b.log.WithField("service", b.metadataSvc.Name()).Info("Starting service")
+	b.log.WithField("service", b.metadataSvc.Name()).Debug("Starting service")
 
 	if err := b.metadataSvc.Start(ctx); err != nil {
 		errs <- fmt.Errorf("failed to start service: %w", err)
 	}
 
-	b.log.WithField("service", b.metadataSvc.Name()).Info("Waiting for service to be ready")
+	b.log.WithField("service", b.metadataSvc.Name()).Debug("Waiting for service to be ready")
 
 	return nil
 }

@@ -16,13 +16,13 @@ import (
 
 // stdoutSink is the stdout sink.
 type stdoutSink struct {
-	log  *logrus.Logger
+	log  logrus.FieldLogger
 	conf *stdout.Config
 	sink output.Sink
 }
 
 // NewStdoutSink creates a new StdoutSink.
-func NewStdoutSink(log *logrus.Logger, config *config.Config, networkName string) (ContributoorSink, error) {
+func NewStdoutSink(log logrus.FieldLogger, config *config.Config, networkName string) (ContributoorSink, error) {
 	conf := &stdout.Config{}
 	if err := defaults.Set(conf); err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func NewStdoutSink(log *logrus.Logger, config *config.Config, networkName string
 
 // Start starts the stdout sink.
 func (s *stdoutSink) Start(ctx context.Context) error {
-	s.log.WithField("type", s.sink.Type()).WithField("name", s.sink.Name()).Info("Starting sink")
+	s.log.WithField("type", s.sink.Type()).WithField("name", s.sink.Name()).Debug("Starting sink")
 
 	if err := s.sink.Start(ctx); err != nil {
 		return err

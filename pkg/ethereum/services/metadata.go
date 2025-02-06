@@ -66,7 +66,7 @@ func (m *MetadataService) Start(ctx context.Context) error {
 			m.log.WithError(err).Warn("Failed to refresh metadata")
 		}
 
-		m.log.Info("Metadata service is ready")
+		m.log.Debug("Metadata service is ready")
 
 		for _, cb := range m.onReadyCallbacks {
 			if err := cb(ctx); err != nil {

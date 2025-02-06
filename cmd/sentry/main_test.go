@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"encoding/base64"
 
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -138,25 +140,6 @@ func TestStartPProfServer(t *testing.T) {
 			}
 		})
 	}
-}
-
-func waitForServer(t *testing.T, addr string) {
-	t.Helper()
-
-	deadline := time.Now().Add(2 * time.Second)
-
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
-		if err == nil {
-			conn.Close()
-
-			return
-		}
-
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	t.Fatalf("Server at %s did not start within deadline", addr)
 }
 
 func TestApplyConfigOverridesFromFlags(t *testing.T) {
@@ -463,4 +446,188 @@ func TestCredentialsPrecedence(t *testing.T) {
 			assert.Equal(t, tt.expectedCreds, string(decoded))
 		})
 	}
+}
+
+func TestGenerateBeaconTraceIDs(t *testing.T) {
+	tests := []struct {
+		name      string
+		addresses []string
+		want      []string
+	}{
+		{
+			name:      "single address",
+			addresses: []string{"http://localhost:5052"},
+			want:      []string{"bn_3d25b"},
+		},
+		{
+			name:      "multiple addresses",
+			addresses: []string{"http://localhost:5052", "http://localhost:5053"},
+			want:      []string{"bn_3d25b", "bn_0e06e"},
+		},
+		{
+			name: "long addresses",
+			addresses: []string{
+				"http://very-long-domain-name-spiders-snakes-elephants-and-tigers.com:5052",
+				"http://another-very-long-domain-name-caterpillars-ants-slugs-and-beetles.com:5053",
+			},
+			want: []string{"bn_0c9e2", "bn_27f0a"},
+		},
+		{
+			name:      "empty addresses",
+			addresses: []string{"", ""},
+			want:      []string{"bn_e3b0c", "bn_e3b0c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := generateBeaconTraceIDs(tt.addresses)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestInitBeaconNodes(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	tests := []struct {
+		name           string
+		addresses      string
+		expectedCount  int
+		expectedError  bool
+		expectedErrMsg string
+	}{
+		{
+			name:          "single address",
+			addresses:     "http://localhost:5052",
+			expectedCount: 1,
+		},
+		{
+			name:          "multiple addresses",
+			addresses:     "http://localhost:5052,http://localhost:5053",
+			expectedCount: 2,
+		},
+		{
+			name:          "addresses with whitespace",
+			addresses:     " http://localhost:5052 , http://localhost:5053 ",
+			expectedCount: 2,
+		},
+		{
+			name:          "empty address",
+			addresses:     "",
+			expectedCount: 1, // Empty string splits to [""]
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+			cfg := config.NewDefaultConfig()
+			cfg.BeaconNodeAddress = tt.addresses
+			cfg.NetworkName = config.NetworkName_NETWORK_NAME_MAINNET
+			cfg.OutputServer = &config.OutputServer{
+				Address: "http://localhost:8080",
+				Tls:     false,
+			}
+
+			s := &contributoor{
+				log:    logrus.New(),
+				config: cfg,
+				debug:  true,
+			}
+
+			err := s.initBeaconNodes(context.Background())
+			if tt.expectedError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErrMsg)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCount, len(s.beaconNodes))
+
+			// Verify each beacon node has unique trace ID.
+			traceIDs := make(map[string]bool)
+
+			for traceID := range s.beaconNodes {
+				assert.False(t, traceIDs[traceID], "duplicate trace ID found: %s", traceID)
+				traceIDs[traceID] = true
+			}
+		})
+	}
+}
+
+func TestMultiBeaconNodeConfig(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		envValue      string
+		expectedAddrs string
+	}{
+		{
+			name:          "CLI override",
+			args:          []string{"--beacon-node-address", "http://localhost:5052,http://localhost:5053"},
+			envValue:      "http://env:5052",
+			expectedAddrs: "http://localhost:5052,http://localhost:5053",
+		},
+		{
+			name:          "env value",
+			args:          []string{},
+			envValue:      "http://env1:5052,http://env2:5053",
+			expectedAddrs: "http://env1:5052,http://env2:5053",
+		},
+		{
+			name:          "no overrides",
+			args:          []string{},
+			envValue:      "",
+			expectedAddrs: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				os.Setenv("CONTRIBUTOOR_BEACON_NODE_ADDRESS", tt.envValue)
+				defer os.Unsetenv("CONTRIBUTOOR_BEACON_NODE_ADDRESS")
+			}
+
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.StringFlag{Name: "beacon-node-address"},
+			}
+
+			cfg := &config.Config{}
+
+			app.Action = func(c *cli.Context) error {
+				return applyConfigOverridesFromFlags(cfg, c)
+			}
+
+			err := app.Run(append([]string{"contributoor"}, tt.args...))
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedAddrs, cfg.BeaconNodeAddress)
+		})
+	}
+}
+
+func waitForServer(t *testing.T, addr string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+
+			return
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	t.Fatalf("Server at %s did not start within deadline", addr)
 }
