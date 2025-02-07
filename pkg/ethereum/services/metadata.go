@@ -211,7 +211,7 @@ func (m *MetadataService) DeriveNetwork(_ context.Context) error {
 		m.log.WithFields(logrus.Fields{
 			"name": network.Name,
 			"id":   network.ID,
-		}).Info("Detected ethereum network")
+		}).Debug("Detected ethereum network")
 	}
 
 	m.Network = network

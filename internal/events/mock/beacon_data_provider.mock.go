@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	phase0 "github.com/attestantio/go-eth2-client/spec/phase0"
 	beacon "github.com/ethpandaops/beacon/pkg/beacon"
 	ethwallclock "github.com/ethpandaops/ethwallclock"
 	gomock "go.uber.org/mock/gomock"
@@ -23,6 +22,7 @@ import (
 type MockBeaconDataProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockBeaconDataProviderMockRecorder
+	isgomock struct{}
 }
 
 // MockBeaconDataProviderMockRecorder is the mock recorder for MockBeaconDataProvider.
@@ -43,60 +43,45 @@ func (m *MockBeaconDataProvider) EXPECT() *MockBeaconDataProviderMockRecorder {
 }
 
 // GetEpoch mocks base method.
-func (m *MockBeaconDataProvider) GetEpoch(arg0 uint64) ethwallclock.Epoch {
+func (m *MockBeaconDataProvider) GetEpoch(epoch uint64) ethwallclock.Epoch {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEpoch", arg0)
+	ret := m.ctrl.Call(m, "GetEpoch", epoch)
 	ret0, _ := ret[0].(ethwallclock.Epoch)
 	return ret0
 }
 
 // GetEpoch indicates an expected call of GetEpoch.
-func (mr *MockBeaconDataProviderMockRecorder) GetEpoch(arg0 any) *gomock.Call {
+func (mr *MockBeaconDataProviderMockRecorder) GetEpoch(epoch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEpoch", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetEpoch), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEpoch", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetEpoch), epoch)
 }
 
 // GetEpochFromSlot mocks base method.
-func (m *MockBeaconDataProvider) GetEpochFromSlot(arg0 uint64) ethwallclock.Epoch {
+func (m *MockBeaconDataProvider) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEpochFromSlot", arg0)
+	ret := m.ctrl.Call(m, "GetEpochFromSlot", slot)
 	ret0, _ := ret[0].(ethwallclock.Epoch)
 	return ret0
 }
 
 // GetEpochFromSlot indicates an expected call of GetEpochFromSlot.
-func (mr *MockBeaconDataProviderMockRecorder) GetEpochFromSlot(arg0 any) *gomock.Call {
+func (mr *MockBeaconDataProviderMockRecorder) GetEpochFromSlot(slot any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEpochFromSlot", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetEpochFromSlot), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEpochFromSlot", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetEpochFromSlot), slot)
 }
 
 // GetSlot mocks base method.
-func (m *MockBeaconDataProvider) GetSlot(arg0 uint64) ethwallclock.Slot {
+func (m *MockBeaconDataProvider) GetSlot(slot uint64) ethwallclock.Slot {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSlot", arg0)
+	ret := m.ctrl.Call(m, "GetSlot", slot)
 	ret0, _ := ret[0].(ethwallclock.Slot)
 	return ret0
 }
 
 // GetSlot indicates an expected call of GetSlot.
-func (mr *MockBeaconDataProviderMockRecorder) GetSlot(arg0 any) *gomock.Call {
+func (mr *MockBeaconDataProviderMockRecorder) GetSlot(slot any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSlot", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetSlot), arg0)
-}
-
-// GetValidatorIndex mocks base method.
-func (m *MockBeaconDataProvider) GetValidatorIndex(arg0 phase0.Epoch, arg1 phase0.Slot, arg2 phase0.CommitteeIndex, arg3 uint64) (phase0.ValidatorIndex, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetValidatorIndex", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(phase0.ValidatorIndex)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetValidatorIndex indicates an expected call of GetValidatorIndex.
-func (mr *MockBeaconDataProviderMockRecorder) GetValidatorIndex(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetValidatorIndex", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetValidatorIndex), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSlot", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetSlot), slot)
 }
 
 // GetWallclock mocks base method.
@@ -128,15 +113,15 @@ func (mr *MockBeaconDataProviderMockRecorder) Node() *gomock.Call {
 }
 
 // Synced mocks base method.
-func (m *MockBeaconDataProvider) Synced(arg0 context.Context) error {
+func (m *MockBeaconDataProvider) Synced(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Synced", arg0)
+	ret := m.ctrl.Call(m, "Synced", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Synced indicates an expected call of Synced.
-func (mr *MockBeaconDataProviderMockRecorder) Synced(arg0 any) *gomock.Call {
+func (mr *MockBeaconDataProviderMockRecorder) Synced(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Synced", reflect.TypeOf((*MockBeaconDataProvider)(nil).Synced), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Synced", reflect.TypeOf((*MockBeaconDataProvider)(nil).Synced), ctx)
 }
