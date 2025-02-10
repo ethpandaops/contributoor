@@ -2,6 +2,8 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -164,9 +166,9 @@ func (c *Config) GetHealthCheckHostPort() (host, port string) {
 }
 
 // SetNetwork sets the network name.
-func (c *Config) SetNetwork(network string) {
+func (c *Config) SetNetwork(network string) error {
 	if network == "" {
-		return
+		return errors.New("network is required")
 	}
 
 	switch strings.ToLower(network) {
@@ -176,7 +178,11 @@ func (c *Config) SetNetwork(network string) {
 		c.NetworkName = NetworkName_NETWORK_NAME_SEPOLIA
 	case "holesky":
 		c.NetworkName = NetworkName_NETWORK_NAME_HOLESKY
+	default:
+		return fmt.Errorf("invalid network: %s", network)
 	}
+
+	return nil
 }
 
 // SetBeaconNodeAddress sets the beacon node address.
