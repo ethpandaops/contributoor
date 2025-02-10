@@ -316,8 +316,12 @@ func TestConfigOverridePrecedence(t *testing.T) {
 			expectedValue: "holesky",
 			envVar:        "CONTRIBUTOOR_NETWORK",
 			cliFlag:       "network",
-			setter:        func(c *config.Config, v string) { c.SetNetwork(v) },
-			getter:        func(c *config.Config) string { return strings.ToLower(c.NetworkName.DisplayName()) },
+			setter: func(c *config.Config, v string) {
+				if err := c.SetNetwork(v); err != nil {
+					t.Fatalf("failed to set network: %v", err)
+				}
+			},
+			getter: func(c *config.Config) string { return strings.ToLower(c.NetworkName.DisplayName()) },
 		},
 		{
 			name:          "Env overrides config but not CLI - beacon node",
