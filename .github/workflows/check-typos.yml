@@ -7,7 +7,6 @@ on:
 
 jobs:
   check-typos:
-    name: Check typos
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
