@@ -1,6 +1,8 @@
 package ethereum
 
-import "errors"
+import (
+	"errors"
+)
 
 // Config defines the configuration for the Ethereum beacon node.
 type Config struct {

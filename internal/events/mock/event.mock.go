@@ -22,6 +22,7 @@ import (
 type MockEvent struct {
 	ctrl     *gomock.Controller
 	recorder *MockEventMockRecorder
+	isgomock struct{}
 }
 
 // MockEventMockRecorder is the mock recorder for MockEvent.
@@ -70,18 +71,18 @@ func (mr *MockEventMockRecorder) Decorated() *gomock.Call {
 }
 
 // Ignore mocks base method.
-func (m *MockEvent) Ignore(arg0 context.Context) (bool, error) {
+func (m *MockEvent) Ignore(ctx context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Ignore", arg0)
+	ret := m.ctrl.Call(m, "Ignore", ctx)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Ignore indicates an expected call of Ignore.
-func (mr *MockEventMockRecorder) Ignore(arg0 any) *gomock.Call {
+func (mr *MockEventMockRecorder) Ignore(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ignore", reflect.TypeOf((*MockEvent)(nil).Ignore), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ignore", reflect.TypeOf((*MockEvent)(nil).Ignore), ctx)
 }
 
 // Meta mocks base method.

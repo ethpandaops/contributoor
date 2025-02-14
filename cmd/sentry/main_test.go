@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,11 +12,15 @@ import (
 
 	"encoding/base64"
 
+	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
+	"github.com/ethpandaops/contributoor/pkg/ethereum/mock"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/mock/gomock"
 )
 
 func TestStartMetricsServer(t *testing.T) {
@@ -138,25 +143,6 @@ func TestStartPProfServer(t *testing.T) {
 			}
 		})
 	}
-}
-
-func waitForServer(t *testing.T, addr string) {
-	t.Helper()
-
-	deadline := time.Now().Add(2 * time.Second)
-
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
-		if err == nil {
-			conn.Close()
-
-			return
-		}
-
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	t.Fatalf("Server at %s did not start within deadline", addr)
 }
 
 func TestApplyConfigOverridesFromFlags(t *testing.T) {
@@ -467,4 +453,328 @@ func TestCredentialsPrecedence(t *testing.T) {
 			assert.Equal(t, tt.expectedCreds, string(decoded))
 		})
 	}
+}
+
+func TestGenerateBeaconTraceIDs(t *testing.T) {
+	tests := []struct {
+		name      string
+		addresses []string
+		want      []string
+	}{
+		{
+			name:      "single address",
+			addresses: []string{"http://localhost:5052"},
+			want:      []string{"bn_3d25b"},
+		},
+		{
+			name:      "multiple addresses",
+			addresses: []string{"http://localhost:5052", "http://localhost:5053"},
+			want:      []string{"bn_3d25b", "bn_0e06e"},
+		},
+		{
+			name: "long addresses",
+			addresses: []string{
+				"http://very-long-domain-name-spiders-snakes-elephants-and-tigers.com:5052",
+				"http://another-very-long-domain-name-caterpillars-ants-slugs-and-beetles.com:5053",
+			},
+			want: []string{"bn_0c9e2", "bn_27f0a"},
+		},
+		{
+			name:      "empty addresses",
+			addresses: []string{"", ""},
+			want:      []string{"bn_e3b0c", "bn_e3b0c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := generateBeaconTraceIDs(tt.addresses)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestInitBeacons(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	tests := []struct {
+		name           string
+		addresses      string
+		expectedCount  int
+		expectedError  bool
+		expectedErrMsg string
+	}{
+		{
+			name:          "single address",
+			addresses:     "http://localhost:5052",
+			expectedCount: 1,
+		},
+		{
+			name:          "multiple addresses",
+			addresses:     "http://localhost:5052,http://localhost:5053",
+			expectedCount: 2,
+		},
+		{
+			name:          "addresses with whitespace",
+			addresses:     " http://localhost:5052 , http://localhost:5053 ",
+			expectedCount: 2,
+		},
+		{
+			name:          "empty address",
+			addresses:     "",
+			expectedCount: 1, // Empty string splits to [""]
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+			cfg := config.NewDefaultConfig()
+			cfg.BeaconNodeAddress = tt.addresses
+			cfg.NetworkName = config.NetworkName_NETWORK_NAME_MAINNET
+			cfg.OutputServer = &config.OutputServer{
+				Address: "http://localhost:8080",
+				Tls:     false,
+			}
+
+			s := &contributoor{
+				log:    logrus.New(),
+				config: cfg,
+				debug:  true,
+			}
+
+			err := s.initBeacons(context.Background())
+			if tt.expectedError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErrMsg)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCount, len(s.beaconNodes))
+
+			// Verify each beacon node has unique trace ID.
+			traceIDs := make(map[string]bool)
+			for traceID := range s.beaconNodes {
+				assert.False(t, traceIDs[traceID], "duplicate trace ID found: %s", traceID)
+				traceIDs[traceID] = true
+			}
+		})
+	}
+}
+
+func TestConnectBeacons(t *testing.T) {
+	tests := []struct {
+		name           string
+		nodeCount      int
+		setupNodes     func(*testing.T, map[string]*beaconNodeInstance)
+		expectedError  bool
+		errorContains  string
+		expectedHealth int
+	}{
+		{
+			name:           "single node success",
+			nodeCount:      1,
+			expectedHealth: 1,
+			setupNodes: func(t *testing.T, nodes map[string]*beaconNodeInstance) {
+				t.Helper()
+
+				ctrl := gomock.NewController(t)
+				for _, instance := range nodes {
+					instance.node = setupMockBeaconNode(ctrl, "success")
+				}
+			},
+		},
+		{
+			name:           "multiple nodes all succeed",
+			nodeCount:      3,
+			expectedHealth: 3,
+			setupNodes: func(t *testing.T, nodes map[string]*beaconNodeInstance) {
+				t.Helper()
+
+				ctrl := gomock.NewController(t)
+				for _, instance := range nodes {
+					instance.node = setupMockBeaconNode(ctrl, "success")
+				}
+			},
+		},
+		{
+			name:          "single node fails",
+			nodeCount:     1,
+			expectedError: true,
+			errorContains: "all beacons failed to connect",
+			setupNodes: func(t *testing.T, nodes map[string]*beaconNodeInstance) {
+				t.Helper()
+
+				ctrl := gomock.NewController(t)
+				for _, instance := range nodes {
+					instance.node = setupMockBeaconNode(ctrl, "fail")
+				}
+			},
+		},
+		{
+			name:           "some nodes succeed some fail",
+			nodeCount:      3,
+			expectedHealth: 1,
+			setupNodes: func(t *testing.T, nodes map[string]*beaconNodeInstance) {
+				t.Helper()
+
+				var (
+					ctrl      = gomock.NewController(t)
+					behaviors = []string{"success", "fail", "fail"}
+					i         = 0
+				)
+
+				for _, instance := range nodes {
+					instance.node = setupMockBeaconNode(ctrl, behaviors[i])
+					i++
+				}
+			},
+		},
+		{
+			name:          "all nodes fail",
+			nodeCount:     3,
+			expectedError: true,
+			errorContains: "all beacons failed to connect",
+			setupNodes: func(t *testing.T, nodes map[string]*beaconNodeInstance) {
+				t.Helper()
+
+				ctrl := gomock.NewController(t)
+				for _, instance := range nodes {
+					instance.node = setupMockBeaconNode(ctrl, "fail")
+				}
+			},
+		},
+		{
+			name:          "timeout with no healthy nodes",
+			nodeCount:     2,
+			expectedError: true,
+			errorContains: context.DeadlineExceeded.Error(),
+			setupNodes: func(t *testing.T, nodes map[string]*beaconNodeInstance) {
+				t.Helper()
+
+				ctrl := gomock.NewController(t)
+				for _, instance := range nodes {
+					instance.node = setupMockBeaconNode(ctrl, "hang")
+				}
+			},
+		},
+		{
+			name:           "timeout with some healthy nodes continues in background",
+			nodeCount:      3,
+			expectedHealth: 1,
+			expectedError:  false,
+			setupNodes: func(t *testing.T, nodes map[string]*beaconNodeInstance) {
+				t.Helper()
+
+				var (
+					ctrl      = gomock.NewController(t)
+					behaviors = []string{"success", "hang", "hang"}
+					i         = 0
+				)
+
+				for _, instance := range nodes {
+					instance.node = setupMockBeaconNode(ctrl, behaviors[i])
+					i++
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+
+			s := &contributoor{
+				log:         logrus.New(),
+				beaconNodes: make(map[string]*beaconNodeInstance),
+			}
+
+			for i := 0; i < tt.nodeCount; i++ {
+				traceID := fmt.Sprintf("test_node_%d", i)
+				s.beaconNodes[traceID] = &beaconNodeInstance{
+					metrics: events.NewMetrics(fmt.Sprintf("test_metrics_%d", i)),
+					cache:   events.NewDuplicateCache(),
+					summary: events.NewSummary(s.log, traceID, time.Second),
+				}
+			}
+
+			tt.setupNodes(t, s.beaconNodes)
+
+			err := s.connectBeacons(ctx)
+
+			if tt.expectedError {
+				require.Error(t, err)
+
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			// Count how many nodes actually became healthy.
+			healthyCount := 0
+
+			for _, instance := range s.beaconNodes {
+				if mockNode, ok := instance.node.(*mock.MockBeaconNodeAPI); ok && mockNode != nil {
+					// For mock nodes, we consider them healthy if they were set up with "success"
+					// see 'setupMockBeaconNode'.
+					if ch, _ := mockNode.Start(ctx); ch != nil {
+						select {
+						case <-ch:
+							healthyCount++
+						default:
+						}
+					}
+				}
+			}
+
+			assert.Equal(t, tt.expectedHealth, healthyCount, "unexpected number of healthy nodes")
+		})
+	}
+}
+
+func waitForServer(t *testing.T, addr string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+
+			return
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	t.Fatalf("Server at %s did not start within deadline", addr)
+}
+
+func setupMockBeaconNode(ctrl *gomock.Controller, behavior string) *mock.MockBeaconNodeAPI {
+	mockNode := mock.NewMockBeaconNodeAPI(ctrl)
+
+	switch behavior {
+	case "success":
+		ready := make(chan struct{})
+		close(ready)
+		mockNode.EXPECT().Start(gomock.Any()).Return(ready, nil).AnyTimes()
+	case "fail":
+		mockNode.EXPECT().Start(gomock.Any()).Return(nil, fmt.Errorf("mock node failure")).AnyTimes()
+	case "hang":
+		mockNode.EXPECT().Start(gomock.Any()).Return(make(chan struct{}), nil).AnyTimes()
+	}
+
+	return mockNode
 }

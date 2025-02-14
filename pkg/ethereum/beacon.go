@@ -22,6 +22,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//go:generate mockgen -package mock -destination mock/beacon_node.mock.go github.com/ethpandaops/contributoor/pkg/ethereum BeaconNodeAPI
+
+// BeaconNodeAPI is the interface for the BeaconNode.
+type BeaconNodeAPI interface {
+	// Start starts the beacon node. Returns a channel that will be closed when the node is healthy.
+	Start(ctx context.Context) (chan struct{}, error)
+	// Stop stops the beacon node.
+	Stop(ctx context.Context) error
+	// Synced checks if the beacon node is synced and ready.
+	Synced(ctx context.Context) error
+}
+
 // BeaconNode represents a connection to an Ethereum beacon node and manages any associated services (eg: metadata, etc).
 type BeaconNode struct {
 	config      *Config
@@ -33,12 +45,15 @@ type BeaconNode struct {
 	cache       *events.DuplicateCache
 	summary     *events.Summary
 	metrics     *events.Metrics
+	traceID     string
+	healthy     bool
 }
 
 // NewBeaconNode creates a new beacon node instance with the given configuration. It initializes any services and
 // configures the beacon subscriptions.
 func NewBeaconNode(
 	log logrus.FieldLogger,
+	traceID string,
 	config *Config,
 	sinks []sinks.ContributoorSink,
 	clockDrift clockdrift.ClockDrift,
@@ -47,6 +62,13 @@ func NewBeaconNode(
 	metrics *events.Metrics,
 	opt *Options,
 ) (*BeaconNode, error) {
+	// Give the ethpandaops/beacon a logger that is suppressed to warn level.
+	// We'll handle any beacon specific info-level logging ourselves.
+	beaconLogger := logrus.New()
+	beaconLogger.SetLevel(logrus.WarnLevel)
+
+	log = log.WithField("trace_id", traceID)
+
 	// Set default options and disable prometheus metrics.
 	opts := *beacon.DefaultOptions().DisablePrometheusMetrics()
 
@@ -74,7 +96,7 @@ func NewBeaconNode(
 	opts.HealthCheck.SuccessfulResponses = 1
 
 	// Create the beacon node.
-	node := beacon.NewNode(log, &beacon.Config{
+	node := beacon.NewNode(beaconLogger, &beacon.Config{
 		Addr:    config.BeaconNodeAddress,
 		Headers: config.BeaconNodeHeaders,
 	}, "contributoor", opts)
@@ -83,7 +105,7 @@ func NewBeaconNode(
 	metadata := services.NewMetadataService(log, node, config.OverrideNetworkName)
 
 	return &BeaconNode{
-		log:         log.WithField("module", "contributoor/ethereum/beacon"),
+		log:         log,
 		config:      config,
 		beacon:      node,
 		clockDrift:  clockDrift,
@@ -92,12 +114,13 @@ func NewBeaconNode(
 		cache:       cache,
 		summary:     summary,
 		metrics:     metrics,
+		traceID:     traceID,
 	}, nil
 }
 
 // Start begins the beacon node operation and its services
-// It waits for the node to become healthy before starting services.
-func (b *BeaconNode) Start(ctx context.Context) error {
+// It returns a channel that will be closed when the node is healthy.
+func (b *BeaconNode) Start(ctx context.Context) (chan struct{}, error) {
 	var (
 		startupErrs = make(chan error, 1)
 		beaconReady = make(chan struct{})
@@ -105,17 +128,15 @@ func (b *BeaconNode) Start(ctx context.Context) error {
 
 	// Register callback for when the node becomes healthy.
 	b.beacon.OnFirstTimeHealthy(ctx, func(ctx context.Context, event *beacon.FirstTimeHealthyEvent) error {
-		b.log.Info("Upstream beacon node is healthy")
+		b.log.Debug("Upstream beacon node is healthy")
+
+		b.healthy = true
 
 		close(beaconReady)
 
 		if err := b.startServices(ctx, startupErrs); err != nil {
 			return err
 		}
-
-		b.log.Info("All services are ready")
-
-		b.log.Info("Setting up beacon node event subscriptions")
 
 		// Set up event subscriptions.
 		if err := b.setupSubscriptions(ctx); err != nil {
@@ -127,30 +148,15 @@ func (b *BeaconNode) Start(ctx context.Context) error {
 
 	b.beacon.StartAsync(ctx)
 
-	// Wait for the node to become healthy or timeout.
-	select {
-	case err := <-startupErrs:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-beaconReady:
-		// Beacon node is healthy, continue with normal operation.
-	case <-time.After(10 * time.Minute):
-		return errors.New("upstream beacon node is not healthy. check your configuration.")
-	}
-
-	// Continue monitoring for errors.
-	select {
-	case err := <-startupErrs:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	// Return the ready channel immediately for consumers, upon closing the channel
+	// this indicates that the node is healthy and ready to process events.
+	return beaconReady, nil
 }
 
 // Stop gracefully shuts down the beacon node and its services.
 func (b *BeaconNode) Stop(ctx context.Context) error {
 	b.log.Info("Stopping beacon node")
+	b.healthy = false
 
 	b.log.WithField("service", b.metadataSvc.Name()).Info("Stopping service")
 
@@ -232,32 +238,44 @@ func (b *BeaconNode) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
 	return b.metadataSvc.Wallclock().Epochs().FromSlot(slot)
 }
 
+// IsHealthy returns whether the node is healthy.
+func (b *BeaconNode) IsHealthy() bool {
+	return b.healthy
+}
+
 func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
 	b.metadataSvc.OnReady(ctx, func(ctx context.Context) error {
-		b.log.WithField("service", b.metadataSvc.Name()).Info("Service is ready")
+		b.log.WithField("service", b.metadataSvc.Name()).Debug("Service is ready")
 
 		hashed, err := b.metadataSvc.NodeIDHash()
 		if err != nil {
 			return err
 		}
 
-		b.log.WithField("node_id", hashed).Info("Beacon node ID hash")
+		b.log.WithFields(logrus.Fields{
+			"node_id":    hashed,
+			"network_id": b.metadataSvc.Network.ID,
+			"network":    b.metadataSvc.Network.Name,
+			"hash":       hashed,
+		}).Info("Detected network and node ID hash")
 
 		return nil
 	})
 
-	b.log.WithField("service", b.metadataSvc.Name()).Info("Starting service")
+	b.log.WithField("service", b.metadataSvc.Name()).Debug("Starting service")
 
 	if err := b.metadataSvc.Start(ctx); err != nil {
 		errs <- fmt.Errorf("failed to start service: %w", err)
 	}
 
-	b.log.WithField("service", b.metadataSvc.Name()).Info("Waiting for service to be ready")
+	b.log.WithField("service", b.metadataSvc.Name()).Debug("Waiting for service to be ready")
 
 	return nil
 }
 
 func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
+	b.log.WithField("topics", b.beacon.Options().BeaconSubscription.Topics).Info("Subscribing to events upstream")
+
 	// Track events received.
 	b.beacon.OnEvent(ctx, func(ctx context.Context, event *eth2v1.Event) error {
 		b.summary.AddEventStreamEvents(event.Topic, 1)
