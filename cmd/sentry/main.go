@@ -694,12 +694,18 @@ func applyConfigOverridesFromFlags(cfg *config.Config, c *cli.Context) error {
 	// Apply environment variables first, then override with CLI flags if set
 	if network := os.Getenv("CONTRIBUTOOR_NETWORK"); network != "" {
 		log.Infof("Setting network from env to %s", network)
-		cfg.SetNetwork(network)
+
+		if err := cfg.SetNetwork(network); err != nil {
+			return errors.Wrap(err, "failed to set network from env")
+		}
 	}
 
 	if c.String("network") != "" {
 		log.Infof("Overriding network from CLI to %s", c.String("network"))
-		cfg.SetNetwork(c.String("network"))
+
+		if err := cfg.SetNetwork(c.String("network")); err != nil {
+			return errors.Wrap(err, "failed to set network from cli")
+		}
 	}
 
 	if addr := os.Getenv("CONTRIBUTOOR_BEACON_NODE_ADDRESS"); addr != "" {
