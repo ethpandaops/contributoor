@@ -13,6 +13,7 @@ require (
 	github.com/ethpandaops/ethwallclock v0.3.0
 	github.com/ethpandaops/xatu v1.0.24
 	github.com/go-co-op/gocron v1.27.1
+	github.com/go-co-op/gocron/v2 v2.15.0
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
