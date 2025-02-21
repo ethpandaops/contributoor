@@ -8,6 +8,7 @@ require (
 	github.com/beevik/ntp v1.4.3
 	github.com/bufbuild/protovalidate-go v0.8.0
 	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/cenkalti/backoff/v5 v5.0.1
 	github.com/creasty/defaults v1.8.0
 	github.com/ethpandaops/beacon v0.45.0
 	github.com/ethpandaops/ethwallclock v0.3.0
