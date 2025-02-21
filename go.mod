@@ -11,18 +11,18 @@ require (
 	github.com/creasty/defaults v1.8.0
 	github.com/ethpandaops/beacon v0.45.0
 	github.com/ethpandaops/ethwallclock v0.3.0
-	github.com/ethpandaops/xatu v1.0.24
+	github.com/ethpandaops/xatu v1.0.25
 	github.com/go-co-op/gocron v1.27.1
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.20.0
+	github.com/prometheus/client_golang v1.20.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.5
 	go.uber.org/mock v0.5.0
-	google.golang.org/protobuf v1.36.0
+	google.golang.org/protobuf v1.36.5
 	gopkg.in/yaml.v3 v3.0.1
 )
 
