@@ -36,12 +36,12 @@ func TestService_StartStop(t *testing.T) {
 	// Test Start.
 	err := service.Start(ctx)
 	require.NoError(t, err)
-	assert.True(t, service.scheduler.IsRunning())
+	assert.Greater(t, len(service.scheduler.Jobs()), 0)
 
 	// Test Stop.
 	err = service.Stop(ctx)
 	require.NoError(t, err)
-	assert.False(t, service.scheduler.IsRunning())
+	assert.Equal(t, 0, len(service.scheduler.Jobs()))
 }
 
 func TestService_GetDrift(t *testing.T) {

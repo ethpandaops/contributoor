@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/beevik/ntp"
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,7 +22,7 @@ type ClockDrift interface {
 type Service struct {
 	config     *ClockDriftConfig
 	log        logrus.FieldLogger
-	scheduler  *gocron.Scheduler
+	scheduler  gocron.Scheduler
 	clockDrift time.Duration
 	mu         sync.RWMutex
 }
@@ -37,10 +37,12 @@ type ClockDriftConfig struct {
 
 // NewService creates a new clock drift service.
 func NewService(log logrus.FieldLogger, config *ClockDriftConfig) *Service {
+	s, _ := gocron.NewScheduler(gocron.WithLocation(time.Local))
+
 	return &Service{
 		config:    config,
 		log:       log.WithField("service", "clockdrift"),
-		scheduler: gocron.NewScheduler(time.Local),
+		scheduler: s,
 	}
 }
 
@@ -50,24 +52,27 @@ func (s *Service) Start(_ context.Context) error {
 		s.log.WithError(err).Error("Failed initial clock drift sync")
 	}
 
-	if _, err := s.scheduler.Every(s.config.SyncInterval).Do(func() {
-		if err := s.syncDrift(); err != nil {
-			s.log.WithError(err).Error("Failed to sync clock drift")
-		}
-	}); err != nil {
+	if _, err := s.scheduler.NewJob(
+		gocron.DurationJob(s.config.SyncInterval),
+		gocron.NewTask(
+			func() {
+				if err := s.syncDrift(); err != nil {
+					s.log.WithError(err).Error("Failed to sync clock drift")
+				}
+			},
+		),
+	); err != nil {
 		return err
 	}
 
-	s.scheduler.StartAsync()
+	s.scheduler.Start()
 
 	return nil
 }
 
 // Stop stops the clock drift service.
 func (s *Service) Stop(_ context.Context) error {
-	s.scheduler.Stop()
-
-	return nil
+	return s.scheduler.Shutdown()
 }
 
 // GetDrift returns the current clock drift.
