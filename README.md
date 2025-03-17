@@ -46,7 +46,7 @@ healthCheckAddress: ":9191"
 # The log level (debug, info, warn, error).
 logLevel: info
 
-# The network name (NETWORK_NAME_MAINNET, NETWORK_NAME_SEPOLIA, NETWORK_NAME_HOLESKY).
+# The network name (NETWORK_NAME_MAINNET, NETWORK_NAME_SEPOLIA, NETWORK_NAME_HOLESKY, NETWORK_NAME_HOODI).
 networkName: NETWORK_NAME_MAINNET
 
 # The output server configuration (credentials are base64 encoded and required if a pandaops server is used).

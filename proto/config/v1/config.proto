@@ -28,6 +28,8 @@ enum NetworkName {
   NETWORK_NAME_SEPOLIA = 2;
   // Holesky testnet.
   NETWORK_NAME_HOLESKY = 3;
+  // Hoodi testnet.
+  NETWORK_NAME_HOODI = 4;
 }
 
 // Config represents the main configuration for the contributoor service.

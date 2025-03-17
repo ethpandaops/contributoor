@@ -85,6 +85,8 @@ func (n NetworkName) DisplayName() string {
 		return "Sepolia"
 	case NetworkName_NETWORK_NAME_HOLESKY:
 		return "Holesky"
+	case NetworkName_NETWORK_NAME_HOODI:
+		return "Hoodi"
 	default:
 		return "Unknown"
 	}
