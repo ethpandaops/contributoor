@@ -19,6 +19,8 @@ github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYW
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
 github.com/attestantio/go-eth2-client v0.24.0 h1:lGVbcnhlBwRglt1Zs56JOCgXVyLWKFZOmZN8jKhE7Ws=
 github.com/attestantio/go-eth2-client v0.24.0/go.mod h1:/KTLN3WuH1xrJL7ZZrpBoWM1xCCihnFbzequD5L+83o=
+github.com/attestantio/go-eth2-client v0.24.1-0.20250219090147-b41ce952806c h1:i1p3AyXvNfUffEKAnnnoJVfDBYLRPLa/BQ8q5Mf+kY0=
+github.com/attestantio/go-eth2-client v0.24.1-0.20250219090147-b41ce952806c/go.mod h1:/KTLN3WuH1xrJL7ZZrpBoWM1xCCihnFbzequD5L+83o=
 github.com/aws/aws-sdk-go-v2 v1.36.3 h1:mJoei2CxPutQVxaATCzDUjcZEjVRdpsiiXi2o38yqWM=
 github.com/aws/aws-sdk-go-v2 v1.36.3/go.mod h1:LLXuLpgzEbD766Z5ECcRmi8AzSwfZItDtmABVkRLGzg=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.10 h1:zAybnyUQXIZ5mok5Jqwlf58/TFE7uvd3IAsa1aF9cXs=
@@ -103,6 +105,8 @@ github.com/ethereum/go-ethereum v1.15.3 h1:OeTWAq6r8iR89bfJDjmmOemE74ywArl9DUViF
 github.com/ethereum/go-ethereum v1.15.3/go.mod h1:jMXlpZXfSar1mGs/5sB0aEpEnPsiE1Jn6/3anlueqz8=
 github.com/ethpandaops/beacon v0.47.0 h1:/b45kaumLvKkdGUgfnalVlFONE02e1/woyqEsOPRpck=
 github.com/ethpandaops/beacon v0.47.0/go.mod h1:Ht6AyKOImp6NDZANaH/seHauwaD8xF1SEDIvrBcxONc=
+github.com/ethpandaops/beacon v0.49.0 h1:L0DhsCdImD6WUuzyyr5li+Qi0CZvYcu68y+CNbmMqQw=
+github.com/ethpandaops/beacon v0.49.0/go.mod h1:NklxAyo+7cmTORZb/sOYcU8sS9bpTgGCfGZr2ZUjdSM=
 github.com/ethpandaops/ethwallclock v0.3.0 h1:xF5fwtBf+bHFHZKBnwiPFEuelW3sMM7SD3ZNFq1lJY4=
 github.com/ethpandaops/ethwallclock v0.3.0/go.mod h1:y0Cu+mhGLlem19vnAV2x0hpFS5KZ7oOi2SWYayv9l24=
 github.com/ethpandaops/xatu v1.0.29 h1:gn5XJ6VjDMssQlbVfRgTVv78XoQJ0ECOO2dYavNA2IY=
