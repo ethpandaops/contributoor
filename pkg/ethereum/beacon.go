@@ -102,7 +102,7 @@ func NewBeaconNode(
 	}, "contributoor", opts)
 
 	// Initialize services.
-	metadata := services.NewMetadataService(log, node, config.OverrideNetworkName)
+	metadata := services.NewMetadataService(log, node)
 
 	return &BeaconNode{
 		log:         log,

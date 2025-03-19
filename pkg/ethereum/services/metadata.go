@@ -20,34 +20,30 @@ import (
 )
 
 type MetadataService struct {
-	beacon              beacon.Node
-	log                 logrus.FieldLogger
-	Network             *networks.Network
-	Genesis             *v1.Genesis
-	Spec                *state.Spec
-	wallclock           *ethwallclock.EthereumBeaconChain
-	onReadyCallbacks    []func(context.Context) error
-	overrideNetworkName string
-	nodeIdentity        *types.Identity
-	nodeID              string
-	nodeIDHash          string
-	mu                  sync.Mutex
+	beacon           beacon.Node
+	log              logrus.FieldLogger
+	Network          *networks.Network
+	Genesis          *v1.Genesis
+	Spec             *state.Spec
+	wallclock        *ethwallclock.EthereumBeaconChain
+	onReadyCallbacks []func(context.Context) error
+	nodeIdentity     *types.Identity
+	nodeID           string
+	nodeIDHash       string
+	mu               sync.Mutex
 }
 
-func NewMetadataService(log logrus.FieldLogger, sbeacon beacon.Node, overrideNetworkName string) MetadataService {
+func NewMetadataService(log logrus.FieldLogger, sbeacon beacon.Node) MetadataService {
 	return MetadataService{
-		beacon:              sbeacon,
-		log:                 log.WithField("module", "sentry/ethereum/metadata"),
-		Network:             &networks.Network{Name: networks.NetworkNameHoodi},
-		onReadyCallbacks:    []func(context.Context) error{},
-		mu:                  sync.Mutex{},
-		overrideNetworkName: overrideNetworkName,
+		beacon:           sbeacon,
+		log:              log.WithField("module", "sentry/ethereum/metadata"),
+		Network:          &networks.Network{Name: networks.NetworkNameHoodi},
+		onReadyCallbacks: []func(context.Context) error{},
+		mu:               sync.Mutex{},
 	}
 }
 
 func (m *MetadataService) Start(ctx context.Context) error {
-	errChan := make(chan error, 1)
-
 	go func() {
 		operation := func() (string, error) {
 			if err := m.RefreshAll(ctx); err != nil {
@@ -68,24 +64,11 @@ func (m *MetadataService) Start(ctx context.Context) error {
 			m.log.WithError(err).Warn("Failed to refresh metadata")
 		}
 
-		// Check that we're on the correct network
-		if m.overrideNetworkName != "" && m.Network.Name != networks.NetworkName(m.overrideNetworkName) {
-			err := fmt.Errorf("incorrect network detected: got %s, expected %s", m.Network.Name, m.overrideNetworkName)
-
-			m.log.WithFields(logrus.Fields{
-				"name":     m.Network.Name,
-				"expected": m.overrideNetworkName,
-			}).Error(err.Error())
-
-			errChan <- err
-
-			return
-		}
-
 		if err := m.DeriveNetwork(ctx); err != nil {
+			// Fatally panic if we can't derive the network
 			m.log.WithFields(logrus.Fields{
 				"error": err,
-			}).Fatal("Failed to derive network: unknown network?")
+			}).Fatal("Failed to derive network")
 		}
 
 		m.log.Info("Beacon node is running on network: %s", m.Network.Name)
@@ -101,19 +84,7 @@ func (m *MetadataService) Start(ctx context.Context) error {
 				m.log.WithError(err).Warn("Failed to execute onReady callback")
 			}
 		}
-
-		errChan <- nil
 	}()
-
-	// Wait for initialization to complete or fail
-	select {
-	case err := <-errChan:
-		if err != nil {
-			return err
-		}
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 
 	s, err := gocron.NewScheduler(gocron.WithLocation(time.Local))
 	if err != nil {

@@ -599,8 +599,7 @@ func (s *contributoor) initBeacon(
 		log,
 		traceID,
 		&ethereum.Config{
-			BeaconNodeAddress:   address,
-			OverrideNetworkName: strings.ToLower(s.config.NetworkName.DisplayName()),
+			BeaconNodeAddress: address,
 		},
 		sinks,
 		s.clockDrift,
