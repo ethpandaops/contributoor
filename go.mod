@@ -4,12 +4,12 @@ go 1.24.0
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.5-20250219170025-d39267d9df8f.1
-	github.com/attestantio/go-eth2-client v0.24.0
+	github.com/attestantio/go-eth2-client v0.24.1-0.20250219090147-b41ce952806c
 	github.com/beevik/ntp v1.4.3
 	github.com/bufbuild/protovalidate-go v0.9.2
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.47.0
+	github.com/ethpandaops/beacon v0.49.0
 	github.com/ethpandaops/ethwallclock v0.3.0
 	github.com/ethpandaops/xatu v1.0.29
 	github.com/go-co-op/gocron/v2 v2.16.0
