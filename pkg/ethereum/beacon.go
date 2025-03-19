@@ -390,15 +390,13 @@ func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
 	var networkMeta *xatu.ClientMeta_Ethereum_Network
 
 	network := b.metadataSvc.Network
-	if network != nil {
-		networkMeta = &xatu.ClientMeta_Ethereum_Network{
-			Name: string(network.Name),
-			Id:   network.ID,
-		}
+	if network == nil {
+		return nil, errors.New("network is unknown")
+	}
 
-		if b.config.OverrideNetworkName != "" {
-			networkMeta.Name = b.config.OverrideNetworkName
-		}
+	networkMeta = &xatu.ClientMeta_Ethereum_Network{
+		Name: string(network.Name),
+		Id:   network.ID,
 	}
 
 	hashed, err := b.metadataSvc.NodeIDHash()

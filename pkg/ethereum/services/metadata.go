@@ -13,9 +13,8 @@ import (
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/beacon/pkg/beacon/api/types"
 	"github.com/ethpandaops/beacon/pkg/beacon/state"
+	"github.com/ethpandaops/contributoor/pkg/ethereum/networks"
 	"github.com/ethpandaops/ethwallclock"
-	"github.com/ethpandaops/xatu/pkg/networks"
-	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/sirupsen/logrus"
 )
@@ -39,7 +38,7 @@ func NewMetadataService(log logrus.FieldLogger, sbeacon beacon.Node, overrideNet
 	return MetadataService{
 		beacon:              sbeacon,
 		log:                 log.WithField("module", "sentry/ethereum/metadata"),
-		Network:             &networks.Network{Name: networks.NetworkNameNone},
+		Network:             &networks.Network{Name: networks.NetworkNameHoodi},
 		onReadyCallbacks:    []func(context.Context) error{},
 		mu:                  sync.Mutex{},
 		overrideNetworkName: overrideNetworkName,
@@ -47,13 +46,11 @@ func NewMetadataService(log logrus.FieldLogger, sbeacon beacon.Node, overrideNet
 }
 
 func (m *MetadataService) Start(ctx context.Context) error {
+	errChan := make(chan error, 1)
+
 	go func() {
 		operation := func() (string, error) {
 			if err := m.RefreshAll(ctx); err != nil {
-				return "", err
-			}
-
-			if err := m.Ready(ctx); err != nil {
 				return "", err
 			}
 
@@ -71,6 +68,32 @@ func (m *MetadataService) Start(ctx context.Context) error {
 			m.log.WithError(err).Warn("Failed to refresh metadata")
 		}
 
+		// Check that we're on the correct network
+		if m.overrideNetworkName != "" && m.Network.Name != networks.NetworkName(m.overrideNetworkName) {
+			err := fmt.Errorf("incorrect network detected: got %s, expected %s", m.Network.Name, m.overrideNetworkName)
+
+			m.log.WithFields(logrus.Fields{
+				"name":     m.Network.Name,
+				"expected": m.overrideNetworkName,
+			}).Error(err.Error())
+
+			errChan <- err
+
+			return
+		}
+
+		if err := m.DeriveNetwork(ctx); err != nil {
+			m.log.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("Failed to derive network: unknown network?")
+		}
+
+		m.log.Info("Beacon node is running on network: %s", m.Network.Name)
+
+		if err := m.Ready(ctx); err != nil {
+			m.log.WithError(err).Warn("Failed to check metadata service readiness")
+		}
+
 		m.log.Debug("Metadata service is ready")
 
 		for _, cb := range m.onReadyCallbacks {
@@ -78,7 +101,19 @@ func (m *MetadataService) Start(ctx context.Context) error {
 				m.log.WithError(err).Warn("Failed to execute onReady callback")
 			}
 		}
+
+		errChan <- nil
 	}()
+
+	// Wait for initialization to complete or fail
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return err
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 
 	s, err := gocron.NewScheduler(gocron.WithLocation(time.Local))
 	if err != nil {
@@ -127,10 +162,6 @@ func (m *MetadataService) Ready(ctx context.Context) error {
 		return errors.New("node version is not available")
 	}
 
-	if m.Network.Name == networks.NetworkNameNone {
-		return errors.New("network name is not available")
-	}
-
 	if m.wallclock == nil {
 		return errors.New("wallclock is not available")
 	}
@@ -163,10 +194,6 @@ func (m *MetadataService) RefreshAll(ctx context.Context) error {
 
 			m.mu.Unlock()
 		}
-	}
-
-	if err := m.DeriveNetwork(ctx); err != nil {
-		m.log.WithError(err).Warn("Failed to derive network name for refresh")
 	}
 
 	return nil
@@ -209,24 +236,22 @@ func (m *MetadataService) DeriveNodeIdentity(ctx context.Context) (*types.Identi
 }
 
 func (m *MetadataService) DeriveNetwork(_ context.Context) error {
-	if m.Genesis == nil {
-		return errors.New("genesis is not available")
+	if m.Spec == nil {
+		return errors.New("spec is not available")
 	}
 
-	network := networks.DeriveFromGenesisRoot(xatuethv1.RootAsString(m.Genesis.GenesisValidatorsRoot))
-
-	if m.overrideNetworkName != "" {
-		network.Name = networks.NetworkName(m.overrideNetworkName)
-
-		network.ID = m.Spec.DepositChainID
+	network, err := networks.DeriveFromSpec(m.Spec)
+	if err != nil {
+		return err
 	}
 
-	if network.Name != m.Network.Name {
-		m.log.WithFields(logrus.Fields{
-			"name": network.Name,
-			"id":   network.ID,
-		}).Debug("Detected ethereum network")
-	}
+	m.log.WithFields(logrus.Fields{
+		"name":                     network.Name,
+		"id":                       network.ID,
+		"deposit_contract_address": m.Spec.DepositContractAddress,
+		"deposit_chain_id":         m.Spec.DepositChainID,
+		"config_name":              m.Spec.ConfigName,
+	}).Debug("Detected ethereum network")
 
 	m.Network = network
 
