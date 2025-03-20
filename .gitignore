@@ -8,3 +8,5 @@ go.work.sum
 # Contributoor
 config.yaml
 dist
+
+.vscode
