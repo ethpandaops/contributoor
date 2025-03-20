@@ -71,8 +71,6 @@ func (m *MetadataService) Start(ctx context.Context) error {
 			}).Fatal("Failed to derive network")
 		}
 
-		m.log.Info("Beacon node is running on network: %s", m.Network.Name)
-
 		if err := m.Ready(ctx); err != nil {
 			m.log.WithError(err).Warn("Failed to check metadata service readiness")
 		}
