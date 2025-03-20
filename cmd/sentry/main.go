@@ -624,11 +624,11 @@ func (s *contributoor) initSummary(log logrus.FieldLogger, traceID string) (*eve
 	return events.NewSummary(log, traceID, 10*time.Second), nil
 }
 
-func (s *contributoor) initSinks(ctx context.Context, log logrus.FieldLogger) ([]sinks.ContributoorSink, error) {
+func (s *contributoor) initSinks(ctx context.Context, log logrus.FieldLogger, traceID string) ([]sinks.ContributoorSink, error) {
 	eventSinks := make([]sinks.ContributoorSink, 0)
 
 	if s.debug {
-		stdoutSink, err := sinks.NewStdoutSink(log, s.config, strings.ToLower(s.config.NetworkName.DisplayName()))
+		stdoutSink, err := sinks.NewStdoutSink(log, s.config, traceID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create stdout sink: %w", err)
 		}
@@ -636,7 +636,7 @@ func (s *contributoor) initSinks(ctx context.Context, log logrus.FieldLogger) ([
 		eventSinks = append(eventSinks, stdoutSink)
 	}
 
-	xatuSink, err := sinks.NewXatuSink(log, s.config, strings.ToLower(s.config.NetworkName.DisplayName()))
+	xatuSink, err := sinks.NewXatuSink(log, s.config, traceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create xatu sink: %w", err)
 	}
@@ -669,7 +669,7 @@ func (s *contributoor) createBeaconInstance(ctx context.Context, address, traceI
 		return nil, fmt.Errorf("failed to init summary: %w", err)
 	}
 
-	sinks, err := s.initSinks(ctx, log)
+	sinks, err := s.initSinks(ctx, log, traceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init sinks: %w", err)
 	}
