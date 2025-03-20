@@ -93,6 +93,20 @@ func (e *FinalizedCheckpointEvent) Ignore(ctx context.Context) (bool, error) {
 		return true, err
 	}
 
+	// For finalized checkpoint, we need to convert epoch to slot
+	// Assuming 32 slots per epoch
+	epochSlot := uint64(e.data.Epoch) * 32
+
+	// Check if event is from an unexpected network based on converted slot
+	if e.beacon.IsSlotFromUnexpectedNetwork(epochSlot) {
+		e.log.WithFields(logrus.Fields{
+			"epoch":      e.data.Epoch,
+			"epoch_slot": epochSlot,
+		}).Warn("Ignoring finalized checkpoint event from unexpected network")
+
+		return true, nil
+	}
+
 	hash, err := hashstructure.Hash(e.data, hashstructure.FormatV2, nil)
 	if err != nil {
 		return true, err

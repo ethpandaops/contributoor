@@ -76,6 +76,7 @@ func TestFinalizedCheckpointEvent_Ignore(t *testing.T) {
 	var (
 		now        = time.Now()
 		epoch      = uint64(123)
+		epochSlot  = epoch * 32 // Convert epoch to slot for validation
 		mockBeacon = mock.NewMockBeaconDataProvider(ctrl)
 		blockRoot  = phase0.Root{0x1}
 		cache      = ttlcache.New[string, time.Time]()
@@ -88,7 +89,6 @@ func TestFinalizedCheckpointEvent_Ignore(t *testing.T) {
 
 	t.Run("cache miss", func(t *testing.T) {
 		mockBeacon.EXPECT().Synced(gomock.Any()).Return(fmt.Errorf("not synced"))
-
 		event := NewFinalizedCheckpointEvent(
 			logrus.New(),
 			mockBeacon,
@@ -103,8 +103,27 @@ func TestFinalizedCheckpointEvent_Ignore(t *testing.T) {
 		require.True(t, ignore)
 	})
 
+	t.Run("unexpected network", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(epochSlot).Return(true)
+
+		event := NewFinalizedCheckpointEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			checkpoint,
+			now,
+		)
+
+		ignore, err := event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.True(t, ignore)
+	})
+
 	t.Run("cache hit", func(t *testing.T) {
 		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(epochSlot).Return(false).Times(2)
 
 		event := NewFinalizedCheckpointEvent(
 			logrus.New(),

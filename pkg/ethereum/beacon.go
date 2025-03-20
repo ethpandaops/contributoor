@@ -24,6 +24,11 @@ import (
 
 //go:generate mockgen -package mock -destination mock/beacon_node.mock.go github.com/ethpandaops/contributoor/pkg/ethereum BeaconNodeAPI
 
+// MaxReasonableSlotDifference is the maximum number of slots that can be
+// between the event slot and the current slot before we consider the event
+// to be from a different network.
+const MaxReasonableSlotDifference uint64 = 32
+
 // BeaconNodeAPI is the interface for the BeaconNode.
 type BeaconNodeAPI interface {
 	// Start starts the beacon node. Returns a channel that will be closed when the node is healthy.
@@ -226,6 +231,24 @@ func (b *BeaconNode) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
 // IsHealthy returns whether the node is healthy.
 func (b *BeaconNode) IsHealthy() bool {
 	return b.healthy
+}
+
+// IsSlotFromUnexpectedNetwork checks if a slot appears to be from an unexpected network
+// by comparing it with the current wallclock slot.
+func (b *BeaconNode) IsSlotFromUnexpectedNetwork(eventSlot uint64) bool {
+	wallclock := b.GetWallclock()
+	if wallclock == nil {
+		// Can't verify without wallclock.
+		return false
+	}
+
+	// Get current slot from wallclock.
+	currentSlot, _, err := wallclock.Now()
+	if err != nil {
+		return false
+	}
+
+	return isSlotDifferenceTooLarge(eventSlot, currentSlot.Number())
 }
 
 func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
@@ -469,4 +492,21 @@ func (b *BeaconNode) handleDecoratedEvent(ctx context.Context, event events.Even
 	}
 
 	return nil
+}
+
+// isSlotDifferenceTooLarge checks if the difference between two slots exceeds the
+// maximum reasonable difference threshold, indicating they might be from different networks.
+// This helper function is extracted for better testability.
+func isSlotDifferenceTooLarge(slotA, slotB uint64) bool {
+	// Calculate absolute difference.
+	var slotDiff uint64
+	if slotA > slotB {
+		slotDiff = slotA - slotB
+	} else {
+		slotDiff = slotB - slotA
+	}
+
+	// If slot difference is greater than 32 slots (approximately 6.4 minutes),
+	// it's likely from a different network.
+	return slotDiff > MaxReasonableSlotDifference
 }

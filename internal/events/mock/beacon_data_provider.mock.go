@@ -98,6 +98,20 @@ func (mr *MockBeaconDataProviderMockRecorder) GetWallclock() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWallclock", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetWallclock))
 }
 
+// IsSlotFromUnexpectedNetwork mocks base method.
+func (m *MockBeaconDataProvider) IsSlotFromUnexpectedNetwork(eventSlot uint64) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSlotFromUnexpectedNetwork", eventSlot)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsSlotFromUnexpectedNetwork indicates an expected call of IsSlotFromUnexpectedNetwork.
+func (mr *MockBeaconDataProviderMockRecorder) IsSlotFromUnexpectedNetwork(eventSlot any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSlotFromUnexpectedNetwork", reflect.TypeOf((*MockBeaconDataProvider)(nil).IsSlotFromUnexpectedNetwork), eventSlot)
+}
+
 // Node mocks base method.
 func (m *MockBeaconDataProvider) Node() beacon.Node {
 	m.ctrl.T.Helper()
