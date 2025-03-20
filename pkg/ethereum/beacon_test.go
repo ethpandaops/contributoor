@@ -20,33 +20,33 @@ func TestIsSlotDifferenceTooLarge(t *testing.T) {
 			expectTooLarge: false,
 		},
 		{
-			name:           "within threshold (positive direction)",
+			name:           "small difference (positive direction)",
 			slotA:          100,
-			slotB:          120, // 20 slot difference
+			slotB:          1000, // 900 slot difference
 			expectTooLarge: false,
 		},
 		{
-			name:           "within threshold (negative direction)",
-			slotA:          120,
-			slotB:          100, // 20 slot difference
+			name:           "small difference (negative direction)",
+			slotA:          1000,
+			slotB:          100, // 900 slot difference
 			expectTooLarge: false,
 		},
 		{
 			name:           "at threshold",
 			slotA:          100,
-			slotB:          132, // exactly 32 slot difference
+			slotB:          10100, // exactly 10000 slot difference
 			expectTooLarge: false,
 		},
 		{
 			name:           "beyond threshold (positive direction)",
 			slotA:          100,
-			slotB:          140, // 40 slot difference, > MaxReasonableSlotDifference (32)
+			slotB:          12000, // 11900 slot difference, > MaxReasonableSlotDifference (10000)
 			expectTooLarge: true,
 		},
 		{
 			name:           "beyond threshold (negative direction)",
-			slotA:          140,
-			slotB:          100, // 40 slot difference, > MaxReasonableSlotDifference (32)
+			slotA:          12000,
+			slotB:          100, // 11900 slot difference, > MaxReasonableSlotDifference (10000)
 			expectTooLarge: true,
 		},
 	}

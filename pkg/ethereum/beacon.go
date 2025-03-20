@@ -27,7 +27,7 @@ import (
 // MaxReasonableSlotDifference is the maximum number of slots that can be
 // between the event slot and the current slot before we consider the event
 // to be from a different network.
-const MaxReasonableSlotDifference uint64 = 32
+const MaxReasonableSlotDifference uint64 = 10000
 
 // BeaconNodeAPI is the interface for the BeaconNode.
 type BeaconNodeAPI interface {
