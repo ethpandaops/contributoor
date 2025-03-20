@@ -3,6 +3,7 @@ package networks
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ethpandaops/beacon/pkg/beacon/state"
 )
@@ -68,7 +69,8 @@ var (
 // - We still support networks that are not in our list of known networks
 func DeriveFromSpec(spec *state.Spec) (*Network, error) {
 	for _, network := range KnownNetworks {
-		if network.DepositContractAddress == spec.DepositContractAddress && network.DepositChainID == spec.DepositChainID {
+		if strings.ToLower(network.DepositContractAddress) == strings.ToLower(spec.DepositContractAddress) &&
+			network.DepositChainID == spec.DepositChainID {
 			return &network, nil
 		}
 	}
@@ -82,7 +84,7 @@ func DeriveFromSpec(spec *state.Spec) (*Network, error) {
 			// but the CONFIG_NAME matches one of our known networks
 			// We'll return an error here to ensure that we don't send incorrect network information.
 			// Realistically, this should never happen.
-			return nil, fmt.Errorf("%w: %s", ErrNetworkNotFound, spec.ConfigName)
+			return nil, fmt.Errorf("incorrect network detected: %s", spec.ConfigName)
 		}
 
 		// The spec config name is not one of our known networks, so we'll return the network

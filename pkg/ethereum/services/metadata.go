@@ -211,6 +211,12 @@ func (m *MetadataService) DeriveNetwork(_ context.Context) error {
 		return errors.New("spec is not available")
 	}
 
+	m.log.WithFields(logrus.Fields{
+		"deposit_contract_address": m.Spec.DepositContractAddress,
+		"deposit_chain_id":         m.Spec.DepositChainID,
+		"config_name":              m.Spec.ConfigName,
+	}).Info("Deriving ethereum network")
+
 	network, err := networks.DeriveFromSpec(m.Spec)
 	if err != nil {
 		return err
