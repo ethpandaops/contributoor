@@ -66,10 +66,10 @@ var (
 // If this CONFIG_NAME is one of our known networks, then we return an error.
 // This ensures that we:
 // - We have safety garauntees for our defined networks
-// - We still support networks that are not in our list of known networks
+// - We still support networks that are not in our list of known networks.
 func DeriveFromSpec(spec *state.Spec) (*Network, error) {
 	for _, network := range KnownNetworks {
-		if strings.ToLower(network.DepositContractAddress) == strings.ToLower(spec.DepositContractAddress) &&
+		if strings.EqualFold(network.DepositContractAddress, spec.DepositContractAddress) &&
 			network.DepositChainID == spec.DepositChainID {
 			return &network, nil
 		}
@@ -100,7 +100,7 @@ func DeriveFromSpec(spec *state.Spec) (*Network, error) {
 	return nil, fmt.Errorf("%w: %s", ErrNetworkNotFound, spec.ConfigName)
 }
 
-// FindByName returns a network with the given name or an error if not found
+// FindByName returns a network with the given name or an error if not found.
 func FindByName(name NetworkName) (*Network, error) {
 	for _, network := range KnownNetworks {
 		if network.Name == name {

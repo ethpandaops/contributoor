@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Mock state.Spec for testing
+// Mock state.Spec for testing.
 func createMockSpec(depositContractAddress string, depositChainID uint64, configName string) *state.Spec {
 	return &state.Spec{
 		DepositContractAddress: depositContractAddress,
@@ -71,6 +71,16 @@ func TestDeriveFromSpec(t *testing.T) {
 			},
 		},
 		{
+			name: "mainnet with lowercase address",
+			spec: createMockSpec("0x00000000219ab540356cbb839cbe05303d7705fa", 1, "mainnet"),
+			expectedNetwork: &Network{
+				Name:                   NetworkNameMainnet,
+				ID:                     1,
+				DepositContractAddress: "0x00000000219ab540356cBB839Cbe05303d7705Fa",
+				DepositChainID:         1,
+			},
+		},
+		{
 			name: "sepolia",
 			spec: createMockSpec("0x7f02c3e3c98b133055b8b348b2ac625669ed295d", 11155111, "sepolia"),
 			expectedNetwork: &Network{
@@ -118,7 +128,7 @@ func TestDeriveFromSpec(t *testing.T) {
 		{
 			name:                  "conflicting config name",
 			spec:                  createMockSpec("0x1111111111111111111111111111111111111111", 123456, "mainnet"),
-			expectedErrorContains: "network not found",
+			expectedErrorContains: "incorrect network detected",
 		},
 	}
 
