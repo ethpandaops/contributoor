@@ -120,8 +120,27 @@ func TestBlobSidecarEvent_Ignore(t *testing.T) {
 		require.True(t, ignore)
 	})
 
+	t.Run("unexpected network", func(t *testing.T) {
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(slot).Return(true)
+
+		event := NewBlobSidecarEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			blobSidecar,
+			now,
+		)
+
+		ignore, err := event.Ignore(context.Background())
+		require.NoError(t, err)
+		require.True(t, ignore)
+	})
+
 	t.Run("cache hit", func(t *testing.T) {
 		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(slot).Return(false).Times(2)
 
 		event := NewBlobSidecarEvent(
 			logrus.New(),

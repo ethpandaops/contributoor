@@ -26,6 +26,9 @@ type BeaconDataProvider interface {
 	Synced(ctx context.Context) error
 	// Node returns the underlying beacon node instance.
 	Node() beacon.Node
+	// IsSlotFromUnexpectedNetwork checks if a slot appears to be from an unexpected network
+	// by comparing it with the current wallclock slot.
+	IsSlotFromUnexpectedNetwork(eventSlot uint64) bool
 }
 
 // Event is the interface that all events must implement.

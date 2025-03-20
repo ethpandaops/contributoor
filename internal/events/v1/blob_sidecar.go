@@ -108,6 +108,13 @@ func (e *BlobSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 		return true, err
 	}
 
+	// Check if event is from an unexpected network based on slot
+	if e.beacon.IsSlotFromUnexpectedNetwork(uint64(e.data.Slot)) {
+		e.log.WithField("slot", e.data.Slot).Warn("Ignoring blob sidecar event from unexpected network")
+
+		return true, nil
+	}
+
 	hash, err := hashstructure.Hash(e.data, hashstructure.FormatV2, nil)
 	if err != nil {
 		return true, err
