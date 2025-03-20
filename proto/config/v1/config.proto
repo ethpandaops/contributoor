@@ -43,7 +43,7 @@ message Config {
   // RunMethod is the method used to run the contributoorservice.
   RunMethod run_method = 4 [(buf.validate.field).enum = { not_in: [0] }];
   // NetworkName is the name of the network the beacon node is running on.
-  NetworkName network_name = 5 [deprecated=true];
+  NetworkName network_name = 5;
   // BeaconNodeAddress is the address of the beacon node.
   string beacon_node_address = 6 [
     (buf.validate.field).string.uri = true,
