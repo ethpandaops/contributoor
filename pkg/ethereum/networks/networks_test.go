@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethpandaops/beacon/pkg/beacon/state"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Mock state.Spec for testing.
@@ -147,6 +148,63 @@ func TestDeriveFromSpec(t *testing.T) {
 				assert.Equal(t, tt.expectedNetwork.DepositContractAddress, network.DepositContractAddress)
 				assert.Equal(t, tt.expectedNetwork.DepositChainID, network.DepositChainID)
 			}
+		})
+	}
+}
+
+func TestDeriveNetworkFromSpecWithOverride(t *testing.T) {
+	tests := []struct {
+		name            string
+		spec            *state.Spec
+		networkOverride string
+		expectedNetwork string
+		expectError     bool
+	}{
+		{
+			name:            "mainnet network is not overridden",
+			spec:            createMockSpec("0x00000000219ab540356cBB839Cbe05303d7705Fa", 1, "mainnet"),
+			networkOverride: "custom-network",
+			expectedNetwork: "mainnet",
+			expectError:     false,
+		},
+		{
+			name:            "testnet allows override",
+			spec:            createMockSpec("0x1111111111111111111111111111111111111111", 12345, "testnet"),
+			networkOverride: "pectra-devnet-6",
+			expectedNetwork: "pectra-devnet-6",
+			expectError:     false,
+		},
+		{
+			name:            "custom network spec is not overridden",
+			spec:            createMockSpec("0x1111111111111111111111111111111111111111", 12345, "custom-network-from-spec"),
+			networkOverride: "override-attempt",
+			expectedNetwork: "custom-network-from-spec",
+			expectError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// First derive the network normally
+			network, err := DeriveFromSpec(tt.spec)
+			if tt.expectError {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			// Apply network override when network name is "testnet"
+			if tt.networkOverride != "" && (network.Name == "testnet") {
+				network = &Network{
+					Name:                   NetworkName(tt.networkOverride),
+					ID:                     network.ID,
+					DepositContractAddress: network.DepositContractAddress,
+					DepositChainID:         network.DepositChainID,
+				}
+			}
+
+			// Verify results
+			assert.Equal(t, NetworkName(tt.expectedNetwork), network.Name)
 		})
 	}
 }

@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -64,7 +63,7 @@ func NewDefaultConfig() *Config {
 		Version:               "",
 		ContributoorDirectory: "~/.contributoor",
 		RunMethod:             RunMethod_RUN_METHOD_DOCKER,
-		NetworkName:           NetworkName_NETWORK_NAME_MAINNET,
+		NetworkName:           "",
 		BeaconNodeAddress:     "http://localhost:5052",
 		MetricsAddress:        "",
 		PprofAddress:          "",
@@ -173,16 +172,8 @@ func (c *Config) SetNetwork(network string) error {
 		return errors.New("network is required")
 	}
 
-	switch strings.ToLower(network) {
-	case "mainnet":
-		c.NetworkName = NetworkName_NETWORK_NAME_MAINNET
-	case "sepolia":
-		c.NetworkName = NetworkName_NETWORK_NAME_SEPOLIA
-	case "holesky":
-		c.NetworkName = NetworkName_NETWORK_NAME_HOLESKY
-	default:
-		return fmt.Errorf("invalid network: %s", network)
-	}
+	// Just set the network name directly as a string
+	c.NetworkName = network
 
 	return nil
 }
