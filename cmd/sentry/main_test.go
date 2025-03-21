@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -156,7 +155,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			args: []string{"--network", "sepolia"},
 			validate: func(t *testing.T, cfg *config.Config) {
 				t.Helper()
-				assert.Equal(t, config.NetworkName_NETWORK_NAME_SEPOLIA, cfg.NetworkName)
+				assert.Equal(t, "sepolia", cfg.NetworkName)
 			},
 		},
 		{
@@ -229,7 +228,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *config.Config) {
 				t.Helper()
-				assert.Equal(t, config.NetworkName_NETWORK_NAME_SEPOLIA, cfg.NetworkName)
+				assert.Equal(t, "sepolia", cfg.NetworkName)
 				assert.Equal(t, "http://localhost:5052", cfg.BeaconNodeAddress)
 				assert.Equal(t, "localhost:9091", cfg.MetricsAddress)
 				assert.Equal(t, "debug", cfg.LogLevel)
@@ -307,7 +306,7 @@ func TestConfigOverridePrecedence(t *testing.T) {
 					t.Fatalf("failed to set network: %v", err)
 				}
 			},
-			getter: func(c *config.Config) string { return strings.ToLower(c.NetworkName.DisplayName()) },
+			getter: func(c *config.Config) string { return c.NetworkName },
 		},
 		{
 			name:          "Env overrides config but not CLI - beacon node",
@@ -533,7 +532,7 @@ func TestInitBeacons(t *testing.T) {
 
 			cfg := config.NewDefaultConfig()
 			cfg.BeaconNodeAddress = tt.addresses
-			cfg.NetworkName = config.NetworkName_NETWORK_NAME_MAINNET
+			cfg.NetworkName = "mainnet"
 			cfg.OutputServer = &config.OutputServer{
 				Address: "http://localhost:8080",
 				Tls:     false,

@@ -107,7 +107,7 @@ func NewBeaconNode(
 	}, "contributoor", opts)
 
 	// Initialize services.
-	metadata := services.NewMetadataService(log, node)
+	metadata := services.NewMetadataService(log, node, config.NetworkOverride)
 
 	return &BeaconNode{
 		log:         log,
@@ -506,7 +506,7 @@ func isSlotDifferenceTooLarge(slotA, slotB uint64) bool {
 		slotDiff = slotB - slotA
 	}
 
-	// If slot difference is greater than 32 slots (approximately 6.4 minutes),
+	// If slot difference is greater than MaxReasonableSlotDifference,
 	// it's likely from a different network.
 	return slotDiff > MaxReasonableSlotDifference
 }

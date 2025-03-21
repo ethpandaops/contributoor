@@ -12,6 +12,8 @@ type Config struct {
 	BeaconNodeHeaders map[string]string `yaml:"beaconNodeHeaders"`
 	// BeaconSubscriptions is a list of beacon subscriptions to subscribe to.
 	BeaconSubscriptions *[]string `yaml:"beaconSubscriptions"`
+	// NetworkOverride is an optional network name to use instead of what's reported by the beacon node
+	NetworkOverride string `yaml:"networkOverride,omitempty"`
 }
 
 // Validate checks the configuration for the beacon node.

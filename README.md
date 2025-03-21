@@ -46,8 +46,11 @@ healthCheckAddress: ":9191"
 # The log level (debug, info, warn, error).
 logLevel: info
 
-# The network name (NETWORK_NAME_MAINNET, NETWORK_NAME_SEPOLIA, NETWORK_NAME_HOLESKY, NETWORK_NAME_HOODI).
-networkName: NETWORK_NAME_MAINNET
+# Specifies a network name override. This is only used when connecting to testnets where 
+# the beacon node reports a generic network name like "testnet". For known networks 
+# (mainnet, sepolia, holesky, hoodi, etc.), the network is always derived automatically from 
+# the beacon node's configuration.
+networkName: pectra-devnet-6
 
 # The output server configuration (credentials are base64 encoded and required if a pandaops server is used).
 outputServer:

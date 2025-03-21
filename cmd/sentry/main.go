@@ -19,7 +19,7 @@ import (
 	contr "github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/internal/sinks"
-	"github.com/ethpandaops/contributoor/pkg/config/v1"
+	config "github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -208,6 +208,9 @@ func main() {
 	}
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
+		cancel()
+
+		//nolint:gocritic // false positive, cancel() called above.
 		log.Fatal(err)
 	}
 }
@@ -595,11 +598,18 @@ func (s *contributoor) initBeacon(
 	summary *events.Summary,
 	metrics *events.Metrics,
 ) (ethereum.BeaconNodeAPI, error) {
+	// Get the network from config if set
+	var networkOverride string
+	if s.config.NetworkName != "" {
+		networkOverride = s.config.NetworkName
+	}
+
 	return ethereum.NewBeaconNode(
 		log,
 		traceID,
 		&ethereum.Config{
 			BeaconNodeAddress: address,
+			NetworkOverride:   networkOverride,
 		},
 		sinks,
 		s.clockDrift,

@@ -30,15 +30,17 @@ type MetadataService struct {
 	nodeIdentity     *types.Identity
 	nodeID           string
 	nodeIDHash       string
+	networkOverride  string
 	mu               sync.Mutex
 }
 
-func NewMetadataService(log logrus.FieldLogger, sbeacon beacon.Node) MetadataService {
+func NewMetadataService(log logrus.FieldLogger, sbeacon beacon.Node, networkOverride string) MetadataService {
 	return MetadataService{
 		beacon:           sbeacon,
 		log:              log.WithField("module", "sentry/ethereum/metadata"),
 		Network:          &networks.Network{Name: networks.NetworkNameHoodi},
 		onReadyCallbacks: []func(context.Context) error{},
+		networkOverride:  networkOverride,
 		mu:               sync.Mutex{},
 	}
 }
@@ -218,6 +220,26 @@ func (m *MetadataService) DeriveNetwork(_ context.Context) error {
 	network, err := networks.DeriveFromSpec(m.Spec)
 	if err != nil {
 		return err
+	}
+
+	// Apply network override if specified and the derived network is "testnet".
+	// This allows us to override the network name for testnets that are not
+	// in our list of known networks.
+	if m.networkOverride != "" && (network.Name == "testnet") {
+		m.log.WithFields(logrus.Fields{
+			"derived_network":          network.Name,
+			"override_network":         m.networkOverride,
+			"deposit_contract_address": m.Spec.DepositContractAddress,
+			"deposit_chain_id":         m.Spec.DepositChainID,
+		}).Info("Applying testnet network name override")
+
+		// Create a new network with the override name but keep other properties.
+		network = &networks.Network{
+			Name:                   networks.NetworkName(m.networkOverride),
+			ID:                     network.ID,
+			DepositContractAddress: network.DepositContractAddress,
+			DepositChainID:         network.DepositChainID,
+		}
 	}
 
 	m.log.WithFields(logrus.Fields{
