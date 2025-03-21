@@ -208,6 +208,9 @@ func main() {
 	}
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
+		cancel()
+
+		//nolint:gocritic // false positive, cancel() called above.
 		log.Fatal(err)
 	}
 }

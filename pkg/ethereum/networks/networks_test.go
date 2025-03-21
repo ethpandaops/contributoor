@@ -189,8 +189,10 @@ func TestDeriveNetworkFromSpecWithOverride(t *testing.T) {
 			network, err := DeriveFromSpec(tt.spec)
 			if tt.expectError {
 				assert.Error(t, err)
+
 				return
 			}
+
 			require.NoError(t, err)
 
 			// Apply network override when network name is "testnet"

@@ -94,8 +94,8 @@ func (s *Service) syncDrift() error {
 		return err
 	}
 
-	if err = response.Validate(); err != nil {
-		return err
+	if rspErr := response.Validate(); rspErr != nil {
+		return rspErr
 	}
 
 	s.mu.Lock()
