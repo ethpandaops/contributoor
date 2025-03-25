@@ -1,0 +1,52 @@
+name: Notify Xatu Telegram Channel
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        type: string
+      custom_message:
+        description: 'Additional custom message (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Get release info
+        id: release_info
+        run: |
+          RELEASE_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.event.inputs.release_tag }}")
+          
+          echo "RELEASE_NAME=$(echo $RELEASE_DATA | jq -r '.name')" >> $GITHUB_OUTPUT
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_OUTPUT
+          echo "$(echo $RELEASE_DATA | jq -r '.body')" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Telegram notification for releases
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message_thread_id: ${{ secrets.TELEGRAM_TOPIC_ID }}
+          message: |
+            🚀 New Release: *${{ github.repository }}* ${{ github.event.inputs.release_tag }}
+            
+            📝 Release Title: ${{ steps.release_info.outputs.RELEASE_NAME }}
+            
+            ${{ steps.release_info.outputs.RELEASE_BODY }}
+            
+            ${{ github.event.inputs.custom_message }}
+            
+            [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ github.event.inputs.release_tag }})
+          format: markdown
+          disable_web_page_preview: true 
