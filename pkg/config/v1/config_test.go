@@ -18,7 +18,6 @@ func TestNewConfigFromPath(t *testing.T) {
 		{
 			name: "valid config",
 			config: `version: 0.0.2
-networkName: NETWORK_NAME_MAINNET
 beaconNodeAddress: http://localhost:5052
 contributoorDirectory: /tmp/contributoor
 runMethod: RUN_METHOD_DOCKER
@@ -26,29 +25,8 @@ runMethod: RUN_METHOD_DOCKER
 			expectError: false,
 		},
 		{
-			name: "invalid network name",
-			config: `version: 0.0.2
-networkName: INVALID_NETWORK
-beaconNodeAddress: http://localhost:5052
-contributoorDirectory: /tmp/contributoor
-runMethod: RUN_METHOD_DOCKER
-`,
-			expectError: true,
-		},
-		{
-			name: "invalid network name",
-			config: `version: 0.0.2
-networkName: INVALID_NETWORK
-beaconNodeAddress: http://localhost:5052
-contributoorDirectory: /tmp/contributoor
-runMethod: RUN_METHOD_DOCKER
-`,
-			expectError: true,
-		},
-		{
 			name: "missing required field",
 			config: `version: 0.0.2
-networkName: NETWORK_NAME_MAINNET
 `,
 			expectError: true,
 		},
@@ -80,7 +58,7 @@ networkName: NETWORK_NAME_MAINNET
 			// Assert we have valid config.
 			if !tt.expectError {
 				require.Equal(t, "0.0.2", cfg.Version)
-				require.Equal(t, NetworkName_NETWORK_NAME_MAINNET, cfg.NetworkName)
+				require.Equal(t, "", cfg.NetworkName)
 				require.Equal(t, "http://localhost:5052", cfg.BeaconNodeAddress)
 				require.Equal(t, "/tmp/contributoor", cfg.ContributoorDirectory)
 			}
