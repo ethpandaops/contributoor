@@ -21,6 +21,8 @@ const (
 	ClientLodestar Client = "lodestar"
 	// ClientGrandine represents the Grandine consensus client.
 	ClientGrandine Client = "grandine"
+	// ClientCaplin represents the Caplin consensus client.
+	ClientCaplin Client = "caplin"
 )
 
 // AllClients contains all known consensus client implementations.
@@ -32,6 +34,7 @@ var AllClients = []Client{
 	ClientPrysm,
 	ClientLodestar,
 	ClientGrandine,
+	ClientCaplin,
 }
 
 // clientIdentifiers maps client-specific strings to their respective Client type.
@@ -42,6 +45,7 @@ var clientIdentifiers = map[string]Client{
 	"prysm":      ClientPrysm,
 	"lodestar":   ClientLodestar,
 	"grandine":   ClientGrandine,
+	"caplin":     ClientCaplin,
 }
 
 // ClientFromString identifies a consensus client from a string identifier.
