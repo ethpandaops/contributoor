@@ -4,14 +4,14 @@ go 1.24.1
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250307204501-0409229c3780.1
-	github.com/attestantio/go-eth2-client v0.24.1
+	github.com/attestantio/go-eth2-client v0.24.2
 	github.com/beevik/ntp v1.4.3
 	github.com/bufbuild/protovalidate-go v0.9.2
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/creasty/defaults v1.8.0
 	github.com/ethpandaops/beacon v0.49.0
 	github.com/ethpandaops/ethwallclock v0.3.0
-	github.com/ethpandaops/xatu v1.0.34
+	github.com/ethpandaops/xatu v1.0.38
 	github.com/go-co-op/gocron/v2 v2.16.1
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.3.0
@@ -29,12 +29,26 @@ require (
 require (
 	cel.dev/expr v0.22.0 // indirect
 	github.com/IBM/sarama v1.45.1 // indirect
+	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.3 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.10 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.29.9 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.62 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.34 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kinesis v1.33.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.25.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.29.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.33.17 // indirect
 	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -78,6 +92,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
+	github.com/huandu/go-assert v1.1.6 // indirect
 	github.com/huandu/go-clone v1.7.2 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/go-cid v0.5.0 // indirect
@@ -106,6 +121,7 @@ require (
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/miekg/dns v1.1.64 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
@@ -123,8 +139,10 @@ require (
 	github.com/multiformats/go-multistream v0.6.0 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/onsi/ginkgo/v2 v2.23.0 // indirect
 	github.com/opencontainers/runtime-spec v1.2.1 // indirect
+	github.com/parquet-go/parquet-go v0.25.0 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
@@ -148,7 +166,7 @@ require (
 	github.com/pion/webrtc/v4 v4.0.13 // indirect
 	github.com/pk910/dynamic-ssz v0.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/probe-lab/hermes v0.0.0-20241128085322-a39cba499cb1 // indirect
+	github.com/probe-lab/hermes v0.0.0-20250328140724-f552d3382c38 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.63.0 // indirect
 	github.com/prometheus/procfs v0.16.0 // indirect
@@ -162,6 +180,7 @@ require (
 	github.com/r3labs/sse/v2 v2.10.0 // indirect
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
