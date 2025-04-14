@@ -6,18 +6,18 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250307204501-0409229c3780.1
 	github.com/attestantio/go-eth2-client v0.24.2
 	github.com/beevik/ntp v1.4.3
-	github.com/bufbuild/protovalidate-go v0.9.2
+	github.com/bufbuild/protovalidate-go v0.9.3
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/creasty/defaults v1.8.0
 	github.com/ethpandaops/beacon v0.50.0
 	github.com/ethpandaops/ethwallclock v0.3.0
-	github.com/ethpandaops/xatu v1.0.41
+	github.com/ethpandaops/xatu v1.0.42
 	github.com/go-co-op/gocron/v2 v2.16.1
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.21.1
+	github.com/prometheus/client_golang v1.22.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.6
