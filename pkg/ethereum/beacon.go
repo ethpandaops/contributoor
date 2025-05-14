@@ -81,6 +81,7 @@ func NewBeaconNode(
 		Enabled: true,
 		Topics: []string{
 			"block",
+			"block_gossip",
 			"head",
 			"finalized_checkpoint",
 			"blob_sidecar",
@@ -301,6 +302,29 @@ func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
 		}
 
 		event := v1.NewBlockEvent(b.log, b, b.cache.BeaconETHV1EventsBlock, meta, block, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return b.handleDecoratedEvent(ctx, event)
+	})
+
+	// Subscribe to block gossip.
+	b.beacon.OnBlockGossip(ctx, func(ctx context.Context, block *eth2v1.BlockGossipEvent) error {
+		now := b.clockDrift.Now()
+
+		meta, err := b.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewBlockGossipEvent(b.log, b, b.cache.BeaconETHV1EventsBlockGossip, meta, block, now)
 
 		ignore, err := event.Ignore(ctx)
 		if err != nil || ignore {
