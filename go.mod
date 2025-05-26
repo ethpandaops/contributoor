@@ -11,8 +11,8 @@ require (
 	github.com/creasty/defaults v1.8.0
 	github.com/ethpandaops/beacon v0.52.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/xatu v1.1.0
-	github.com/go-co-op/gocron/v2 v2.16.1
+	github.com/ethpandaops/xatu v1.1.4
+	github.com/go-co-op/gocron/v2 v2.16.2
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
