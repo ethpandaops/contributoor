@@ -2,6 +2,9 @@ module github.com/ethpandaops/contributoor
 
 go 1.24.1
 
+// Use PK's fork supporting eip-7805 spec, until upstream is updated (https://github.com/pk910/go-eth2-client/pull/3)
+replace github.com/attestantio/go-eth2-client => github.com/pk910/go-eth2-client v0.0.0-20250515124841-1d7c6ee326e4
+
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250425153114-8976f5be98c1.1
 	github.com/attestantio/go-eth2-client v0.25.0
