@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/ssgreg/journalhook"
 	"github.com/urfave/cli/v2"
 )
 
@@ -236,13 +237,24 @@ func newContributoor(c *cli.Context) (*contributoor, error) {
 	if cfg.LogLevel != "" {
 		level, err := logrus.ParseLevel(cfg.LogLevel)
 		if err != nil {
-			log.WithError(err).Warnf("Invalid log level '%s', defaulting to info", cfg.LogLevel)
+			log.WithField("level", level.String()).WithError(err).Warn("Invalid log level, defaulting to info")
 
 			level = logrus.InfoLevel
 		}
 
 		log.SetLevel(level)
-		log.Infof("Log level set to %s", level)
+		log.WithField("level", level.String()).Info("Log level set")
+	}
+
+	// Add journald hook if running under systemd
+	if cfg.IsRunMethodSystemd() {
+		hook, err := journalhook.NewJournalHook()
+		if err == nil {
+			log.AddHook(hook)
+			log.Info("Added systemd journal hook for priority mapping")
+		} else {
+			log.WithError(err).Warn("Failed to add systemd journal hook")
+		}
 	}
 
 	return &contributoor{
