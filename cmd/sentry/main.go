@@ -19,11 +19,12 @@ import (
 	contr "github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/internal/sinks"
-	config "github.com/ethpandaops/contributoor/pkg/config/v1"
+	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/ssgreg/journalhook"
 	"github.com/urfave/cli/v2"
 )
 
@@ -230,6 +231,30 @@ func newContributoor(c *cli.Context) (*contributoor, error) {
 
 	if err := applyConfigOverridesFromFlags(cfg, c); err != nil {
 		return nil, errors.Wrap(err, "failed to apply config overrides from cli flags")
+	}
+
+	// Apply log level to the logger
+	if cfg.LogLevel != "" {
+		level, err := logrus.ParseLevel(cfg.LogLevel)
+		if err != nil {
+			log.WithField("level", level.String()).WithError(err).Warn("Invalid log level, defaulting to info")
+
+			level = logrus.InfoLevel
+		}
+
+		log.SetLevel(level)
+		log.WithField("level", level.String()).Info("Log level set")
+	}
+
+	// Add journald hook if running under systemd
+	if cfg.IsRunMethodSystemd() {
+		hook, err := journalhook.NewJournalHook()
+		if err == nil {
+			log.AddHook(hook)
+			log.Info("Added systemd journal hook for priority mapping")
+		} else {
+			log.WithError(err).Warn("Failed to add systemd journal hook")
+		}
 	}
 
 	return &contributoor{

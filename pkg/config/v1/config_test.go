@@ -222,3 +222,91 @@ func TestConfig_GetPprofHostPort(t *testing.T) {
 		})
 	}
 }
+
+func TestConfig_IsRunMethodSystemd(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		envVars  map[string]string
+		expected bool
+	}{
+		{
+			name:     "explicit systemd run method",
+			config:   &Config{RunMethod: RunMethod_RUN_METHOD_SYSTEMD},
+			envVars:  map[string]string{},
+			expected: true,
+		},
+		{
+			name:     "docker run method with no env vars",
+			config:   &Config{RunMethod: RunMethod_RUN_METHOD_DOCKER},
+			envVars:  map[string]string{},
+			expected: false,
+		},
+		{
+			name:     "binary run method with no env vars",
+			config:   &Config{RunMethod: RunMethod_RUN_METHOD_BINARY},
+			envVars:  map[string]string{},
+			expected: false,
+		},
+		{
+			name:   "docker run method with INVOCATION_ID",
+			config: &Config{RunMethod: RunMethod_RUN_METHOD_DOCKER},
+			envVars: map[string]string{
+				"INVOCATION_ID": "12345",
+			},
+			expected: true,
+		},
+		{
+			name:   "docker run method with JOURNAL_STREAM",
+			config: &Config{RunMethod: RunMethod_RUN_METHOD_DOCKER},
+			envVars: map[string]string{
+				"JOURNAL_STREAM": "8:23456",
+			},
+			expected: true,
+		},
+		{
+			name:   "docker run method with NOTIFY_SOCKET",
+			config: &Config{RunMethod: RunMethod_RUN_METHOD_DOCKER},
+			envVars: map[string]string{
+				"NOTIFY_SOCKET": "/run/systemd/notify",
+			},
+			expected: true,
+		},
+		{
+			name:   "docker run method with multiple systemd vars",
+			config: &Config{RunMethod: RunMethod_RUN_METHOD_DOCKER},
+			envVars: map[string]string{
+				"INVOCATION_ID":  "12345",
+				"JOURNAL_STREAM": "8:23456",
+				"NOTIFY_SOCKET":  "/run/systemd/notify",
+			},
+			expected: true,
+		},
+		{
+			name:   "systemd run method with systemd vars",
+			config: &Config{RunMethod: RunMethod_RUN_METHOD_SYSTEMD},
+			envVars: map[string]string{
+				"INVOCATION_ID": "12345",
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear all potential systemd env vars first
+			os.Unsetenv("INVOCATION_ID")
+			os.Unsetenv("JOURNAL_STREAM")
+			os.Unsetenv("NOTIFY_SOCKET")
+
+			// Set test env vars
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+				defer os.Unsetenv(k)
+			}
+
+			result := tt.config.IsRunMethodSystemd()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

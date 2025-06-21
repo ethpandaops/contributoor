@@ -257,3 +257,27 @@ func (c *Config) SetContributoorDirectory(dir string) {
 
 	c.ContributoorDirectory = dir
 }
+
+// IsRunMethodSystemd determines if contributoor is being run via systemd.
+func (c *Config) IsRunMethodSystemd() bool {
+	if c.RunMethod == RunMethod_RUN_METHOD_SYSTEMD {
+		return true
+	}
+
+	// INVOCATION_ID is set by systemd for each invocation.
+	if os.Getenv("INVOCATION_ID") != "" {
+		return true
+	}
+
+	// JOURNAL_STREAM is set when stdout/stderr are connected to the journal.
+	if os.Getenv("JOURNAL_STREAM") != "" {
+		return true
+	}
+
+	// Additional check for systemd notify socket.
+	if os.Getenv("NOTIFY_SOCKET") != "" {
+		return true
+	}
+
+	return false
+}
