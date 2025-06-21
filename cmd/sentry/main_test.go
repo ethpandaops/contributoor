@@ -2,14 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"testing"
 	"time"
-
-	"encoding/base64"
 
 	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
@@ -450,6 +449,129 @@ func TestCredentialsPrecedence(t *testing.T) {
 			decoded, err := base64.StdEncoding.DecodeString(cfg.OutputServer.Credentials)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCreds, string(decoded))
+		})
+	}
+}
+
+func TestNewContributoorLogLevel(t *testing.T) {
+	// Save the original log level to restore after test
+	originalLevel := log.GetLevel()
+	defer log.SetLevel(originalLevel)
+
+	tests := []struct {
+		name            string
+		args            []string
+		envLogLevel     string
+		expectedLevel   logrus.Level
+		expectLogOutput bool
+	}{
+		{
+			name:          "default log level info",
+			args:          []string{},
+			expectedLevel: logrus.InfoLevel,
+		},
+		{
+			name:          "CLI flag sets debug level",
+			args:          []string{"--log-level", "debug"},
+			expectedLevel: logrus.DebugLevel,
+		},
+		{
+			name:          "CLI flag sets warn level",
+			args:          []string{"--log-level", "warn"},
+			expectedLevel: logrus.WarnLevel,
+		},
+		{
+			name:          "CLI flag sets error level",
+			args:          []string{"--log-level", "error"},
+			expectedLevel: logrus.ErrorLevel,
+		},
+		{
+			name:          "env var sets debug level",
+			envLogLevel:   "debug",
+			expectedLevel: logrus.DebugLevel,
+		},
+		{
+			name:          "CLI overrides env var",
+			args:          []string{"--log-level", "error"},
+			envLogLevel:   "debug",
+			expectedLevel: logrus.ErrorLevel,
+		},
+		{
+			name:            "invalid log level defaults to info",
+			args:            []string{"--log-level", "invalid"},
+			expectedLevel:   logrus.InfoLevel,
+			expectLogOutput: true,
+		},
+		{
+			name:          "empty log level keeps default",
+			args:          []string{"--log-level", ""},
+			expectedLevel: logrus.InfoLevel,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset log level before each test
+			log.SetLevel(logrus.InfoLevel)
+
+			// Set env var if needed
+			if tt.envLogLevel != "" {
+				os.Setenv("CONTRIBUTOOR_LOG_LEVEL", tt.envLogLevel)
+				defer os.Unsetenv("CONTRIBUTOOR_LOG_LEVEL")
+			}
+
+			// Create CLI app
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.StringFlag{Name: "config"},
+				&cli.BoolFlag{Name: "debug"},
+				&cli.StringFlag{Name: "network"},
+				&cli.StringFlag{Name: "beacon-node-address"},
+				&cli.StringFlag{Name: "metrics-address"},
+				&cli.StringFlag{Name: "health-check-address"},
+				&cli.StringFlag{Name: "log-level"},
+				&cli.StringFlag{Name: "output-server-address"},
+				&cli.StringFlag{Name: "username"},
+				&cli.StringFlag{Name: "password"},
+				&cli.StringFlag{Name: "output-server-tls"},
+				&cli.StringFlag{Name: "contributoor-directory"},
+			}
+
+			var createdContributoor *contributoor
+			app.Action = func(c *cli.Context) error {
+				contrib, err := newContributoor(c)
+				createdContributoor = contrib
+
+				return err
+			}
+
+			// Run app with args
+			err := app.Run(append([]string{"contributoor"}, tt.args...))
+			require.NoError(t, err)
+			require.NotNil(t, createdContributoor)
+
+			// Verify the log level was set correctly
+			assert.Equal(t, tt.expectedLevel, log.GetLevel(), "log level mismatch")
+
+			// Also verify the config has the expected log level string
+			expectedLevelStr := tt.expectedLevel.String()
+			if tt.name == "invalid log level defaults to info" {
+				expectedLevelStr = "invalid" // The config keeps the invalid value
+			}
+
+			if tt.args != nil {
+				for i, arg := range tt.args {
+					if arg == "--log-level" && i+1 < len(tt.args) && tt.args[i+1] != "" {
+						expectedLevelStr = tt.args[i+1]
+
+						break
+					}
+				}
+			} else if tt.envLogLevel != "" {
+				expectedLevelStr = tt.envLogLevel
+			}
+
+			assert.Equal(t, expectedLevelStr, createdContributoor.config.LogLevel)
 		})
 	}
 }

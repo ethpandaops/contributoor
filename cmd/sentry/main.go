@@ -19,7 +19,7 @@ import (
 	contr "github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/contributoor/internal/sinks"
-	config "github.com/ethpandaops/contributoor/pkg/config/v1"
+	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -230,6 +230,19 @@ func newContributoor(c *cli.Context) (*contributoor, error) {
 
 	if err := applyConfigOverridesFromFlags(cfg, c); err != nil {
 		return nil, errors.Wrap(err, "failed to apply config overrides from cli flags")
+	}
+
+	// Apply log level to the logger
+	if cfg.LogLevel != "" {
+		level, err := logrus.ParseLevel(cfg.LogLevel)
+		if err != nil {
+			log.WithError(err).Warnf("Invalid log level '%s', defaulting to info", cfg.LogLevel)
+
+			level = logrus.InfoLevel
+		}
+
+		log.SetLevel(level)
+		log.Infof("Log level set to %s", level)
 	}
 
 	return &contributoor{
