@@ -1,0 +1,35 @@
+# Kurtosis network configuration for contributoor beacon node integration testing
+# This configuration creates a minimal testnet with one instance of each major beacon client
+participants:
+  # Teku beacon node
+  - el_type: geth
+    cl_type: teku
+    count: 1
+
+  # Prysm beacon node
+  - el_type: nethermind
+    cl_type: prysm
+    count: 1
+
+  # Lighthouse beacon node
+  - el_type: erigon
+    cl_type: lighthouse
+    count: 1
+
+  # Nimbus beacon node
+  - el_type: besu
+    cl_type: nimbus
+    count: 1
+
+  # Lodestar beacon node
+  - el_type: reth
+    cl_type: lodestar
+    count: 1
+
+  # Grandine beacon node
+  - el_type: geth
+    cl_type: grandine
+    count: 1
+
+additional_services: []
+

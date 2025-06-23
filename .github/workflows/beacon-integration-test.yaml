@@ -1,0 +1,174 @@
+name: integration-tests
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Daily run to catch upstream changes
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beacon-integration-test:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build contributoor image
+      run: |
+        docker build -f Dockerfile.ci -t ethpandaops/contributoor:local .
+        echo "Contributoor image is built."
+
+    - name: Setup kurtosis testnet
+      id: kurtosis-setup
+      uses: ethpandaops/kurtosis-assertoor-github-action@v1
+      with:
+        ethereum_package_args: .github/workflows/configs/kurtosis-network-params.yaml
+        await_assertoor_tests: false
+        enclave_name: contributoor-test
+
+    - name: Show all kurtosis services
+      env:
+        SERVICES: ${{ steps.kurtosis-setup.outputs.services }}
+      run: |
+        echo "Kurtosis services:"
+        echo $SERVICES
+        # Save services JSON for the next step
+        echo "$SERVICES" > /tmp/kurtosis-services.json
+
+    - name: Test contributoor against each beacon node
+      run: |
+        # Extract beacon node endpoints from the services JSON
+        BEACON_NODES=""
+        for service in cl-1-teku-geth cl-2-prysm-nethermind cl-3-lighthouse-erigon cl-4-nimbus-besu cl-5-lodestar-reth cl-6-grandine-geth; do
+          endpoint=$(jq -r ".\"$service\".http.url // empty" < /tmp/kurtosis-services.json)
+          if [ -n "$endpoint" ]; then
+            BEACON_NODES="${BEACON_NODES}${endpoint}\n"
+          fi
+        done
+        
+        if [ -z "$BEACON_NODES" ]; then
+          echo "No beacon nodes found!"
+          exit 1
+        fi
+        
+        echo "Found beacon nodes:"
+        echo -e "$BEACON_NODES"
+        
+        # Test each beacon node
+        echo -e "$BEACON_NODES" | grep -v "^$" | while read -r beacon; do
+          NODE_NAME=$(echo "$beacon" | sed 's|http://||' | cut -d':' -f1)
+          echo ""
+          echo "======================================"
+          echo "Testing contributoor against $NODE_NAME"
+          echo "Endpoint: $beacon"
+          echo "======================================"
+          
+          # Run contributoor and capture logs
+          CONTAINER_NAME="contributoor-test-${NODE_NAME}"
+          LOG_FILE="/tmp/contributoor-${NODE_NAME}.log"
+          
+          # Start contributoor in background and capture logs
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            --network "host" \
+            ethpandaops/contributoor:local \
+            --beacon-node-address="$beacon" \
+            --output-server-address="localhost:8080" \
+            --log-level=info \
+            --network=kurtosis \
+            > /dev/null 2>&1
+          
+          # Monitor logs for success indicators
+          SUCCESS=false
+          NETWORK_DETECTED=false
+          SERVICE_READY=false
+          SUMMARY_FOUND=false
+          
+          echo "Monitoring contributoor logs for success indicators..."
+          
+          for i in {1..60}; do
+            # Get current logs
+            docker logs "$CONTAINER_NAME" 2>&1 > "$LOG_FILE" || true
+            
+            # Check for network detection
+            if ! $NETWORK_DETECTED && grep -q "Detected ethereum network" "$LOG_FILE"; then
+              NETWORK_DETECTED=true
+              echo "  ✓ Network detected"
+            fi
+            
+            # Check for service ready
+            if ! $SERVICE_READY && grep -q "Service is ready" "$LOG_FILE"; then
+              SERVICE_READY=true
+              echo "  ✓ Service is ready"
+            fi
+            
+            # Check for successful data export (Summary of last 10s)
+            if ! $SUMMARY_FOUND && grep -q "Summary of the last 10s" "$LOG_FILE"; then
+              SUMMARY_FOUND=true
+              echo "  ✓ Data export confirmed (found summary)"
+              # Extract stats from the summary line
+              grep "Summary of the last 10s" "$LOG_FILE" | tail -1
+            fi
+            
+            # Check if container is still running
+            if ! docker ps -q -f name="$CONTAINER_NAME" | grep -q .; then
+              echo "  ✗ Container stopped unexpectedly"
+              docker logs "$CONTAINER_NAME" 2>&1 | tail -20
+              exit 1
+            fi
+            
+            # Success if all indicators found
+            if $NETWORK_DETECTED && $SERVICE_READY && $SUMMARY_FOUND; then
+              SUCCESS=true
+              break
+            fi
+            
+            sleep 1
+          done
+          
+          # Stop and remove container
+          docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
+          docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
+          
+          # Check results
+          if $SUCCESS; then
+            echo "✓ Contributoor successfully connected to $NODE_NAME"
+          else
+            echo "✗ Contributoor failed verification for $NODE_NAME"
+            echo "  Network detected: $NETWORK_DETECTED"
+            echo "  Service ready: $SERVICE_READY"
+            echo "  Data export: $SUMMARY_FOUND"
+            echo "Last 20 lines of log:"
+            tail -20 "$LOG_FILE" || true
+            exit 1
+          fi
+        done
+        
+        echo ""
+        echo "======================================"
+        echo "✓ All beacon node tests passed!"
+        echo "======================================"
+
+    - name: Collect docker logs on failure
+      if: failure()
+      uses: jwalton/gh-docker-logs@v2
+      with:
+        dest: './logs'
+
+    - name: Tar logs
+      if: failure()
+      run: tar cvzf ./logs.tgz ./logs
+
+    - name: Upload logs to GitHub
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs.tgz
+        path: ./logs.tgz
