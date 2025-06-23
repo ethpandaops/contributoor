@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethpandaops/contributoor/internal/events"
+	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/contributoor/pkg/ethereum/mock"
 	"github.com/prometheus/client_golang/prometheus"
@@ -864,6 +866,433 @@ func TestConnectBeacons(t *testing.T) {
 	}
 }
 
+func TestStartHealthCheckServer(t *testing.T) {
+	tests := []struct {
+		name         string
+		healthAddr   string
+		expectServer bool
+		expectError  bool
+	}{
+		{
+			name:         "empty address skips server",
+			healthAddr:   "",
+			expectServer: false,
+		},
+		{
+			name:         "valid address starts server",
+			healthAddr:   "localhost:8081",
+			expectServer: true,
+		},
+		{
+			name:         "invalid address errors",
+			healthAddr:   "256.256.256.256:99999",
+			expectServer: false,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &contributoor{
+				log: logrus.New(),
+				config: &config.Config{
+					HealthCheckAddress: tt.healthAddr,
+				},
+			}
+
+			err := s.startHealthCheckServer()
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if tt.expectServer {
+				require.NotNil(t, s.healthCheckServer)
+
+				waitForServer(t, s.healthCheckServer.Addr)
+
+				client := http.Client{Timeout: time.Second}
+
+				resp, err := client.Get(fmt.Sprintf("http://%s/healthz", s.healthCheckServer.Addr))
+				require.NoError(t, err)
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+				body, err := io.ReadAll(resp.Body)
+				assert.NoError(t, err)
+				assert.Equal(t, "ok", string(body))
+
+				resp.Body.Close()
+				_ = s.healthCheckServer.Close()
+			} else {
+				assert.Nil(t, s.healthCheckServer)
+			}
+		})
+	}
+}
+
+func TestInitClockDrift(t *testing.T) {
+	ctx := context.Background()
+	s := &contributoor{
+		log: logrus.New(),
+	}
+
+	err := s.initClockDrift(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, s.clockDrift)
+}
+
+func TestStart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	dummyAddress := "256.256.256.256:99999"
+
+	tests := []struct {
+		name          string
+		setupMocks    func(*contributoor, *mock.MockBeaconNodeAPI)
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "successful start",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				ready := make(chan struct{})
+				close(ready)
+				mockNode.EXPECT().Start(gomock.Any()).Return(ready, nil).Times(1)
+			},
+		},
+		{
+			name: "metrics server fails",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				s.config.MetricsAddress = dummyAddress
+			},
+			expectError:   true,
+			errorContains: "failed to start metrics server",
+		},
+		{
+			name: "pprof server fails",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				s.config.PprofAddress = dummyAddress
+			},
+			expectError:   true,
+			errorContains: "failed to start pprof server",
+		},
+		{
+			name: "health check server fails",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				s.config.HealthCheckAddress = dummyAddress
+			},
+			expectError:   true,
+			errorContains: "failed to start health check server",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			mockNode := mock.NewMockBeaconNodeAPI(ctrl)
+
+			s := &contributoor{
+				log:    logrus.New(),
+				config: config.NewDefaultConfig(),
+				beaconNodes: map[string]*beaconNodeInstance{
+					"test_node": {
+						node:    mockNode,
+						cache:   events.NewDuplicateCache(),
+						metrics: events.NewMetrics("test"),
+						summary: events.NewSummary(logrus.New(), "test", time.Second),
+					},
+				},
+			}
+
+			tt.setupMocks(s, mockNode)
+
+			err := s.start(ctx)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+			} else {
+				require.NoError(t, err)
+			}
+
+			// Clean up servers if they were started
+			if s.metricsServer != nil {
+				_ = s.metricsServer.Close()
+			}
+			if s.pprofServer != nil {
+				_ = s.pprofServer.Close()
+			}
+			if s.healthCheckServer != nil {
+				_ = s.healthCheckServer.Close()
+			}
+		})
+	}
+}
+
+func TestStop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tests := []struct {
+		name       string
+		setupMocks func(*contributoor, *mock.MockBeaconNodeAPI)
+	}{
+		{
+			name: "successful stop with all servers",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				// Setup expectations for stop
+				mockNode.EXPECT().Stop(gomock.Any()).Return(nil).Times(1)
+
+				// Create actual servers
+				s.metricsServer = &http.Server{Addr: ":0"}
+				s.pprofServer = &http.Server{Addr: ":0"}
+				s.healthCheckServer = &http.Server{Addr: ":0"}
+			},
+		},
+		{
+			name: "stop with beacon node error",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				mockNode.EXPECT().Stop(gomock.Any()).Return(fmt.Errorf("stop error")).Times(1)
+			},
+		},
+		{
+			name: "stop with no servers",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				mockNode.EXPECT().Stop(gomock.Any()).Return(nil).Times(1)
+			},
+		},
+		{
+			name: "stop with sink error",
+			setupMocks: func(s *contributoor, mockNode *mock.MockBeaconNodeAPI) {
+				mockNode.EXPECT().Stop(gomock.Any()).Return(nil).Times(1)
+
+				// Add a sink that will fail to stop
+				s.beaconNodes["test_node"].sinks = []sinks.ContributoorSink{
+					&mockSink{name: "test_sink", stopError: fmt.Errorf("sink stop error")},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			mockNode := mock.NewMockBeaconNodeAPI(ctrl)
+
+			s := &contributoor{
+				log:    logrus.New(),
+				config: config.NewDefaultConfig(),
+				beaconNodes: map[string]*beaconNodeInstance{
+					"test_node": {
+						node:  mockNode,
+						sinks: []sinks.ContributoorSink{},
+					},
+				},
+			}
+
+			tt.setupMocks(s, mockNode)
+
+			// Should not return error even if beacon stop fails
+			assert.NoError(t, s.stop(ctx))
+		})
+	}
+}
+
+func TestNewContributoorFromConfig(t *testing.T) {
+	tests := []struct {
+		name          string
+		configPath    string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:          "invalid config path",
+			configPath:    "/non/existent/config.yaml",
+			expectError:   true,
+			errorContains: "no such file or directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.StringFlag{Name: "config"},
+				&cli.BoolFlag{Name: "debug"},
+			}
+
+			app.Action = func(c *cli.Context) error {
+				_, err := newContributoor(c)
+
+				return err
+			}
+
+			args := []string{"contributoor"}
+			if tt.configPath != "" {
+				args = append(args, "--config", tt.configPath)
+			}
+
+			err := app.Run(args)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestNewContributoorDebugFlag(t *testing.T) {
+	app := cli.NewApp()
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{Name: "config"},
+		&cli.BoolFlag{Name: "debug"},
+	}
+
+	var createdContributoor *contributoor
+	app.Action = func(c *cli.Context) error {
+		contrib, err := newContributoor(c)
+		createdContributoor = contrib
+
+		return err
+	}
+
+	err := app.Run([]string{"contributoor", "--debug"})
+
+	require.NoError(t, err)
+	require.NotNil(t, createdContributoor)
+	assert.True(t, createdContributoor.debug)
+}
+
+func TestApplyConfigOverridesFromFlagsErrors(t *testing.T) {
+	tests := []struct {
+		name          string
+		envVars       map[string]string
+		args          []string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "invalid output server tls from env",
+			envVars: map[string]string{
+				"CONTRIBUTOOR_OUTPUT_SERVER_TLS": "not-a-bool",
+			},
+			expectError:   true,
+			errorContains: "failed to parse output server tls env var",
+		},
+		{
+			name:          "invalid output server tls from CLI",
+			args:          []string{"--output-server-tls", "not-a-bool"},
+			expectError:   true,
+			errorContains: "failed to parse output server tls flag",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set env vars
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+				defer os.Unsetenv(k)
+			}
+
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.StringFlag{Name: "network"},
+				&cli.StringFlag{Name: "output-server-tls"},
+			}
+
+			cfg := config.NewDefaultConfig()
+
+			app.Action = func(c *cli.Context) error {
+				return applyConfigOverridesFromFlags(cfg, c)
+			}
+
+			args := append([]string{"app"}, tt.args...)
+			err := app.Run(args)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestInitSinksError(t *testing.T) {
+	// Create a contributoor with invalid output server config
+	s := &contributoor{
+		log:   logrus.New(),
+		debug: false,
+		config: &config.Config{
+			OutputServer: &config.OutputServer{
+				Address: "", // Empty address will cause xatu sink to fail
+			},
+		},
+	}
+
+	ctx := context.Background()
+	sinks, err := s.initSinks(ctx, s.log, "test_trace_id")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create xatu sink")
+	assert.Nil(t, sinks)
+}
+
+func TestCreateBeaconInstanceErrors(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupContrib  func(*contributoor)
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "init sinks fails",
+			setupContrib: func(s *contributoor) {
+				s.config.OutputServer = &config.OutputServer{
+					Address: "", // Empty address will cause xatu sink to fail
+				}
+			},
+			expectError:   true,
+			errorContains: "failed to init sinks",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+			s := &contributoor{
+				log:    logrus.New(),
+				config: config.NewDefaultConfig(),
+			}
+
+			tt.setupContrib(s)
+
+			ctx := context.Background()
+			instance, err := s.createBeaconInstance(ctx, "http://localhost:5052", "test_trace", s.log)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+				assert.Nil(t, instance)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, instance)
+			}
+		})
+	}
+}
+
 func waitForServer(t *testing.T, addr string) {
 	t.Helper()
 
@@ -898,4 +1327,29 @@ func setupMockBeaconNode(ctrl *gomock.Controller, behavior string) *mock.MockBea
 	}
 
 	return mockNode
+}
+
+// mockSink is a test implementation of ContributoorSink.
+type mockSink struct {
+	name       string
+	stopError  error
+	stopCalled bool
+}
+
+func (m *mockSink) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockSink) Stop(ctx context.Context) error {
+	m.stopCalled = true
+
+	return m.stopError
+}
+
+func (m *mockSink) HandleEvent(ctx context.Context, event events.Event) error {
+	return nil
+}
+
+func (m *mockSink) Name() string {
+	return m.name
 }
