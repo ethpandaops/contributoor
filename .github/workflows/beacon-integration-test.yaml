@@ -1,0 +1,62 @@
+name: Beacon Node Integration Test
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Daily run to catch upstream changes
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beacon-integration-test:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build contributoor image
+      run: |
+        docker build -f Dockerfile.ci -t ethpandaops/contributoor:local .
+        echo "Contributoor image is built."
+
+    - name: Setup kurtosis testnet
+      id: kurtosis-setup
+      uses: ethpandaops/kurtosis-assertoor-github-action@v1
+      with:
+        ethereum_package_args: .github/workflows/configs/kurtosis-network-params.yaml
+        await_assertoor_tests: false
+        enclave_name: contributoor-test
+
+    - name: Show all kurtosis services
+      env:
+        SERVICES: ${{ steps.kurtosis-setup.outputs.services }}
+      run: |
+        echo "Kurtosis services:"
+        echo $SERVICES
+
+    - name: Test contributoor against each beacon node
+      run: .github/scripts/test-contributoor-connections.sh
+      env:
+        ENCLAVE_NAME: contributoor-test
+        TEST_DURATION: 30
+
+    - name: Collect docker logs on failure
+      if: failure()
+      uses: jwalton/gh-docker-logs@v2
+      with:
+        dest: './logs'
+
+    - name: Tar logs
+      if: failure()
+      run: tar cvzf ./logs.tgz ./logs
+
+    - name: Upload logs to GitHub
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs.tgz
+        path: ./logs.tgz

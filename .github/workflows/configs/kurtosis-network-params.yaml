@@ -1,0 +1,44 @@
+# Kurtosis network configuration for contributoor beacon node integration testing
+# This configuration creates a minimal testnet with one instance of each major beacon client
+participants:
+  # Teku beacon node
+  - el_type: geth
+    cl_type: teku
+    count: 1
+  
+  # Prysm beacon node
+  - el_type: nethermind
+    cl_type: prysm
+    count: 1
+  
+  # Lighthouse beacon node
+  - el_type: erigon
+    cl_type: lighthouse
+    count: 1
+  
+  # Nimbus beacon node
+  - el_type: besu
+    cl_type: nimbus
+    count: 1
+  
+  # Lodestar beacon node
+  - el_type: reth
+    cl_type: lodestar
+    count: 1
+
+# Disable additional services to keep the test lightweight
+additional_services: []
+
+# Network parameters
+network_params:
+  # Quick genesis for faster test startup
+  genesis_delay: 60
+  # Minimal preset for resource efficiency
+  preset: minimal
+  # Small number of validators for testing
+  num_validator_keys_per_node: 32
+
+# Disable features we don't need for connection testing
+snooper_enabled: false
+prometheus_grafana_enabled: false
+mev_type: null
