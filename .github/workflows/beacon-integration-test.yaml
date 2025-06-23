@@ -44,7 +44,7 @@ jobs:
       run: |
         # Extract beacon node endpoints from the services JSON
         BEACON_NODES=""
-        for service in cl-1-teku-geth cl-2-prysm-nethermind cl-3-lighthouse-erigon cl-4-nimbus-besu cl-5-lodestar-reth; do
+        for service in cl-1-teku-geth cl-2-prysm-nethermind cl-3-lighthouse-erigon cl-4-nimbus-besu cl-5-lodestar-reth cl-6-grandine-geth; do
           endpoint=$(jq -r ".\"$service\".http.url // empty" < /tmp/kurtosis-services.json)
           if [ -n "$endpoint" ]; then
             BEACON_NODES="${BEACON_NODES}${endpoint}\n"

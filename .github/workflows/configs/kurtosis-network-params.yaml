@@ -26,5 +26,10 @@ participants:
     cl_type: lodestar
     count: 1
 
+  # Grandine beacon node
+  - el_type: geth
+    cl_type: grandine
+    count: 1
+
 additional_services: []
 
