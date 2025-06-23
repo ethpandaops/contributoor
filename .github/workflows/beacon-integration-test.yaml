@@ -1,4 +1,4 @@
-name: Beacon Node Integration Test
+name: beacon-node-integration
 
 on:
   pull_request:
