@@ -7,22 +7,22 @@ participants:
     count: 1
 
   # Prysm beacon node
-  - el_type: nethermind
+  - el_type: geth
     cl_type: prysm
     count: 1
 
   # Lighthouse beacon node
-  - el_type: erigon
+  - el_type: geth
     cl_type: lighthouse
     count: 1
 
   # Nimbus beacon node
-  - el_type: besu
+  - el_type: geth
     cl_type: nimbus
     count: 1
 
   # Lodestar beacon node
-  - el_type: reth
+  - el_type: geth
     cl_type: lodestar
     count: 1
 
