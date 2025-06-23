@@ -1,7 +1,9 @@
 name: integration-tests
 
 on:
-  pull_request:
+  push:
+    branches:
+      - master
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'  # Daily run to catch upstream changes
@@ -68,22 +70,83 @@ jobs:
           echo "Endpoint: $beacon"
           echo "======================================"
           
-          # Run contributoor for 30 seconds
-          timeout 30 docker run --rm \
-            --name "contributoor-test-${NODE_NAME}" \
+          # Run contributoor and capture logs
+          CONTAINER_NAME="contributoor-test-${NODE_NAME}"
+          LOG_FILE="/tmp/contributoor-${NODE_NAME}.log"
+          
+          # Start contributoor in background and capture logs
+          docker run -d \
+            --name "$CONTAINER_NAME" \
             --network "host" \
             ethpandaops/contributoor:local \
             --beacon-node-address="$beacon" \
             --output-server-address="localhost:8080" \
-            --log-level=debug \
+            --log-level=info \
             --network=kurtosis \
-            || EXIT_CODE=$?
+            > /dev/null 2>&1
           
-          # Check if it ran without immediate failure (timeout returns 124)
-          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+          # Monitor logs for success indicators
+          SUCCESS=false
+          NETWORK_DETECTED=false
+          SERVICE_READY=false
+          SUMMARY_FOUND=false
+          
+          echo "Monitoring contributoor logs for success indicators..."
+          
+          for i in {1..60}; do
+            # Get current logs
+            docker logs "$CONTAINER_NAME" 2>&1 > "$LOG_FILE" || true
+            
+            # Check for network detection
+            if ! $NETWORK_DETECTED && grep -q "Detected ethereum network" "$LOG_FILE"; then
+              NETWORK_DETECTED=true
+              echo "  ✓ Network detected"
+            fi
+            
+            # Check for service ready
+            if ! $SERVICE_READY && grep -q "Service is ready" "$LOG_FILE"; then
+              SERVICE_READY=true
+              echo "  ✓ Service is ready"
+            fi
+            
+            # Check for successful data export (Summary of last 10s)
+            if ! $SUMMARY_FOUND && grep -q "Summary of the last 10s" "$LOG_FILE"; then
+              SUMMARY_FOUND=true
+              echo "  ✓ Data export confirmed (found summary)"
+              # Extract stats from the summary line
+              grep "Summary of the last 10s" "$LOG_FILE" | tail -1
+            fi
+            
+            # Check if container is still running
+            if ! docker ps -q -f name="$CONTAINER_NAME" | grep -q .; then
+              echo "  ✗ Container stopped unexpectedly"
+              docker logs "$CONTAINER_NAME" 2>&1 | tail -20
+              exit 1
+            fi
+            
+            # Success if all indicators found
+            if $NETWORK_DETECTED && $SERVICE_READY && $SUMMARY_FOUND; then
+              SUCCESS=true
+              break
+            fi
+            
+            sleep 1
+          done
+          
+          # Stop and remove container
+          docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
+          docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
+          
+          # Check results
+          if $SUCCESS; then
             echo "✓ Contributoor successfully connected to $NODE_NAME"
           else
-            echo "✗ Contributoor failed to connect to $NODE_NAME (exit code: ${EXIT_CODE:-0})"
+            echo "✗ Contributoor failed verification for $NODE_NAME"
+            echo "  Network detected: $NETWORK_DETECTED"
+            echo "  Service ready: $SERVICE_READY"
+            echo "  Data export: $SUMMARY_FOUND"
+            echo "Last 20 lines of log:"
+            tail -20 "$LOG_FILE" || true
             exit 1
           fi
         done
