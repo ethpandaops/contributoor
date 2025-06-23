@@ -72,9 +72,8 @@ jobs:
           
           # Run contributoor and capture logs
           CONTAINER_NAME="contributoor-test-${NODE_NAME}"
-          LOG_FILE="/tmp/contributoor-${NODE_NAME}.log"
           
-          # Start contributoor in background and capture logs
+          # Start contributoor in background
           docker run -d \
             --name "$CONTAINER_NAME" \
             --network "host" \
@@ -94,29 +93,26 @@ jobs:
           echo "Monitoring contributoor logs for success indicators..."
           
           for i in {1..60}; do
-            # Get current logs
-            docker logs "$CONTAINER_NAME" 2>&1 > "$LOG_FILE" || true
-            
             # Check for network detection
-            if ! $NETWORK_DETECTED && grep -q "Detected network and node ID hash" "$LOG_FILE"; then
+            if ! $NETWORK_DETECTED && docker logs "$CONTAINER_NAME" 2>&1 | grep -q "Detected network and node ID hash"; then
               NETWORK_DETECTED=true
               echo "  ✓ Network detected"
-              grep "Detected network and node ID hash" "$LOG_FILE" | tail -1
+              docker logs "$CONTAINER_NAME" 2>&1 | grep "Detected network and node ID hash" | tail -1
             fi
             
             # Check for beacon connection
-            if ! $SERVICE_READY && grep -q "Beacon connected successfully" "$LOG_FILE"; then
+            if ! $SERVICE_READY && docker logs "$CONTAINER_NAME" 2>&1 | grep -q "Beacon connected successfully"; then
               SERVICE_READY=true
               echo "  ✓ Beacon connected successfully"
             fi
             
             # Check for successful data collection
             # Look for summaries that show actual events being collected (not empty summaries)
-            if ! $SUMMARY_FOUND && grep -E "Summary of the last 10s.*event_stream_events=\"[a-zA-Z]" "$LOG_FILE" > /dev/null 2>&1; then
+            if ! $SUMMARY_FOUND && docker logs "$CONTAINER_NAME" 2>&1 | grep -E "Summary of the last 10s.*event_stream_events=\"[a-zA-Z]" > /dev/null 2>&1; then
               SUMMARY_FOUND=true
               echo "  ✓ Data collection confirmed (found summary with events)"
               # Show the summary line
-              grep -E "Summary of the last 10s.*event_stream_events=\"[a-zA-Z]" "$LOG_FILE" | tail -1
+              docker logs "$CONTAINER_NAME" 2>&1 | grep -E "Summary of the last 10s.*event_stream_events=\"[a-zA-Z]" | tail -1
             fi
             
             # Check if container is still running
@@ -133,7 +129,7 @@ jobs:
             fi
             
             # Show progress every 10 seconds
-            if [ $((i % 10)) -eq 0 ]; then
+            if [ $((i % 10)) -eq 0 ] && [ $i -ne 0 ]; then
               echo "  ... still waiting (${i}s elapsed)"
             fi
             
@@ -154,12 +150,7 @@ jobs:
             echo "  Data collection: $SUMMARY_FOUND"
             echo ""
             echo "Last 20 lines of log:"
-            if [ -f "$LOG_FILE" ]; then
-              tail -20 "$LOG_FILE"
-            else
-              echo "Log file not found, getting logs directly:"
-              docker logs "$CONTAINER_NAME" 2>&1 | tail -20 || true
-            fi
+            docker logs "$CONTAINER_NAME" 2>&1 | tail -20 || true
             exit 1
           fi
         done
