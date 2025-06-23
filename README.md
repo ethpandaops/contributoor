@@ -2,6 +2,10 @@
 
 Contributoor is a lightweight service that runs alongside an Ethereum consensus client and collects data via the client's APIs. It's a streamlined, user-friendly extraction of the `sentry` service from [ethpandaops/xatu](https://github.com/ethpandaops/xatu).
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/ethpandaops/contributoor.svg)](https://pkg.go.dev/github.com/ethpandaops/contributoor)
+![release](https://github.com/ethpandaops/contributoor/actions/workflows/release.yml/badge.svg)
+[![codecov](https://codecov.io/gh/ethpandaops/contributoor/graph/badge.svg?token=40GPSFLS2W)](https://codecov.io/gh/ethpandaops/contributoor)
+
 ## 📦 Installation
 
 See the [contributoor-installer](https://github.com/ethpandaops/contributoor-installer) repository for supported platforms and installation instructions.
@@ -46,9 +50,9 @@ healthCheckAddress: ":9191"
 # The log level (debug, info, warn, error).
 logLevel: info
 
-# Specifies a network name override. This is only used when connecting to testnets where 
-# the beacon node reports a generic network name like "testnet". For known networks 
-# (mainnet, sepolia, holesky, hoodi, etc.), the network is always derived automatically from 
+# Specifies a network name override. This is only used when connecting to testnets where
+# the beacon node reports a generic network name like "testnet". For known networks
+# (mainnet, sepolia, holesky, hoodi, etc.), the network is always derived automatically from
 # the beacon node's configuration.
 networkName: pectra-devnet-6
 
