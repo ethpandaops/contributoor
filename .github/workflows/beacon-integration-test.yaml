@@ -74,7 +74,7 @@ jobs:
             --network "host" \
             ethpandaops/contributoor:local \
             --beacon-node-address="$beacon" \
-            --output-server.address="localhost:8080" \
+            --output-server-address="localhost:8080" \
             --log-level=debug \
             --network=kurtosis \
             || EXIT_CODE=$?
