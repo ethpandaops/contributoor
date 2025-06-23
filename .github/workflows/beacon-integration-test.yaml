@@ -37,12 +37,61 @@ jobs:
       run: |
         echo "Kurtosis services:"
         echo $SERVICES
+        # Save services JSON for the next step
+        echo "$SERVICES" > /tmp/kurtosis-services.json
 
     - name: Test contributoor against each beacon node
-      run: .github/scripts/test-contributoor-connections.sh
-      env:
-        ENCLAVE_NAME: contributoor-test
-        TEST_DURATION: 30
+      run: |
+        # Extract beacon node endpoints from the services JSON
+        BEACON_NODES=""
+        for service in cl-1-teku-geth cl-2-prysm-nethermind cl-3-lighthouse-erigon cl-4-nimbus-besu cl-5-lodestar-reth; do
+          endpoint=$(jq -r ".\"$service\".http.url // empty" < /tmp/kurtosis-services.json)
+          if [ -n "$endpoint" ]; then
+            BEACON_NODES="${BEACON_NODES}${endpoint}\n"
+          fi
+        done
+        
+        if [ -z "$BEACON_NODES" ]; then
+          echo "No beacon nodes found!"
+          exit 1
+        fi
+        
+        echo "Found beacon nodes:"
+        echo -e "$BEACON_NODES"
+        
+        # Test each beacon node
+        echo -e "$BEACON_NODES" | grep -v "^$" | while read -r beacon; do
+          NODE_NAME=$(echo "$beacon" | sed 's|http://||' | cut -d':' -f1)
+          echo ""
+          echo "======================================"
+          echo "Testing contributoor against $NODE_NAME"
+          echo "Endpoint: $beacon"
+          echo "======================================"
+          
+          # Run contributoor for 30 seconds
+          timeout 30 docker run --rm \
+            --name "contributoor-test-${NODE_NAME}" \
+            --network "host" \
+            ethpandaops/contributoor:local \
+            --beacon-node-address="$beacon" \
+            --output-server.address="localhost:8080" \
+            --log-level=debug \
+            --network=kurtosis \
+            || EXIT_CODE=$?
+          
+          # Check if it ran without immediate failure (timeout returns 124)
+          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+            echo "✓ Contributoor successfully connected to $NODE_NAME"
+          else
+            echo "✗ Contributoor failed to connect to $NODE_NAME (exit code: ${EXIT_CODE:-0})"
+            exit 1
+          fi
+        done
+        
+        echo ""
+        echo "======================================"
+        echo "✓ All beacon node tests passed!"
+        echo "======================================"
 
     - name: Collect docker logs on failure
       if: failure()
