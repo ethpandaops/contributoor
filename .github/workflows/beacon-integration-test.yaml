@@ -46,7 +46,7 @@ jobs:
       run: |
         # Extract beacon node endpoints from the services JSON
         BEACON_NODES=""
-        for service in cl-1-teku-geth cl-2-prysm-nethermind cl-3-lighthouse-erigon cl-4-nimbus-besu cl-5-lodestar-reth cl-6-grandine-geth; do
+        for service in cl-1-teku-geth cl-2-prysm-geth cl-3-lighthouse-geth cl-4-nimbus-geth cl-5-lodestar-geth cl-6-grandine-geth; do
           endpoint=$(jq -r ".\"$service\".http.url // empty" < /tmp/kurtosis-services.json)
           if [ -n "$endpoint" ]; then
             BEACON_NODES="${BEACON_NODES}${endpoint}\n"
@@ -110,12 +110,13 @@ jobs:
               echo "  ✓ Beacon connected successfully"
             fi
             
-            # Check for successful data collection (Summary with actual events)
-            if ! $SUMMARY_FOUND && grep -E "Summary of the last 10s.*event_stream_events=\"[^\"]+\"" "$LOG_FILE"; then
+            # Check for successful data collection
+            # Look for summaries that show actual events being collected (not empty summaries)
+            if ! $SUMMARY_FOUND && grep -E "Summary of the last 10s.*event_stream_events=\"[a-zA-Z]" "$LOG_FILE" > /dev/null 2>&1; then
               SUMMARY_FOUND=true
               echo "  ✓ Data collection confirmed (found summary with events)"
-              # Extract stats from the summary line
-              grep -E "Summary of the last 10s.*event_stream_events=\"[^\"]+\"" "$LOG_FILE" | tail -1
+              # Show the summary line
+              grep -E "Summary of the last 10s.*event_stream_events=\"[a-zA-Z]" "$LOG_FILE" | tail -1
             fi
             
             # Check if container is still running
@@ -129,6 +130,11 @@ jobs:
             if $NETWORK_DETECTED && $SERVICE_READY && $SUMMARY_FOUND; then
               SUCCESS=true
               break
+            fi
+            
+            # Show progress every 10 seconds
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "  ... still waiting (${i}s elapsed)"
             fi
             
             sleep 1
@@ -146,8 +152,14 @@ jobs:
             echo "  Network detected: $NETWORK_DETECTED"
             echo "  Beacon connected: $SERVICE_READY"
             echo "  Data collection: $SUMMARY_FOUND"
+            echo ""
             echo "Last 20 lines of log:"
-            tail -20 "$LOG_FILE" || true
+            if [ -f "$LOG_FILE" ]; then
+              tail -20 "$LOG_FILE"
+            else
+              echo "Log file not found, getting logs directly:"
+              docker logs "$CONTAINER_NAME" 2>&1 | tail -20 || true
+            fi
             exit 1
           fi
         done
