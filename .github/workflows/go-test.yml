@@ -15,4 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/workflows/go-setup
-      - run: go test -v -race ./... 
+      - run: go test -v -race -coverprofile=coverage.txt ./...
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
