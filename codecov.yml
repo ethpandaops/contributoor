@@ -1,0 +1,7 @@
+ignore:
+  - ".github"
+  - "README.md"
+  - "LICENSE"
+  - ".tool-versions"
+  - "**/*.pb.go"
+  - "**/*.pb.validate.go"
