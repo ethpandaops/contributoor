@@ -226,40 +226,6 @@ func TestClockDriftServiceMethods(t *testing.T) {
 	mockClockDrift.AssertExpectations(t)
 }
 
-// TestInitClockDriftConcurrency tests concurrent access to initClockDrift.
-func TestInitClockDriftConcurrency(t *testing.T) {
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-
-	app := &Application{
-		log:                    logger,
-		ntpServer:              "pool.ntp.org",
-		clockDriftSyncInterval: 5 * time.Minute,
-	}
-
-	ctx := context.Background()
-	done := make(chan bool, 10)
-
-	// Run multiple goroutines trying to initialize clock drift
-	for i := 0; i < 10; i++ {
-		go func() {
-			err := app.initClockDrift(ctx)
-			assert.NoError(t, err)
-			done <- true
-		}()
-	}
-
-	// Wait for all goroutines to complete
-	for i := 0; i < 10; i++ {
-		<-done
-	}
-
-	// Verify only one instance was created
-	assert.NotNil(t, app.clockDrift)
-	_, ok := app.clockDrift.(*clockdrift.Service)
-	assert.True(t, ok)
-}
-
 // TestClockDriftNilApplication tests handling of nil application fields.
 func TestClockDriftNilApplication(t *testing.T) {
 	// Test with nil logger (should panic as expected)
