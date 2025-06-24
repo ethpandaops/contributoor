@@ -62,8 +62,8 @@ func StartTestNetwork(t *testing.T, ctx context.Context) (net network.Network, b
 	cleanup = func() {
 		t.Log("Cleaning up test network...")
 
-		if err := net.Cleanup(ctx); err != nil {
-			t.Logf("Warning: Failed to cleanup network: %v", err)
+		if cerr := net.Cleanup(ctx); err != nil {
+			t.Logf("Warning: Failed to cleanup network: %v", cerr)
 		}
 	}
 
