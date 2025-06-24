@@ -121,8 +121,9 @@ github.com/envoyproxy/protoc-gen-validate v1.2.1 h1:DEo3O99U8j4hBFwbJfrz9VtgcDfU
 github.com/envoyproxy/protoc-gen-validate v1.2.1/go.mod h1:d/C80l/jxXLdfEIhX1W2TmLfsJ31lvEjwamM4DxlWXU=
 github.com/ethereum/go-ethereum v1.15.11 h1:JK73WKeu0WC0O1eyX+mdQAVHUV+UR1a9VB/domDngBU=
 github.com/ethereum/go-ethereum v1.15.11/go.mod h1:mf8YiHIb0GR4x4TipcvBUPxJLw1mFdmxzoDi11sDRoI=
-github.com/ethpandaops/beacon v0.53.0 h1:PKoJQ5c3bI1npkyJORC4ooyDl3xTxpS+b1wo8L/rWto=
 github.com/ethpandaops/beacon v0.53.0/go.mod h1:T5HSrqxG8B28AT1zGFs+N/YDfDWMKBdYZX4Cxvjh2Zc=
+github.com/ethpandaops/beacon v0.54.0 h1:47r/zc5QLmrU6Y87tNOPWUOOJYr9EdU/JODJiUQCZ/M=
+github.com/ethpandaops/beacon v0.54.0/go.mod h1:T5HSrqxG8B28AT1zGFs+N/YDfDWMKBdYZX4Cxvjh2Zc=
 github.com/ethpandaops/ethereum-package-go v0.1.0 h1:sYe1Mr2XFiCYMq9JxMfAHjLNA0zJtlCCvZhh3ob5E5c=
 github.com/ethpandaops/ethereum-package-go v0.1.0/go.mod h1:BbIynsoyU7dHnggzHz70SLF1cUzQjE2hCXVCer/2lD8=
 github.com/ethpandaops/ethwallclock v0.4.0 h1:+sgnhf4pk6hLPukP076VxkiLloE4L0Yk1yat+ZyHh1g=

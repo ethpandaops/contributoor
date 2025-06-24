@@ -12,7 +12,8 @@ require (
 	github.com/bufbuild/protovalidate-go v0.10.1
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.53.0
+	github.com/ethpandaops/beacon v0.54.0
+	github.com/ethpandaops/ethereum-package-go v0.1.0
 	github.com/ethpandaops/ethwallclock v0.4.0
 	github.com/ethpandaops/xatu v1.1.23
 	github.com/go-co-op/gocron/v2 v2.16.2
@@ -72,7 +73,6 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/dot v1.8.0 // indirect
 	github.com/ethereum/go-ethereum v1.15.11 // indirect
-	github.com/ethpandaops/ethereum-package-go v0.1.0 // indirect
 	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/filecoin-project/go-clock v0.1.0 // indirect
 	github.com/flynn/noise v1.1.0 // indirect
