@@ -431,6 +431,7 @@ func TestCreateConfigLogLevel(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
 				createdConfig = cfg
 
 				// Apply log level as it would be in main
@@ -542,6 +543,7 @@ func TestCreateConfigFromPath(t *testing.T) {
 
 			app.Action = func(c *cli.Context) error {
 				_, err := createConfig(c)
+
 				return err
 			}
 
