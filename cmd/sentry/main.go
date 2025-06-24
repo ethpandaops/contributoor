@@ -201,7 +201,7 @@ func createConfig(c *cli.Context) (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		cfg = configFromFile
 	}
 
