@@ -116,6 +116,7 @@ func main() {
 				fmt.Printf("%s\n", contr.Release)
 				os.Exit(0)
 			}
+
 			return nil
 		},
 		Action: func(c *cli.Context) error {
@@ -200,6 +201,7 @@ func createConfig(c *cli.Context) (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+		
 		cfg = configFromFile
 	}
 
