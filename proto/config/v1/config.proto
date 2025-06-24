@@ -45,8 +45,8 @@ message Config {
   // NetworkName is the name of the network the beacon node is running on.
   string network_name = 5;
   // BeaconNodeAddress is the address of the beacon node.
+  // Can be a single address or comma-separated list of addresses.
   string beacon_node_address = 6 [
-    (buf.validate.field).string.uri = true,
     (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
   ];
   // MetricsAddress is the (optional) address to serve metrics on.
