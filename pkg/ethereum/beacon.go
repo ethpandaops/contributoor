@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
@@ -51,7 +52,7 @@ type BeaconNode struct {
 	summary     *events.Summary
 	metrics     *events.Metrics
 	traceID     string
-	healthy     bool
+	healthy     atomic.Bool
 }
 
 // NewBeaconNode creates a new beacon node instance with the given configuration. It initializes any services and
@@ -136,7 +137,7 @@ func (b *BeaconNode) Start(ctx context.Context) (chan struct{}, error) {
 	b.beacon.OnFirstTimeHealthy(ctx, func(ctx context.Context, event *beacon.FirstTimeHealthyEvent) error {
 		b.log.Debug("Upstream beacon node is healthy")
 
-		b.healthy = true
+		b.healthy.Store(true)
 
 		close(beaconReady)
 
@@ -162,7 +163,7 @@ func (b *BeaconNode) Start(ctx context.Context) (chan struct{}, error) {
 // Stop gracefully shuts down the beacon node and its services.
 func (b *BeaconNode) Stop(ctx context.Context) error {
 	b.log.Info("Stopping beacon node")
-	b.healthy = false
+	b.healthy.Store(false)
 
 	b.log.WithField("service", b.metadataSvc.Name()).Info("Stopping service")
 
@@ -231,7 +232,7 @@ func (b *BeaconNode) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
 
 // IsHealthy returns whether the node is healthy.
 func (b *BeaconNode) IsHealthy() bool {
-	return b.healthy
+	return b.healthy.Load()
 }
 
 // IsSlotFromUnexpectedNetwork checks if a slot appears to be from an unexpected network
