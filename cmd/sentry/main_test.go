@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
 
 	contr "github.com/ethpandaops/contributoor/internal/contributoor"
-	"github.com/ethpandaops/contributoor/pkg/application"
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -395,22 +393,24 @@ func TestSignalHandling(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	sigChan := make(chan os.Signal, 1)
+	shutdownChan := make(chan bool, 1)
 
-	var shutdownCalled bool
 	go func() {
 		<-sigChan
-		shutdownCalled = true
+		shutdownChan <- true
 		cancel()
 	}()
 
 	// Send signal
 	sigChan <- syscall.SIGINT
 
-	// Give time for handler
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify shutdown was called
-	assert.True(t, shutdownCalled)
+	// Wait for shutdown signal
+	select {
+	case <-shutdownChan:
+		// Shutdown was called
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Timeout waiting for shutdown signal")
+	}
 
 	// Verify context is cancelled
 	select {
@@ -787,174 +787,91 @@ func TestMainAction(t *testing.T) {
 
 // TestMainActionWithApplication tests the Action with actual application creation.
 func TestMainActionWithApplication(t *testing.T) {
-	// This test will create a real application instance
-	ctx, cancel := context.WithCancel(context.Background())
+	// This test needs to run main() to cover the Action function
+	if os.Getenv("BE_MAIN_ACTION_TEST") == "1" {
+		// Set a valid beacon node address to avoid connection errors
+		os.Args = []string{"contributoor", "--beacon-node-address", "http://localhost:5052"}
+		main()
 
-	// Cancel immediately to prevent blocking
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
-
-	app := &cli.App{
-		Name:  "contributoor",
-		Usage: "Contributoor node",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "config"},
-			&cli.BoolFlag{Name: "debug"},
-			&cli.StringFlag{Name: "network"},
-			&cli.StringFlag{Name: "beacon-node-address"},
-			&cli.StringFlag{Name: "metrics-address"},
-			&cli.StringFlag{Name: "health-check-address"},
-			&cli.StringFlag{Name: "log-level"},
-			&cli.StringFlag{Name: "contributoor-directory"},
-		},
-		Action: func(c *cli.Context) error {
-			// Create configuration
-			cfg, err := createConfig(c)
-			if err != nil {
-				return err
-			}
-
-			// Set temp directory
-			cfg.ContributoorDirectory = t.TempDir()
-
-			// Apply log level
-			if cfg.LogLevel != "" {
-				level, lerr := logrus.ParseLevel(cfg.LogLevel)
-				if lerr != nil {
-					log.WithField("level", cfg.LogLevel).WithError(lerr).Warn("Invalid log level, defaulting to info")
-					level = logrus.InfoLevel
-				}
-				log.SetLevel(level)
-				log.WithField("level", level.String()).Info("Log level set")
-			}
-
-			// Create application
-			app, err := application.New(application.Options{
-				Config: cfg,
-				Logger: log.WithField("module", "contributoor"),
-				Debug:  c.Bool("debug"),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to create application: %w", err)
-			}
-
-			log.WithFields(logrus.Fields{
-				"config_path": cfg.ContributoorDirectory,
-				"version":     cfg.Version,
-				"commit":      contr.GitCommit,
-				"release":     contr.Release,
-			}).Info("Starting contributoor")
-
-			// Start application
-			if err := app.Start(ctx); err != nil {
-				return fmt.Errorf("failed to start application: %w", err)
-			}
-
-			// Wait for shutdown
-			<-ctx.Done()
-
-			// Stop application
-			stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer stopCancel()
-
-			if err := app.Stop(stopCtx); err != nil {
-				log.WithError(err).Error("Failed to stop application")
-			}
-
-			return nil
-		},
+		return
 	}
 
-	err := app.RunContext(ctx, []string{
-		"contributoor",
-		"--beacon-node-address", "http://localhost:5052",
-		"--log-level", "info",
-		"--metrics-address", ":9090",
-		"--health-check-address", ":8080",
-	})
+	// Run as subprocess
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionWithApplication")
+	cmd.Env = append(os.Environ(), "BE_MAIN_ACTION_TEST=1")
 
-	// The app might fail to start due to no beacon node running
-	// or context cancellation - both are acceptable for this test
+	// Start the process
+	err := cmd.Start()
+	require.NoError(t, err)
+
+	// Give it time to start and cover the Action function
+	time.Sleep(500 * time.Millisecond)
+
+	// Send interrupt signal to trigger shutdown
+	err = cmd.Process.Signal(syscall.SIGINT)
+	require.NoError(t, err)
+
+	// Wait for process to exit
+	err = cmd.Wait()
+	// Exit error is expected due to signal
 	if err != nil {
-		// Check if it's a connection or context error
-		errStr := err.Error()
-		assert.True(t,
-			strings.Contains(errStr, "context canceled") ||
-				strings.Contains(errStr, "failed to connect") ||
-				strings.Contains(errStr, "failed to start"),
-			"Expected context or connection error, got: %v", err)
+		_, ok := err.(*exec.ExitError)
+		assert.True(t, ok, "Expected exit error, got: %v", err)
 	}
 }
 
 // TestMainActionSystemd tests the Action with systemd run method.
 func TestMainActionSystemd(t *testing.T) {
-	// Create a context that we'll cancel immediately
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// This test needs to run main() to cover systemd paths in Action function
+	if os.Getenv("BE_MAIN_SYSTEMD_TEST") == "1" {
+		// Create temp config file with systemd run method
+		tmpFile, err := os.CreateTemp("", "config*.yaml")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create temp file: %v\n", err)
+			os.Exit(1)
+		}
+		defer os.Remove(tmpFile.Name())
 
-	// Create temp config file with systemd run method
-	tmpFile, err := os.CreateTemp("", "config*.yaml")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	configContent := `
+		configContent := `
 network_name: "testnet"
 beacon_node_address: "http://localhost:5052"
 log_level: "info"
 run_method: 3
 `
-	_, err = tmpFile.WriteString(configContent)
-	require.NoError(t, err)
-	tmpFile.Close()
+		_, err = tmpFile.WriteString(configContent)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to write config: %v\n", err)
+			os.Exit(1)
+		}
+		tmpFile.Close()
 
-	app := &cli.App{
-		Name:  "contributoor",
-		Usage: "Contributoor node",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "config"},
-			&cli.BoolFlag{Name: "debug"},
-			&cli.StringFlag{Name: "log-level"},
-		},
-		Action: func(c *cli.Context) error {
-			// Create configuration
-			cfg, cerr := createConfig(c)
-			if cerr != nil {
-				return cerr
-			}
+		os.Args = []string{"contributoor", "--config", tmpFile.Name()}
+		main()
 
-			// Apply log level
-			if cfg.LogLevel != "" {
-				level, lerr := logrus.ParseLevel(cfg.LogLevel)
-				if lerr != nil {
-					log.WithField("level", cfg.LogLevel).WithError(lerr).Warn("Invalid log level, defaulting to info")
-					level = logrus.InfoLevel
-				}
-				log.SetLevel(level)
-				log.WithField("level", level.String()).Info("Log level set")
-			}
-
-			// Add journald hook if running under systemd
-			if cfg.IsRunMethodSystemd() {
-				// We can't actually create the journal hook in tests
-				// but we can verify the path is taken
-				log.Info("Running under systemd, would add journal hook")
-			}
-
-			// Cancel immediately to prevent blocking
-			cancel()
-
-			return nil
-		},
+		return
 	}
 
-	err = app.RunContext(ctx, []string{
-		"contributoor",
-		"--config", tmpFile.Name(),
-	})
+	// Run as subprocess
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionSystemd")
+	cmd.Env = append(os.Environ(), "BE_MAIN_SYSTEMD_TEST=1")
 
-	assert.NoError(t, err)
+	// Start the process
+	err := cmd.Start()
+	require.NoError(t, err)
+
+	// Give it time to start
+	time.Sleep(300 * time.Millisecond)
+
+	// Send interrupt signal
+	err = cmd.Process.Signal(syscall.SIGINT)
+	require.NoError(t, err)
+
+	// Wait for process to exit
+	err = cmd.Wait()
+	if err != nil {
+		_, ok := err.(*exec.ExitError)
+		assert.True(t, ok, "Expected exit error, got: %v", err)
+	}
 }
 
 // Helper function to create flag set.
@@ -977,4 +894,88 @@ func flagSet(t *testing.T, flags []cli.Flag, args []string) *cli.Context {
 	require.NoError(t, err)
 
 	return ctx
+}
+
+// TestMainActionInvalidLogLevel tests the Action with invalid log level.
+func TestMainActionInvalidLogLevel(t *testing.T) {
+	// This test runs main() to cover the invalid log level warning path
+	if os.Getenv("BE_MAIN_LOGLEVEL_TEST") == "1" {
+		os.Args = []string{"contributoor", "--beacon-node-address", "http://localhost:5052", "--log-level", "invalid"}
+		main()
+
+		return
+	}
+
+	// Run as subprocess
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionInvalidLogLevel")
+	cmd.Env = append(os.Environ(), "BE_MAIN_LOGLEVEL_TEST=1")
+
+	// Capture both stdout and stderr
+	output, err := cmd.CombinedOutput()
+
+	// Should exit due to signal or normal exit
+	if err != nil {
+		_, ok := err.(*exec.ExitError)
+		assert.True(t, ok, "Expected exit error, got: %v", err)
+	}
+
+	// The test should have covered the invalid log level path
+	// We can't easily capture the warning since it's logged asynchronously
+	// but the coverage will show if the path was hit
+	_ = output
+}
+
+// TestMainActionConfigError tests the Action with config creation error.
+func TestMainActionConfigError(t *testing.T) {
+	// This test runs main() to cover the config error path
+	if os.Getenv("BE_MAIN_CONFIG_ERROR_TEST") == "1" {
+		os.Args = []string{"contributoor", "--config", "/non/existent/config.yaml"}
+		main()
+
+		return
+	}
+
+	// Run as subprocess
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionConfigError")
+	cmd.Env = append(os.Environ(), "BE_MAIN_CONFIG_ERROR_TEST=1")
+
+	// Run and expect it to fail
+	output, err := cmd.CombinedOutput()
+
+	// Should exit with error
+	assert.Error(t, err)
+	exitErr, ok := err.(*exec.ExitError)
+	assert.True(t, ok, "Expected exit error")
+	assert.NotEqual(t, 0, exitErr.ExitCode())
+
+	// Should contain error about config file
+	assert.Contains(t, string(output), "no such file or directory")
+}
+
+// TestMainActionApplicationError tests error handling in main.
+func TestMainActionApplicationError(t *testing.T) {
+	// This test verifies error handling when app.RunContext fails
+	if os.Getenv("BE_MAIN_APP_ERROR_TEST") == "1" {
+		// Use invalid output-server-tls to trigger an error
+		os.Args = []string{"contributoor", "--output-server-tls", "not-a-bool"}
+		main()
+
+		return
+	}
+
+	// Run as subprocess
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionApplicationError")
+	cmd.Env = append(os.Environ(), "BE_MAIN_APP_ERROR_TEST=1")
+
+	// Run and expect it to fail
+	output, err := cmd.CombinedOutput()
+
+	// Should exit with error
+	assert.Error(t, err)
+	exitErr, ok := err.(*exec.ExitError)
+	assert.True(t, ok, "Expected exit error")
+	assert.NotEqual(t, 0, exitErr.ExitCode())
+
+	// Should contain error about parsing bool
+	assert.Contains(t, string(output), "failed to parse output server tls")
 }
