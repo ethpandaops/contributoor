@@ -113,7 +113,7 @@ go run ./cmd/sentry/main.go \
 To run Contributoor in development mode:
 
 ```bash
-go run ./cmd/sentry/main.go --config /path/to/.contributoor/config.yaml --debug true
+go run ./cmd/sentry --config /path/to/.contributoor/config.yaml --debug true
 ```
 
 The `config.yaml` would have been generated for you by the installer.
@@ -144,7 +144,7 @@ go test -race -failfast -cover -coverpkg=./... -coverprofile=coverage.out ./... 
 
 ## 📊 Share Your Node Data
 
-Help improve Ethereum by contributing your node's data to our research. Data is published openly in a privacy-focused manner and used for research and analysis. Let us know if you're interested by completing this [form](https://docs.google.com/forms/d/e/1FAIpQLSfSCHLZv2xdDKceQ3ajzYbkm2jkQnG0lVBhjEX4c1Jxvf8QfA/viewform).
+Help improve Ethereum by contributing your node's data to our research. Data is published openly in a privacy-focused manner and used for research and analysis. Let us know if you're interested by completing this [form](https://ethpandaops.io/contribute-data/).
 
 ## 🤝 Contributing Code
 
