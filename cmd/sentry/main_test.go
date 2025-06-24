@@ -547,6 +547,28 @@ func TestSystemdIntegration(t *testing.T) {
 	})
 
 	t.Run("non-systemd run method", func(t *testing.T) {
+		// Clear any systemd environment variables that might be set in CI
+		oldInvocationID := os.Getenv("INVOCATION_ID")
+		oldJournalStream := os.Getenv("JOURNAL_STREAM")
+		oldNotifySocket := os.Getenv("NOTIFY_SOCKET")
+
+		os.Unsetenv("INVOCATION_ID")
+		os.Unsetenv("JOURNAL_STREAM")
+		os.Unsetenv("NOTIFY_SOCKET")
+
+		defer func() {
+			// Restore original values
+			if oldInvocationID != "" {
+				os.Setenv("INVOCATION_ID", oldInvocationID)
+			}
+			if oldJournalStream != "" {
+				os.Setenv("JOURNAL_STREAM", oldJournalStream)
+			}
+			if oldNotifySocket != "" {
+				os.Setenv("NOTIFY_SOCKET", oldNotifySocket)
+			}
+		}()
+
 		cfg := config.NewDefaultConfig()
 		cfg.RunMethod = config.RunMethod_RUN_METHOD_DOCKER
 
