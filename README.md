@@ -3,8 +3,9 @@
 Contributoor is a lightweight service that runs alongside an Ethereum consensus client and collects data via the client's APIs. It's a streamlined, user-friendly extraction of the `sentry` service from [ethpandaops/xatu](https://github.com/ethpandaops/xatu).
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ethpandaops/contributoor.svg)](https://pkg.go.dev/github.com/ethpandaops/contributoor)
-![release](https://github.com/ethpandaops/contributoor/actions/workflows/release.yml/badge.svg)
 [![codecov](https://codecov.io/gh/ethpandaops/contributoor/graph/badge.svg?token=40GPSFLS2W)](https://codecov.io/gh/ethpandaops/contributoor)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ethpandaops/contributoor)](https://goreportcard.com/report/github.com/ethpandaops/contributoor)
+[![License](https://img.shields.io/github/license/ethpandaops/contributoor)](LICENSE)
 
 ## 📦 Installation
 
