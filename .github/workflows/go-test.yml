@@ -20,9 +20,13 @@ jobs:
       - uses: ./.github/workflows/go-setup
       - name: Install Kurtosis
         run: |
+          # Extract Kurtosis version from go.mod
+          KURTOSIS_VERSION=$(grep "github.com/kurtosis-tech/kurtosis/api/golang" go.mod | awk '{print $2}' | sed 's/^v//')
+          echo "Installing Kurtosis version: $KURTOSIS_VERSION"
+          
           echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
           sudo apt update
-          sudo apt install kurtosis-cli
+          sudo apt install kurtosis-cli=$KURTOSIS_VERSION -V
           kurtosis engine start
       - run: go test -v -race -coverprofile=coverage.txt ./...
       - uses: codecov/codecov-action@v5
