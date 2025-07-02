@@ -6,14 +6,14 @@ go 1.24.1
 replace github.com/attestantio/go-eth2-client => github.com/pk910/go-eth2-client v0.0.0-20250515124841-1d7c6ee326e4
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250613105001-9f2d3c737feb.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250625184727-c923a0c2a132.1
 	github.com/attestantio/go-eth2-client v0.26.0
 	github.com/beevik/ntp v1.4.3
 	github.com/bufbuild/protovalidate-go v0.10.1
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.55.0
-	github.com/ethpandaops/ethereum-package-go v0.1.0
+	github.com/ethpandaops/beacon v0.59.0
+	github.com/ethpandaops/ethereum-package-go v0.4.0
 	github.com/ethpandaops/ethwallclock v0.4.0
 	github.com/ethpandaops/xatu v1.1.23
 	github.com/go-co-op/gocron/v2 v2.16.2
