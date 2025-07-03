@@ -143,6 +143,7 @@ func (a *Application) connectBeacons(ctx context.Context) error {
 			err := instance.Node.Start(ctx)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to connect to beacon %s: %w", traceID, err)
+
 				return
 			}
 
