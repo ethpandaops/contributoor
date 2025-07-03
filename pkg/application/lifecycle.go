@@ -43,14 +43,17 @@ func (a *Application) Start(ctx context.Context) error {
 	for _, instance := range a.beaconNodes {
 		// Start the cache
 		instance.Cache.Start()
-
-		// Start summary after node is healthy
-		go a.startSummaryWhenHealthy(ctx, instance)
 	}
 
 	// Connect to beacon nodes
 	if err := a.connectBeacons(ctx); err != nil {
 		return fmt.Errorf("failed to connect to beacons: %w", err)
+	}
+
+	// Start beacon node components
+	for _, instance := range a.beaconNodes {
+		// Start summary after node is healthy
+		go a.startSummaryWhenHealthy(ctx, instance)
 	}
 
 	a.log.Info("Application started successfully")
@@ -110,7 +113,7 @@ func (a *Application) startSummaryWhenHealthy(ctx context.Context, instance *Bea
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if node, ok := instance.Node.(*ethereum.BeaconNode); ok && node.IsHealthy() {
+			if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
 				instance.Summary.Start(ctx)
 
 				return
@@ -137,20 +140,15 @@ func (a *Application) connectBeacons(ctx context.Context) error {
 	// Connect to all beacon nodes concurrently
 	for traceID, instance := range a.beaconNodes {
 		go func(traceID string, instance *BeaconNodeInstance) {
-			readyChan, err := instance.Node.Start(ctx)
+			// Start() now blocks until the node is healthy
+			err := instance.Node.Start(ctx)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to connect to beacon %s: %w", traceID, err)
-
 				return
 			}
 
-			// Wait for the node to become healthy
-			select {
-			case <-readyChan:
-				doneChan <- traceID
-			case <-ctx.Done():
-				errChan <- fmt.Errorf("context cancelled while waiting to connect to beacon %s", traceID)
-			}
+			// Node is now healthy
+			doneChan <- traceID
 		}(traceID, instance)
 	}
 

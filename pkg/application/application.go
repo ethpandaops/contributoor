@@ -112,7 +112,7 @@ func (a *Application) Metrics(traceID string) *events.Metrics {
 // IsHealthy returns true if at least one beacon node is healthy and connected.
 func (a *Application) IsHealthy() bool {
 	for _, instance := range a.beaconNodes {
-		if node, ok := instance.Node.(*ethereum.BeaconNode); ok && node.IsHealthy() {
+		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
 			return true
 		}
 	}
