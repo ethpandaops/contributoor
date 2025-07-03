@@ -12,7 +12,7 @@ require (
 	github.com/bufbuild/protovalidate-go v0.10.1
 	github.com/creasty/defaults v1.8.0
 	github.com/ethpandaops/beacon v0.61.0
-	github.com/ethpandaops/ethcore v0.0.0-20250702043401-644589f91e74
+	github.com/ethpandaops/ethcore v0.0.0-20250703053009-1a87adc3340d
 	github.com/ethpandaops/ethereum-package-go v0.4.0
 	github.com/ethpandaops/ethwallclock v0.4.0
 	github.com/ethpandaops/xatu v1.1.23

@@ -140,7 +140,6 @@ func (a *Application) connectBeacons(ctx context.Context) error {
 	// Connect to all beacon nodes concurrently
 	for traceID, instance := range a.beaconNodes {
 		go func(traceID string, instance *BeaconNodeInstance) {
-			// Start() now blocks until the node is healthy
 			err := instance.Node.Start(ctx)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to connect to beacon %s: %w", traceID, err)
