@@ -26,6 +26,7 @@ func StartTestNetwork(t *testing.T, ctx context.Context) (net network.Network, b
 		ethereum.Minimal(),
 		ethereum.WithChainID(12345),
 		ethereum.WithWaitForGenesis(), // Wait for genesis before returning
+		ethereum.WithDockerCacheParams(true, "docker.ethquokkaops.io"),
 	)
 	require.NoError(t, err, "Failed to start test network")
 

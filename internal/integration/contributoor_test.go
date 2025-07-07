@@ -32,6 +32,7 @@ func TestContributoor_AllClients(t *testing.T) {
 		ethereum.AllCLs(), // This gives us geth + all consensus clients
 		ethereum.WithChainID(12345),
 		ethereum.WithWaitForGenesis(),
+		ethereum.WithDockerCacheParams(true, "docker.ethquokkaops.io"),
 	)
 	require.NoError(t, err, "Failed to start test network")
 
