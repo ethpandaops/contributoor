@@ -49,7 +49,7 @@ runs:
         echo "EGG_VERSION=$EGG_VERSION" >> $GITHUB_ENV
         echo "  EGG: $EGG_VERSION"
 
-        VAL_TOOLS_VERSION=$(grep 'ETH_VAL_TOOLS_IMAGE = "protolambda/eth2-val-tools:' $GITHUB_WORKSPACE/src/prelaunch_data_generator/validator_keystores/validator_keystore_generator.star | sed 's/.*protolambda\/eth2-val-tools:\([^"]*\)".*/\1/')
+        VAL_TOOLS_VERSION=$(curl -sf https://raw.githubusercontent.com/ethpandaops/ethereum-package/master/src/prelaunch_data_generator/validator_keystores/validator_keystore_generator.star | grep 'ETH_VAL_TOOLS_IMAGE = "protolambda/eth2-val-tools:' | sed 's/.*protolambda\/eth2-val-tools:\([^"]*\)".*/\1/')
         echo "VAL_TOOLS_VERSION=$VAL_TOOLS_VERSION" >> $GITHUB_ENV
         echo "  Val-tools: $VAL_TOOLS_VERSION"
 
