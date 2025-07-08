@@ -12,10 +12,10 @@ require (
 	github.com/bufbuild/protovalidate-go v0.10.1
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.59.0
+	github.com/ethpandaops/beacon v0.61.0
 	github.com/ethpandaops/ethereum-package-go v0.5.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/xatu v1.1.23
+	github.com/ethpandaops/xatu v1.1.24
 	github.com/go-co-op/gocron/v2 v2.16.2
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0
