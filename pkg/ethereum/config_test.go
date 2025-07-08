@@ -29,8 +29,7 @@ func TestConfig_Validate(t *testing.T) {
 					"Authorization": "Bearer token",
 					"X-Custom":      "value",
 				},
-				BeaconSubscriptions: &[]string{"head", "block", "attestation"},
-				NetworkOverride:     "mainnet",
+				NetworkOverride: "mainnet",
 			},
 			expectError: false,
 		},
@@ -62,22 +61,6 @@ func TestConfig_Validate(t *testing.T) {
 			config: &Config{
 				BeaconNodeAddress: "http://localhost:5052",
 				BeaconNodeHeaders: nil,
-			},
-			expectError: false,
-		},
-		{
-			name: "valid config with empty subscriptions",
-			config: &Config{
-				BeaconNodeAddress:   "http://localhost:5052",
-				BeaconSubscriptions: &[]string{},
-			},
-			expectError: false,
-		},
-		{
-			name: "valid config with nil subscriptions",
-			config: &Config{
-				BeaconNodeAddress:   "http://localhost:5052",
-				BeaconSubscriptions: nil,
 			},
 			expectError: false,
 		},
@@ -121,43 +104,14 @@ func TestConfig_Fields(t *testing.T) {
 				"Authorization": "Bearer token123",
 				"X-API-Key":     "key123",
 			},
-			BeaconSubscriptions: &[]string{"head", "block", "attestation", "exit"},
-			NetworkOverride:     "holesky",
+			NetworkOverride: "holesky",
 		}
 
 		// Verify all fields are set correctly
 		assert.Equal(t, "http://localhost:5052", config.BeaconNodeAddress)
 		assert.Equal(t, "Bearer token123", config.BeaconNodeHeaders["Authorization"])
 		assert.Equal(t, "key123", config.BeaconNodeHeaders["X-API-Key"])
-		assert.NotNil(t, config.BeaconSubscriptions)
-		assert.Len(t, *config.BeaconSubscriptions, 4)
-		assert.Contains(t, *config.BeaconSubscriptions, "head")
-		assert.Contains(t, *config.BeaconSubscriptions, "block")
-		assert.Contains(t, *config.BeaconSubscriptions, "attestation")
-		assert.Contains(t, *config.BeaconSubscriptions, "exit")
 		assert.Equal(t, "holesky", config.NetworkOverride)
-	})
-
-	t.Run("nil beacon subscriptions pointer", func(t *testing.T) {
-		config := &Config{
-			BeaconNodeAddress:   "http://localhost:5052",
-			BeaconSubscriptions: nil,
-		}
-
-		assert.Nil(t, config.BeaconSubscriptions)
-		assert.NoError(t, config.Validate())
-	})
-
-	t.Run("empty beacon subscriptions slice", func(t *testing.T) {
-		emptySlice := []string{}
-		config := &Config{
-			BeaconNodeAddress:   "http://localhost:5052",
-			BeaconSubscriptions: &emptySlice,
-		}
-
-		assert.NotNil(t, config.BeaconSubscriptions)
-		assert.Empty(t, *config.BeaconSubscriptions)
-		assert.NoError(t, config.Validate())
 	})
 
 	t.Run("modify headers after creation", func(t *testing.T) {
@@ -180,20 +134,6 @@ func TestConfig_Fields(t *testing.T) {
 		delete(config.BeaconNodeHeaders, "Initial")
 		_, exists := config.BeaconNodeHeaders["Initial"]
 		assert.False(t, exists)
-	})
-
-	t.Run("modify subscriptions after creation", func(t *testing.T) {
-		subs := []string{"initial"}
-		config := &Config{
-			BeaconNodeAddress:   "http://localhost:5052",
-			BeaconSubscriptions: &subs,
-		}
-
-		// Modify the slice
-		*config.BeaconSubscriptions = append(*config.BeaconSubscriptions, "new-sub")
-		assert.Len(t, *config.BeaconSubscriptions, 2)
-		assert.Contains(t, *config.BeaconSubscriptions, "initial")
-		assert.Contains(t, *config.BeaconSubscriptions, "new-sub")
 	})
 }
 
@@ -227,21 +167,6 @@ func TestConfig_EdgeCases(t *testing.T) {
 
 		assert.NoError(t, config.Validate())
 		assert.Len(t, config.BeaconNodeHeaders, 100)
-	})
-
-	t.Run("config with large subscriptions slice", func(t *testing.T) {
-		subs := make([]string, 1000)
-		for i := 0; i < 1000; i++ {
-			subs[i] = string(rune(i))
-		}
-
-		config := &Config{
-			BeaconNodeAddress:   "http://localhost:5052",
-			BeaconSubscriptions: &subs,
-		}
-
-		assert.NoError(t, config.Validate())
-		assert.Len(t, *config.BeaconSubscriptions, 1000)
 	})
 
 	t.Run("zero value config", func(t *testing.T) {

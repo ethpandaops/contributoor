@@ -129,7 +129,7 @@ func (a *Application) GetBeaconTraceIDs() []string {
 // Returns empty string if no healthy beacons exist.
 func (a *Application) GetFirstHealthyBeacon() string {
 	for traceID, instance := range a.beaconNodes {
-		if node, ok := instance.Node.(*ethereum.BeaconNode); ok && node.IsHealthy() {
+		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
 			return traceID
 		}
 	}
