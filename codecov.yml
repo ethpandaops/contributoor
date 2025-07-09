@@ -1,3 +1,10 @@
+comment: false
+github_checks:
+  annotations: false
+coverage:
+  status:
+    project: off
+    patch: off
 ignore:
   - ".github"
   - "README.md"
