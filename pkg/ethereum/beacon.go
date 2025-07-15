@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sync/atomic"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/ethpandaops/beacon/pkg/beacon"
@@ -45,6 +46,7 @@ type BeaconWrapper struct {
 	cache      *events.DuplicateCache
 	summary    *events.Summary
 	metrics    *events.Metrics
+	isHealthy  atomic.Bool // Track connection state for transition logging
 }
 
 // NewBeaconWrapper creates a wrapped beacon node.
@@ -93,6 +95,9 @@ func NewBeaconWrapper(
 		metrics:    metrics,
 	}
 
+	// Initialize as unhealthy (false) since the node starts disconnected
+	wrapper.isHealthy.Store(false)
+
 	// Register OnReady callback to setup event subscriptions.
 	ethcoreBeacon.OnReady(wrapper.setupEventSubscriptions)
 
@@ -133,6 +138,28 @@ func (w *BeaconWrapper) Stop(ctx context.Context) error {
 // setupEventSubscriptions is fired when beacon becomes healthy.
 func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 	node := w.Node()
+
+	// Set initial state to true.
+	w.isHealthy.Store(true)
+
+	node.OnHealthCheckFailed(ctx, func(ctx context.Context, event *beacon.HealthCheckFailedEvent) error {
+		// Always log connection failures
+		w.log.WithField("trace_id", w.traceID).Warn("Beacon node connection lost")
+
+		// Update state
+		w.isHealthy.Store(false)
+
+		return nil
+	})
+
+	node.OnHealthCheckSucceeded(ctx, func(ctx context.Context, event *beacon.HealthCheckSucceededEvent) error {
+		// Only log when transitioning from unhealthy to healthy
+		if w.isHealthy.CompareAndSwap(false, true) {
+			w.log.WithField("trace_id", w.traceID).Info("Beacon node connection restored")
+		}
+
+		return nil
+	})
 
 	node.OnBlock(ctx, func(ctx context.Context, block *eth2v1.BlockEvent) error {
 		now := w.clockDrift.Now()
