@@ -9,6 +9,7 @@ import (
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
+	"github.com/ethpandaops/contributoor/internal/contributoor"
 	"github.com/ethpandaops/contributoor/internal/events"
 	v1 "github.com/ethpandaops/contributoor/internal/events/v1"
 	"github.com/ethpandaops/contributoor/internal/sinks"
@@ -161,6 +162,12 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		return nil
 	})
 
+	node.OnEvent(ctx, func(ctx context.Context, event *eth2v1.Event) error {
+		w.summary.AddEventStreamEvents(event.Topic, 1)
+
+		return nil
+	})
+
 	node.OnBlock(ctx, func(ctx context.Context, block *eth2v1.BlockEvent) error {
 		now := w.clockDrift.Now()
 
@@ -300,21 +307,34 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 
 // createEventMeta creates Xatu metadata for events.
 func (w *BeaconWrapper) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
-	metadata := w.Metadata()
-	network := metadata.GetNetwork()
+	var (
+		metadata = w.Metadata()
+		network  = metadata.GetNetwork()
+	)
+
+	hashedNodeID, err := metadata.GetNodeIDHash()
+	if err != nil {
+		return nil, err
+	}
 
 	return &xatu.Meta{
 		Client: &xatu.ClientMeta{
-			Name:           metadata.GetClient(ctx),
-			Version:        metadata.GetNodeVersion(ctx),
+			Name:           hashedNodeID,
+			Version:        contributoor.Short(),
 			Id:             w.traceID,
-			Implementation: metadata.GetClient(ctx),
+			Implementation: contributoor.Implementation,
+			ModuleName:     contributoor.Module,
 			Os:             runtime.GOOS,
 			ClockDrift:     uint64(w.clockDrift.GetDrift().Milliseconds()), //nolint:gosec // ok.
 			Ethereum: &xatu.ClientMeta_Ethereum{
 				Network: &xatu.ClientMeta_Ethereum_Network{
 					Name: string(network.Name),
 					Id:   network.ID,
+				},
+				Execution: &xatu.ClientMeta_Ethereum_Execution{},
+				Consensus: &xatu.ClientMeta_Ethereum_Consensus{
+					Implementation: metadata.GetClient(ctx),
+					Version:        metadata.GetNodeVersion(ctx),
 				},
 			},
 		},
@@ -328,11 +348,19 @@ func (w *BeaconWrapper) handleDecoratedEvent(ctx context.Context, event events.E
 		return err
 	}
 
-	// Send to all sinks
-	failure := false
+	var (
+		failure   = false
+		eventType = "unknown"
+	)
+
+	if event.Type() != "" {
+		eventType = event.Type()
+	}
 
 	for _, sink := range w.sinks {
 		if err := sink.HandleEvent(ctx, event); err != nil {
+			w.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
+
 			failure = true
 
 			continue
@@ -340,7 +368,7 @@ func (w *BeaconWrapper) handleDecoratedEvent(ctx context.Context, event events.E
 	}
 
 	// Update metrics and summary
-	w.metrics.AddDecoratedEvent(1, event.Type(), string(w.Metadata().GetNetwork().Name))
+	w.metrics.AddDecoratedEvent(1, eventType, string(w.Metadata().GetNetwork().Name))
 	w.summary.AddEventsExported(1)
 
 	if failure {
