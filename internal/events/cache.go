@@ -13,6 +13,7 @@ type DuplicateCache struct {
 	BeaconETHV1EventsFinalizedCheckpoint *ttlcache.Cache[string, time.Time]
 	BeaconETHV1EventsHead                *ttlcache.Cache[string, time.Time]
 	BeaconETHV1EventsBlobSidecar         *ttlcache.Cache[string, time.Time]
+	BeaconETHV1EventsAttestationV2       *ttlcache.Cache[string, time.Time]
 }
 
 const (
@@ -40,6 +41,9 @@ func NewDuplicateCache() *DuplicateCache {
 		BeaconETHV1EventsBlobSidecar: ttlcache.New(
 			ttlcache.WithTTL[string, time.Time](TTL),
 		),
+		BeaconETHV1EventsAttestationV2: ttlcache.New(
+			ttlcache.WithTTL[string, time.Time](TTL),
+		),
 	}
 }
 
@@ -50,4 +54,5 @@ func (d *DuplicateCache) Start() {
 	go d.BeaconETHV1EventsFinalizedCheckpoint.Start()
 	go d.BeaconETHV1EventsHead.Start()
 	go d.BeaconETHV1EventsBlobSidecar.Start()
+	go d.BeaconETHV1EventsAttestationV2.Start()
 }
