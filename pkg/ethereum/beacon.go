@@ -1,4 +1,3 @@
-// Package ethereum provides Ethereum beacon node functionality
 package ethereum
 
 import (
@@ -6,7 +5,6 @@ import (
 	"fmt"
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/ethpandaops/beacon/pkg/beacon"
@@ -15,11 +13,9 @@ import (
 	"github.com/ethpandaops/contributoor/internal/events"
 	v1 "github.com/ethpandaops/contributoor/internal/events/v1"
 	"github.com/ethpandaops/contributoor/internal/sinks"
-	"github.com/ethpandaops/contributoor/pkg/ethereum/services"
+	ethcore "github.com/ethpandaops/ethcore/pkg/ethereum"
 	"github.com/ethpandaops/ethwallclock"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,32 +28,30 @@ const MaxReasonableSlotDifference uint64 = 10000
 
 // BeaconNodeAPI is the interface for the BeaconNode.
 type BeaconNodeAPI interface {
-	// Start starts the beacon node. Returns a channel that will be closed when the node is healthy.
-	Start(ctx context.Context) (chan struct{}, error)
+	// Start starts the beacon node and blocks until it is healthy.
+	Start(ctx context.Context) error
 	// Stop stops the beacon node.
 	Stop(ctx context.Context) error
 	// Synced checks if the beacon node is synced and ready.
 	Synced(ctx context.Context) error
 }
 
-// BeaconNode represents a connection to an Ethereum beacon node and manages any associated services (eg: metadata, etc).
-type BeaconNode struct {
-	config      *Config
-	log         logrus.FieldLogger
-	beacon      beacon.Node
-	clockDrift  clockdrift.ClockDrift
-	metadataSvc *services.MetadataService
-	sinks       []sinks.ContributoorSink
-	cache       *events.DuplicateCache
-	summary     *events.Summary
-	metrics     *events.Metrics
-	traceID     string
-	healthy     atomic.Bool
+// BeaconWrapper wraps ethcore beacon with additional contributoor functionality.
+type BeaconWrapper struct {
+	*ethcore.BeaconNode // Embed ethcore beacon
+
+	log        logrus.FieldLogger
+	traceID    string
+	clockDrift clockdrift.ClockDrift
+	sinks      []sinks.ContributoorSink
+	cache      *events.DuplicateCache
+	summary    *events.Summary
+	metrics    *events.Metrics
+	isHealthy  atomic.Bool // Track connection state for transition logging
 }
 
-// NewBeaconNode creates a new beacon node instance with the given configuration. It initializes any services and
-// configures the beacon subscriptions.
-func NewBeaconNode(
+// NewBeaconWrapper creates a wrapped beacon node.
+func NewBeaconWrapper(
 	log logrus.FieldLogger,
 	traceID string,
 	config *Config,
@@ -66,178 +60,342 @@ func NewBeaconNode(
 	cache *events.DuplicateCache,
 	summary *events.Summary,
 	metrics *events.Metrics,
-	opt *Options,
-) (*BeaconNode, error) {
-	// Give the ethpandaops/beacon a logger that is suppressed to warn level.
-	// We'll handle any beacon specific info-level logging ourselves.
-	beaconLogger := logrus.New()
-	beaconLogger.SetLevel(logrus.WarnLevel)
-
-	log = log.WithField("trace_id", traceID)
-
-	// Set default options and disable prometheus metrics.
-	opts := *beacon.DefaultOptions().DisablePrometheusMetrics()
-
-	opts.BeaconSubscription = beacon.BeaconSubscriptionOptions{
-		Enabled: true,
-		Topics: []string{
-			"block",
-			"block_gossip",
-			"head",
-			"finalized_checkpoint",
-			"blob_sidecar",
-			"chain_reorg",
-		},
+) (*BeaconWrapper, error) {
+	// Prepare ethcore config.
+	ethcoreConfig := &ethcore.Config{
+		BeaconNodeAddress: config.BeaconNodeAddress,
+		BeaconNodeHeaders: config.BeaconNodeHeaders,
+		NetworkOverride:   config.NetworkOverride,
 	}
 
-	// Configure beacon subscriptions if provided, otherwise use defaults.
-	if config.BeaconSubscriptions != nil {
-		opts.BeaconSubscription = beacon.BeaconSubscriptionOptions{
-			Enabled: true,
-			Topics:  *config.BeaconSubscriptions,
-		}
+	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
+	beaconOpts.BeaconSubscription.Enabled = true
+	beaconOpts.BeaconSubscription.Topics = []string{
+		"block",
+		"block_gossip",
+		"head",
+		"finalized_checkpoint",
+		"blob_sidecar",
+		"chain_reorg",
 	}
-
-	// Configure health check parameters.
-	opts.HealthCheck.Interval.Duration = time.Second * 3
-	opts.HealthCheck.SuccessfulResponses = 1
 
 	// Create the beacon node.
-	node := beacon.NewNode(beaconLogger, &beacon.Config{
-		Addr:    config.BeaconNodeAddress,
-		Headers: config.BeaconNodeHeaders,
-	}, "contributoor", opts)
+	ethcoreBeacon, err := ethcore.NewBeaconNode(log, traceID, ethcoreConfig, beaconOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ethcore beacon: %w", err)
+	}
 
-	// Initialize services.
-	metadata := services.NewMetadataService(log, node, config.NetworkOverride)
+	wrapper := &BeaconWrapper{
+		BeaconNode: ethcoreBeacon,
+		log:        log,
+		traceID:    traceID,
+		clockDrift: clockDrift,
+		sinks:      sinks,
+		cache:      cache,
+		summary:    summary,
+		metrics:    metrics,
+	}
 
-	return &BeaconNode{
-		log:         log,
-		config:      config,
-		beacon:      node,
-		clockDrift:  clockDrift,
-		metadataSvc: &metadata,
-		sinks:       sinks,
-		cache:       cache,
-		summary:     summary,
-		metrics:     metrics,
-		traceID:     traceID,
-	}, nil
+	// Initialize as unhealthy (false) since the node starts disconnected
+	wrapper.isHealthy.Store(false)
+
+	// Register OnReady callback to setup event subscriptions.
+	ethcoreBeacon.OnReady(wrapper.setupEventSubscriptions)
+
+	return wrapper, nil
 }
 
-// Start begins the beacon node operation and its services
-// It returns a channel that will be closed when the node is healthy.
-func (b *BeaconNode) Start(ctx context.Context) (chan struct{}, error) {
-	var (
-		startupErrs = make(chan error, 1)
-		beaconReady = make(chan struct{})
-	)
-
-	// Register callback for when the node becomes healthy.
-	b.beacon.OnFirstTimeHealthy(ctx, func(ctx context.Context, event *beacon.FirstTimeHealthyEvent) error {
-		b.log.Debug("Upstream beacon node is healthy")
-
-		b.healthy.Store(true)
-
-		close(beaconReady)
-
-		if err := b.startServices(ctx, startupErrs); err != nil {
-			return err
+// Start to handle sink lifecycle.
+// This method now blocks until the beacon node is ready or an error occurs.
+func (w *BeaconWrapper) Start(ctx context.Context) error {
+	// Start sinks first.
+	for _, sink := range w.sinks {
+		if err := sink.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start sink %s: %w", sink.Name(), err)
 		}
+	}
 
-		// Set up event subscriptions.
-		if err := b.setupSubscriptions(ctx); err != nil {
-			startupErrs <- fmt.Errorf("failed to setup subscriptions: %w", err)
+	// The upstream Start() is now blocking and waits until the node is ready.
+	return w.BeaconNode.Start(ctx)
+}
+
+// Stop to handle sink lifecycle.
+func (w *BeaconWrapper) Stop(ctx context.Context) error {
+	// Stop upstream first.
+	if err := w.BeaconNode.Stop(ctx); err != nil {
+		w.log.WithError(err).Error("Failed to stop beacon node")
+	}
+
+	// Stop contributoor sinks.
+	for _, sink := range w.sinks {
+		if err := sink.Stop(ctx); err != nil {
+			w.log.WithError(err).Errorf("Failed to stop sink %s", sink.Name())
+		}
+	}
+
+	return nil
+}
+
+// setupEventSubscriptions is fired when beacon becomes healthy.
+func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
+	node := w.Node()
+
+	// Set initial state to true.
+	w.isHealthy.Store(true)
+
+	node.OnHealthCheckFailed(ctx, func(ctx context.Context, event *beacon.HealthCheckFailedEvent) error {
+		// Always log connection failures
+		w.log.WithField("trace_id", w.traceID).Warn("Beacon node connection lost")
+
+		// Update state
+		w.isHealthy.Store(false)
+
+		return nil
+	})
+
+	node.OnHealthCheckSucceeded(ctx, func(ctx context.Context, event *beacon.HealthCheckSucceededEvent) error {
+		// Only log when transitioning from unhealthy to healthy
+		if w.isHealthy.CompareAndSwap(false, true) {
+			w.log.WithField("trace_id", w.traceID).Info("Beacon node connection restored")
 		}
 
 		return nil
 	})
 
-	b.beacon.StartAsync(ctx)
+	node.OnEvent(ctx, func(ctx context.Context, event *eth2v1.Event) error {
+		w.summary.AddEventStreamEvents(event.Topic, 1)
 
-	// Return the ready channel immediately for consumers, upon closing the channel
-	// this indicates that the node is healthy and ready to process events.
-	return beaconReady, nil
-}
+		return nil
+	})
 
-// Stop gracefully shuts down the beacon node and its services.
-func (b *BeaconNode) Stop(ctx context.Context) error {
-	b.log.Info("Stopping beacon node")
-	b.healthy.Store(false)
+	node.OnBlock(ctx, func(ctx context.Context, block *eth2v1.BlockEvent) error {
+		now := w.clockDrift.Now()
 
-	b.log.WithField("service", b.metadataSvc.Name()).Info("Stopping service")
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
 
-	if err := b.metadataSvc.Stop(ctx); err != nil {
-		b.log.WithError(err).WithField("service", b.metadataSvc.Name()).Error("Failed to stop service")
-	}
+		event := v1.NewBlockEvent(w.log, w, w.cache.BeaconETHV1EventsBlock, meta, block, now)
 
-	if err := b.beacon.Stop(ctx); err != nil {
-		b.log.WithError(err).Error("Failed to stop beacon node")
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
 
-		return fmt.Errorf("failed to stop beacon node: %w", err)
-	}
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnBlockGossip(ctx, func(ctx context.Context, blockGossip *eth2v1.BlockGossipEvent) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewBlockGossipEvent(w.log, w, w.cache.BeaconETHV1EventsBlockGossip, meta, blockGossip, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnHead(ctx, func(ctx context.Context, head *eth2v1.HeadEvent) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewHeadEvent(w.log, w, w.cache.BeaconETHV1EventsHead, meta, head, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnFinalizedCheckpoint(ctx, func(ctx context.Context, checkpoint *eth2v1.FinalizedCheckpointEvent) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewFinalizedCheckpointEvent(w.log, w, w.cache.BeaconETHV1EventsFinalizedCheckpoint, meta, checkpoint, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnChainReOrg(ctx, func(ctx context.Context, reorg *eth2v1.ChainReorgEvent) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewChainReorgEvent(w.log, w, w.cache.BeaconETHV1EventsChainReorg, meta, reorg, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnBlobSidecar(ctx, func(ctx context.Context, blob *eth2v1.BlobSidecarEvent) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewBlobSidecarEvent(w.log, w, w.cache.BeaconETHV1EventsBlobSidecar, meta, blob, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	w.log.Info("Event subscriptions setup successfully")
 
 	return nil
 }
 
-// Synced checks if the beacon node is synced and ready
-// It verifies sync state, wallclock, and service readiness.
-func (b *BeaconNode) Synced(ctx context.Context) error {
-	status := b.beacon.Status()
-	if status == nil {
-		return errors.New("missing beacon status")
+// createEventMeta creates Xatu metadata for events.
+func (w *BeaconWrapper) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
+	var (
+		metadata = w.Metadata()
+		network  = metadata.GetNetwork()
+	)
+
+	hashedNodeID, err := metadata.GetNodeIDHash()
+	if err != nil {
+		return nil, err
 	}
 
-	wallclock := b.metadataSvc.Wallclock()
-	if wallclock == nil {
-		return errors.New("missing wallclock")
+	return &xatu.Meta{
+		Client: &xatu.ClientMeta{
+			Name:           hashedNodeID,
+			Version:        contributoor.Short(),
+			Id:             w.traceID,
+			Implementation: contributoor.Implementation,
+			ModuleName:     contributoor.Module,
+			Os:             runtime.GOOS,
+			ClockDrift:     uint64(w.clockDrift.GetDrift().Milliseconds()), //nolint:gosec // ok.
+			Ethereum: &xatu.ClientMeta_Ethereum{
+				Network: &xatu.ClientMeta_Ethereum_Network{
+					Name: string(network.Name),
+					Id:   network.ID,
+				},
+				Execution: &xatu.ClientMeta_Ethereum_Execution{},
+				Consensus: &xatu.ClientMeta_Ethereum_Consensus{
+					Implementation: metadata.GetClient(ctx),
+					Version:        metadata.GetNodeVersion(ctx),
+				},
+			},
+		},
+	}, nil
+}
+
+// handleDecoratedEvent processes events through sinks.
+func (w *BeaconWrapper) handleDecoratedEvent(ctx context.Context, event events.Event) error {
+	// Final sync check
+	if err := w.Synced(ctx); err != nil {
+		return err
 	}
 
-	if err := b.metadataSvc.Ready(ctx); err != nil {
-		return errors.Wrapf(err, "service %s is not ready", b.metadataSvc.Name())
+	var (
+		failure   = false
+		eventType = "unknown"
+	)
+
+	if event.Type() != "" {
+		eventType = event.Type()
+	}
+
+	for _, sink := range w.sinks {
+		if err := sink.HandleEvent(ctx, event); err != nil {
+			w.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
+
+			failure = true
+
+			continue
+		}
+	}
+
+	// Update metrics and summary
+	w.metrics.AddDecoratedEvent(1, eventType, string(w.Metadata().GetNetwork().Name))
+	w.summary.AddEventsExported(1)
+
+	if failure {
+		w.summary.AddFailedEvents(1)
 	}
 
 	return nil
-}
-
-// Node returns the underlying beacon node instance.
-func (b *BeaconNode) Node() beacon.Node {
-	return b.beacon
-}
-
-// Metadata returns the metadata service instance.
-func (b *BeaconNode) Metadata() *services.MetadataService {
-	return b.metadataSvc
-}
-
-// GetWallclock returns the wallclock for the beacon chain.
-func (b *BeaconNode) GetWallclock() *ethwallclock.EthereumBeaconChain {
-	return b.metadataSvc.Wallclock()
 }
 
 // GetSlot returns the wallclock slot for a given slot number.
-func (b *BeaconNode) GetSlot(slot uint64) ethwallclock.Slot {
-	return b.metadataSvc.Wallclock().Slots().FromNumber(slot)
+func (w *BeaconWrapper) GetSlot(slot uint64) ethwallclock.Slot {
+	return w.BeaconNode.GetSlot(slot)
 }
 
-// GetEpoch returns the wallclock epoch for a given slot number.
-func (b *BeaconNode) GetEpoch(epoch uint64) ethwallclock.Epoch {
-	return b.metadataSvc.Wallclock().Epochs().FromNumber(epoch)
+// GetEpoch returns the wallclock epoch for a given epoch number.
+func (w *BeaconWrapper) GetEpoch(epoch uint64) ethwallclock.Epoch {
+	return w.BeaconNode.GetEpoch(epoch)
 }
 
-// GetEpochFromSlot returns the wallclock epoch for a given slot.
-func (b *BeaconNode) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
-	return b.metadataSvc.Wallclock().Epochs().FromSlot(slot)
-}
-
-// IsHealthy returns whether the node is healthy.
-func (b *BeaconNode) IsHealthy() bool {
-	return b.healthy.Load()
+// GetEpochFromSlot returns the wallclock epoch for a given slot number.
+func (w *BeaconWrapper) GetEpochFromSlot(slot uint64) ethwallclock.Epoch {
+	return w.BeaconNode.GetEpochFromSlot(slot)
 }
 
 // IsSlotFromUnexpectedNetwork checks if a slot appears to be from an unexpected network
 // by comparing it with the current wallclock slot.
-func (b *BeaconNode) IsSlotFromUnexpectedNetwork(eventSlot uint64) bool {
+func (b *BeaconWrapper) IsSlotFromUnexpectedNetwork(eventSlot uint64) bool {
 	wallclock := b.GetWallclock()
 	if wallclock == nil {
 		// Can't verify without wallclock.
@@ -251,272 +409,6 @@ func (b *BeaconNode) IsSlotFromUnexpectedNetwork(eventSlot uint64) bool {
 	}
 
 	return isSlotDifferenceTooLarge(eventSlot, currentSlot.Number())
-}
-
-func (b *BeaconNode) startServices(ctx context.Context, errs chan error) error {
-	b.metadataSvc.OnReady(ctx, func(ctx context.Context) error {
-		b.log.WithField("service", b.metadataSvc.Name()).Debug("Service is ready")
-
-		hashed, err := b.metadataSvc.NodeIDHash()
-		if err != nil {
-			return err
-		}
-
-		b.log.WithFields(logrus.Fields{
-			"node_id":    hashed,
-			"network_id": b.metadataSvc.Network.ID,
-			"network":    b.metadataSvc.Network.Name,
-			"hash":       hashed,
-		}).Info("Detected network and node ID hash")
-
-		return nil
-	})
-
-	b.log.WithField("service", b.metadataSvc.Name()).Debug("Starting service")
-
-	if err := b.metadataSvc.Start(ctx); err != nil {
-		errs <- fmt.Errorf("failed to start service: %w", err)
-	}
-
-	b.log.WithField("service", b.metadataSvc.Name()).Debug("Waiting for service to be ready")
-
-	return nil
-}
-
-func (b *BeaconNode) setupSubscriptions(ctx context.Context) error {
-	b.log.WithField("topics", b.beacon.Options().BeaconSubscription.Topics).Info("Subscribing to events upstream")
-
-	// Track events received.
-	b.beacon.OnEvent(ctx, func(ctx context.Context, event *eth2v1.Event) error {
-		b.summary.AddEventStreamEvents(event.Topic, 1)
-
-		return nil
-	})
-
-	// Subscribe to blocks.
-	b.beacon.OnBlock(ctx, func(ctx context.Context, block *eth2v1.BlockEvent) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewBlockEvent(b.log, b, b.cache.BeaconETHV1EventsBlock, meta, block, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	// Subscribe to block gossip.
-	b.beacon.OnBlockGossip(ctx, func(ctx context.Context, block *eth2v1.BlockGossipEvent) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewBlockGossipEvent(b.log, b, b.cache.BeaconETHV1EventsBlockGossip, meta, block, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	// Subscribe to chain reorgs.
-	b.beacon.OnChainReOrg(ctx, func(ctx context.Context, chainReorg *eth2v1.ChainReorgEvent) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewChainReorgEvent(b.log, b, b.cache.BeaconETHV1EventsChainReorg, meta, chainReorg, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	// Subscribe to head events.
-	b.beacon.OnHead(ctx, func(ctx context.Context, head *eth2v1.HeadEvent) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewHeadEvent(b.log, b, b.cache.BeaconETHV1EventsHead, meta, head, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	// Subscribe to finalized checkpoints.
-	b.beacon.OnFinalizedCheckpoint(ctx, func(ctx context.Context, finalizedCheckpoint *eth2v1.FinalizedCheckpointEvent) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewFinalizedCheckpointEvent(b.log, b, b.cache.BeaconETHV1EventsFinalizedCheckpoint, meta, finalizedCheckpoint, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	// Subscribe to blob sidecars.
-	b.beacon.OnBlobSidecar(ctx, func(ctx context.Context, blobSidecar *eth2v1.BlobSidecarEvent) error {
-		now := b.clockDrift.Now()
-
-		meta, err := b.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewBlobSidecarEvent(b.log, b, b.cache.BeaconETHV1EventsBlobSidecar, meta, blobSidecar, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return b.handleDecoratedEvent(ctx, event)
-	})
-
-	return nil
-}
-
-func (b *BeaconNode) createEventMeta(ctx context.Context) (*xatu.Meta, error) {
-	var networkMeta *xatu.ClientMeta_Ethereum_Network
-
-	network := b.metadataSvc.Network
-	if network == nil {
-		return nil, errors.New("network is unknown")
-	}
-
-	networkMeta = &xatu.ClientMeta_Ethereum_Network{
-		Name: string(network.Name),
-		Id:   network.ID,
-	}
-
-	hashed, err := b.metadataSvc.NodeIDHash()
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(@matty):
-	// - Handle Labels
-
-	//nolint:gosec // fine for clock drift.
-	return &xatu.Meta{
-		Client: &xatu.ClientMeta{
-			Name:           hashed,
-			Version:        contributoor.Short(),
-			Id:             uuid.New().String(),
-			Implementation: contributoor.Implementation,
-			ModuleName:     contributoor.Module,
-			Os:             runtime.GOOS,
-			ClockDrift:     uint64(b.clockDrift.GetDrift().Milliseconds()),
-			Ethereum: &xatu.ClientMeta_Ethereum{
-				Network:   networkMeta,
-				Execution: &xatu.ClientMeta_Ethereum_Execution{},
-				Consensus: &xatu.ClientMeta_Ethereum_Consensus{
-					Implementation: b.metadataSvc.Client(ctx),
-					Version:        b.metadataSvc.NodeVersion(ctx),
-				},
-			},
-		},
-	}, nil
-}
-
-func (b *BeaconNode) handleDecoratedEvent(ctx context.Context, event events.Event) error {
-	if err := b.Synced(ctx); err != nil {
-		return err
-	}
-
-	var (
-		unknown    = "unknown"
-		network    = event.Meta().GetClient().GetEthereum().GetNetwork().GetId()
-		networkStr = fmt.Sprintf("%d", network)
-		eventType  = event.Type()
-		failure    = false
-	)
-
-	if networkStr == "" || networkStr == "0" {
-		networkStr = unknown
-	}
-
-	if eventType == "" {
-		eventType = unknown
-	}
-
-	b.metrics.AddDecoratedEvent(1, eventType, networkStr)
-	b.summary.AddEventsExported(1)
-
-	// Send to all sinks.
-	for _, sink := range b.sinks {
-		if err := sink.HandleEvent(ctx, event); err != nil {
-			b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to handle event")
-
-			failure = true
-
-			continue
-		}
-	}
-
-	if failure {
-		b.summary.AddFailedEvents(1)
-	}
-
-	return nil
 }
 
 // isSlotDifferenceTooLarge checks if the difference between two slots exceeds the

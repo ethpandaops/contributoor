@@ -12,7 +12,7 @@ import (
 func (a *Application) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	// Check if at least one beacon is healthy
 	for traceID, instance := range a.beaconNodes {
-		if node, ok := instance.Node.(*ethereum.BeaconNode); ok && node.IsHealthy() {
+		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprintf(w, "OK - beacon %s is healthy", traceID)
 
@@ -50,7 +50,7 @@ func (a *Application) GetHealthStatus() HealthStatus {
 			Address: instance.Address,
 		}
 
-		if node, ok := instance.Node.(*ethereum.BeaconNode); ok {
+		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok {
 			beaconHealth.Connected = true
 			beaconHealth.Healthy = node.IsHealthy()
 

@@ -10,8 +10,6 @@ type Config struct {
 	BeaconNodeAddress string `yaml:"beaconNodeAddress"`
 	// BeaconNodeHeaders is a map of headers to send to the beacon node.
 	BeaconNodeHeaders map[string]string `yaml:"beaconNodeHeaders"`
-	// BeaconSubscriptions is a list of beacon subscriptions to subscribe to.
-	BeaconSubscriptions *[]string `yaml:"beaconSubscriptions"`
 	// NetworkOverride is an optional network name to use instead of what's reported by the beacon node
 	NetworkOverride string `yaml:"networkOverride,omitempty"`
 }

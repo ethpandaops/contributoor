@@ -10,9 +10,9 @@ require (
 	github.com/attestantio/go-eth2-client v0.26.0
 	github.com/beevik/ntp v1.4.3
 	github.com/bufbuild/protovalidate-go v0.10.1
-	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.61.0
+	github.com/ethpandaops/beacon v0.62.1-0.20250710044500-b1a6c7fe376a
+	github.com/ethpandaops/ethcore v0.0.0-20250715003243-943418834fa7
 	github.com/ethpandaops/ethereum-package-go v0.5.0
 	github.com/ethpandaops/ethwallclock v0.4.0
 	github.com/ethpandaops/xatu v1.1.24
@@ -60,6 +60,7 @@ require (
 	github.com/aws/smithy-go v1.22.4 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chuckpreslar/emission v0.0.0-20170206194824-a7ddd980baf9 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
@@ -198,7 +199,7 @@ require (
 	github.com/ssgreg/journald v1.0.0 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/thejerf/suture/v4 v4.0.6 // indirect
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect

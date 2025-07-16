@@ -101,7 +101,7 @@ func (a *Application) initBeacon(
 		networkOverride = a.config.NetworkName
 	}
 
-	return ethereum.NewBeaconNode(
+	return ethereum.NewBeaconWrapper(
 		log,
 		traceID,
 		&ethereum.Config{
@@ -113,7 +113,6 @@ func (a *Application) initBeacon(
 		cache,
 		summary,
 		metrics,
-		&ethereum.Options{},
 	)
 }
 
