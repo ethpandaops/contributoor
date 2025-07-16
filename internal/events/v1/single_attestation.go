@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// SingleAttestationEvent represents a blob sidecar event.
+// SingleAttestationEvent represents a single attestation event.
 type SingleAttestationEvent struct {
 	events.BaseEvent
 	log      logrus.FieldLogger
