@@ -11,11 +11,11 @@ require (
 	github.com/beevik/ntp v1.4.3
 	github.com/bufbuild/protovalidate-go v0.10.1
 	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.62.1-0.20250710044500-b1a6c7fe376a
+	github.com/ethpandaops/beacon v0.64.0
 	github.com/ethpandaops/ethcore v0.0.0-20250715003243-943418834fa7
 	github.com/ethpandaops/ethereum-package-go v0.5.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/xatu v1.1.24
+	github.com/ethpandaops/xatu v1.2.0
 	github.com/go-co-op/gocron/v2 v2.16.2
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0
@@ -35,7 +35,7 @@ require (
 	cel.dev/expr v0.24.0 // indirect
 	github.com/IBM/sarama v1.45.2 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
-	github.com/OffchainLabs/prysm/v6 v6.0.4 // indirect
+	github.com/OffchainLabs/prysm/v6 v6.0.5-0.20250610223352-6087875da526 // indirect
 	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
