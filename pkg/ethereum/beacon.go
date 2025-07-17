@@ -310,7 +310,7 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 			return err
 		}
 
-		event := v1.NewSingleAttestationEvent(w.log, w, w.cache.BeaconETHV1EventsBlobSidecar, meta, attestation, now)
+		event := v1.NewSingleAttestationEvent(w.log, w, w.cache.BeaconETHV1EventsAttestationV2, meta, attestation, now)
 
 		ignore, err := event.Ignore(ctx)
 		if err != nil || ignore {
