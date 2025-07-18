@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/spec/electra"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/internal/contributoor"
@@ -77,6 +78,7 @@ func NewBeaconWrapper(
 		"finalized_checkpoint",
 		"blob_sidecar",
 		"chain_reorg",
+		"single_attestation",
 	}
 
 	// Create the beacon node.
@@ -287,6 +289,28 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		}
 
 		event := v1.NewBlobSidecarEvent(w.log, w, w.cache.BeaconETHV1EventsBlobSidecar, meta, blob, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnSingleAttestation(ctx, func(ctx context.Context, attestation *electra.SingleAttestation) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewSingleAttestationEvent(w.log, w, w.cache.BeaconETHV1EventsAttestationV2, meta, attestation, now)
 
 		ignore, err := event.Ignore(ctx)
 		if err != nil || ignore {
