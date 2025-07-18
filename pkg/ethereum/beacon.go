@@ -71,24 +71,24 @@ func NewBeaconWrapper(
 	}
 
 	// Create topic manager with all topics and single_attestation as opt-in
-	topicManager := NewTopicManager(log, defaultAllTopics, optInTopics)
+	topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics)
 
-	// Register subnet condition for single_attestation if enabled
+	// Create and start NodeIdentity if subnet check is enabled
 	if config.SubnetCheck.Enabled {
-		topicManager.RegisterCondition(
+		identity := NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
+		if err := identity.Start(ctx); err != nil {
+			return nil, fmt.Errorf("failed to start node identity service: %w", err)
+		}
+
+		topicMgr.RegisterCondition(
 			TopicSingleAttestation,
-			CreateAttestationSubnetCondition(
-				log,
-				config.BeaconNodeAddress,
-				config.BeaconNodeHeaders,
-				config.SubnetCheck.MaxSubnets,
-			),
+			CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.SubnetCheck.MaxSubnets),
 		)
 	}
 
 	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
 	beaconOpts.BeaconSubscription.Enabled = true
-	beaconOpts.BeaconSubscription.Topics = topicManager.GetEnabledTopics(ctx)
+	beaconOpts.BeaconSubscription.Topics = topicMgr.GetEnabledTopics(ctx)
 
 	// Create the beacon node.
 	ethcoreBeacon, err := ethcore.NewBeaconNode(log, traceID, ethcoreConfig, beaconOpts)

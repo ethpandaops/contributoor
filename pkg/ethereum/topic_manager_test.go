@@ -1,20 +1,23 @@
-package ethereum
+package ethereum_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	"github.com/ethpandaops/contributoor/pkg/ethereum"
+	"github.com/ethpandaops/contributoor/pkg/ethereum/mock"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestTopicManager_ShouldSubscribe(t *testing.T) {
 	tests := []struct {
 		name            string
 		topic           string
-		condition       TopicCondition
+		condition       ethereum.TopicCondition
 		isOptIn         bool
 		expectSubscribe bool
 	}{
@@ -72,7 +75,7 @@ func TestTopicManager_ShouldSubscribe(t *testing.T) {
 			if tt.isOptIn {
 				optInTopics = []string{tt.topic}
 			}
-			tm := NewTopicManager(log, allTopics, optInTopics)
+			tm := ethereum.NewTopicManager(log, allTopics, optInTopics)
 
 			if tt.condition != nil {
 				tm.RegisterCondition(tt.topic, tt.condition)
@@ -88,20 +91,20 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 	tests := []struct {
 		name           string
 		allTopics      []string
-		conditions     map[string]TopicCondition
+		conditions     map[string]ethereum.TopicCondition
 		expectedTopics []string
 		setupOptIn     bool
 	}{
 		{
 			name:           "no conditions - all topics included",
 			allTopics:      []string{"block", "head", "single_attestation"},
-			conditions:     map[string]TopicCondition{},
+			conditions:     map[string]ethereum.TopicCondition{},
 			expectedTopics: []string{"block", "head", "single_attestation"},
 		},
 		{
 			name:      "filter out single_attestation",
 			allTopics: []string{"block", "head", "single_attestation"},
-			conditions: map[string]TopicCondition{
+			conditions: map[string]ethereum.TopicCondition{
 				"single_attestation": func(ctx context.Context) (bool, error) {
 					return false, nil
 				},
@@ -111,7 +114,7 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 		{
 			name:      "multiple conditions",
 			allTopics: []string{"block", "head", "single_attestation", "blob_sidecar"},
-			conditions: map[string]TopicCondition{
+			conditions: map[string]ethereum.TopicCondition{
 				"single_attestation": func(ctx context.Context) (bool, error) {
 					return false, nil
 				},
@@ -124,7 +127,7 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 		{
 			name:      "condition with error excludes topic",
 			allTopics: []string{"block", "head", "single_attestation"},
-			conditions: map[string]TopicCondition{
+			conditions: map[string]ethereum.TopicCondition{
 				"head": func(ctx context.Context) (bool, error) {
 					return true, errors.New("test error")
 				},
@@ -134,7 +137,7 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 		{
 			name:           "opt-in topic without condition is excluded",
 			allTopics:      []string{"block", "head", "single_attestation"},
-			conditions:     map[string]TopicCondition{},
+			conditions:     map[string]ethereum.TopicCondition{},
 			expectedTopics: []string{"block", "head"},
 			setupOptIn:     true, // Will mark single_attestation as opt-in
 		},
@@ -149,7 +152,7 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 			if tt.setupOptIn {
 				optInTopics = []string{"single_attestation"}
 			}
-			tm := NewTopicManager(log, tt.allTopics, optInTopics)
+			tm := ethereum.NewTopicManager(log, tt.allTopics, optInTopics)
 
 			for topic, condition := range tt.conditions {
 				tm.RegisterCondition(topic, condition)
@@ -162,11 +165,61 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 }
 
 func TestCreateAttestationSubnetCondition(t *testing.T) {
-	// This test would need to mock the HTTP request
-	// For now, just test that the condition function is created
-	log := logrus.New()
-	condition := CreateAttestationSubnetCondition(log, "http://localhost:5052", nil, 2)
+	tests := []struct {
+		name            string
+		subnetCount     int
+		maxSubnets      int
+		expectSubscribe bool
+	}{
+		{
+			name:            "subnet count below max - should subscribe",
+			subnetCount:     1,
+			maxSubnets:      2,
+			expectSubscribe: true,
+		},
+		{
+			name:            "subnet count at max - should subscribe",
+			subnetCount:     2,
+			maxSubnets:      2,
+			expectSubscribe: true,
+		},
+		{
+			name:            "subnet count above max - should not subscribe",
+			subnetCount:     3,
+			maxSubnets:      2,
+			expectSubscribe: false,
+		},
+		{
+			name:            "zero subnets with zero max - should subscribe",
+			subnetCount:     0,
+			maxSubnets:      0,
+			expectSubscribe: true,
+		},
+	}
 
-	require.NotNil(t, condition)
-	// The actual condition test would require mocking HTTP responses
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// Create a mock NodeIdentity using the generated mock
+			mockIdentity := mock.NewMockNodeIdentity(ctrl)
+
+			// Set up the expected behavior
+			subnets := make([]int, tt.subnetCount)
+			for i := 0; i < tt.subnetCount; i++ {
+				subnets[i] = i
+			}
+			mockIdentity.EXPECT().GetAttnets().Return(subnets).AnyTimes()
+
+			// Create condition
+			condition := ethereum.CreateAttestationSubnetCondition(len(mockIdentity.GetAttnets()), tt.maxSubnets)
+			require.NotNil(t, condition)
+
+			// Test the condition
+			shouldSubscribe, err := condition(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectSubscribe, shouldSubscribe)
+		})
+	}
 }

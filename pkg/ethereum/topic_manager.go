@@ -6,11 +6,23 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//go:generate mockgen -package mock -destination mock/topic_manager.mock.go github.com/ethpandaops/contributoor/pkg/ethereum TopicManager
+
 // TopicCondition is a function that determines if a topic should be subscribed to.
 type TopicCondition func(ctx context.Context) (bool, error)
 
 // TopicManager manages conditional topic subscriptions.
-type TopicManager struct {
+type TopicManager interface {
+	// RegisterCondition registers a condition for a specific topic.
+	RegisterCondition(topic string, condition TopicCondition)
+	// ShouldSubscribe checks if a topic should be subscribed to.
+	ShouldSubscribe(ctx context.Context, topic string) bool
+	// GetEnabledTopics returns only the topics that should be subscribed to.
+	GetEnabledTopics(ctx context.Context) []string
+}
+
+// topicManager implements TopicManager.
+type topicManager struct {
 	log         logrus.FieldLogger
 	allTopics   []string
 	conditions  map[string]TopicCondition
@@ -20,13 +32,13 @@ type TopicManager struct {
 // NewTopicManager creates a new topic manager.
 // allTopics are all available topics that can be subscribed to.
 // optInTopics are topics that require explicit conditions to be included.
-func NewTopicManager(log logrus.FieldLogger, allTopics []string, optInTopics []string) *TopicManager {
+func NewTopicManager(log logrus.FieldLogger, allTopics []string, optInTopics []string) TopicManager {
 	optInMap := make(map[string]bool)
 	for _, topic := range optInTopics {
 		optInMap[topic] = true
 	}
 
-	return &TopicManager{
+	return &topicManager{
 		log:         log.WithField("component", "topic_manager"),
 		allTopics:   allTopics,
 		conditions:  make(map[string]TopicCondition),
@@ -35,12 +47,12 @@ func NewTopicManager(log logrus.FieldLogger, allTopics []string, optInTopics []s
 }
 
 // RegisterCondition registers a condition for a specific topic.
-func (tm *TopicManager) RegisterCondition(topic string, condition TopicCondition) {
+func (tm *topicManager) RegisterCondition(topic string, condition TopicCondition) {
 	tm.conditions[topic] = condition
 }
 
 // ShouldSubscribe checks if a topic should be subscribed to.
-func (tm *TopicManager) ShouldSubscribe(ctx context.Context, topic string) bool {
+func (tm *topicManager) ShouldSubscribe(ctx context.Context, topic string) bool {
 	condition, exists := tm.conditions[topic]
 	if !exists {
 		// Check if this is an opt-in topic
@@ -65,7 +77,7 @@ func (tm *TopicManager) ShouldSubscribe(ctx context.Context, topic string) bool 
 }
 
 // GetEnabledTopics returns only the topics that should be subscribed to.
-func (tm *TopicManager) GetEnabledTopics(ctx context.Context) []string {
+func (tm *topicManager) GetEnabledTopics(ctx context.Context) []string {
 	var enabled []string
 
 	for _, topic := range tm.allTopics {
@@ -84,26 +96,8 @@ func (tm *TopicManager) GetEnabledTopics(ctx context.Context) []string {
 }
 
 // CreateAttestationSubnetCondition creates a condition based on attestation subnet participation.
-func CreateAttestationSubnetCondition(
-	log logrus.FieldLogger,
-	address string,
-	headers map[string]string,
-	maxSubnets int,
-) TopicCondition {
+func CreateAttestationSubnetCondition(nodeSubnetCount int, maxSubnets int) TopicCondition {
 	return func(ctx context.Context) (bool, error) {
-		subnetCount, err := CheckAttestationSubnetParticipation(ctx, address, headers)
-		if err != nil {
-			return false, err
-		}
-
-		shouldSubscribe := subnetCount <= maxSubnets
-
-		log.WithFields(logrus.Fields{
-			"subnet_count": subnetCount,
-			"max_subnets":  maxSubnets,
-			"subscribe":    shouldSubscribe,
-		}).Debug("Evaluated subnet condition")
-
-		return shouldSubscribe, nil
+		return nodeSubnetCount <= maxSubnets, nil
 	}
 }

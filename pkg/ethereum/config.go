@@ -40,8 +40,10 @@ func (c *Config) Validate() error {
 		return errors.New("beaconNodeAddress is required")
 	}
 
-	if c.SubnetCheck.Enabled && c.SubnetCheck.MaxSubnets < 0 {
-		return errors.New("subnetCheck.maxSubnets must be >= 0 when enabled")
+	if c.SubnetCheck.Enabled {
+		if c.SubnetCheck.MaxSubnets < 0 || c.SubnetCheck.MaxSubnets > 64 {
+			return errors.New("subnetCheck.maxSubnets must be between 0 and 64 (inclusive)")
+		}
 	}
 
 	return nil
