@@ -77,13 +77,15 @@ func NewBeaconWrapper(
 	if config.SubnetCheck.Enabled {
 		identity := NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
 		if err := identity.Start(ctx); err != nil {
-			return nil, fmt.Errorf("failed to start node identity service: %w", err)
+			log.WithError(err).Warn("Failed to fetch node identity")
+		} else {
+			// Only register condition if identity was successfully fetched (we don't want attestations if we can't
+			// determine nodes subnets).
+			topicMgr.RegisterCondition(
+				TopicSingleAttestation,
+				CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.SubnetCheck.MaxSubnets),
+			)
 		}
-
-		topicMgr.RegisterCondition(
-			TopicSingleAttestation,
-			CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.SubnetCheck.MaxSubnets),
-		)
 	}
 
 	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
