@@ -1,0 +1,22 @@
+package ethereum
+
+const (
+	TopicBlock               = "block"
+	TopicBlockGossip         = "block_gossip"
+	TopicHead                = "head"
+	TopicFinalizedCheckpoint = "finalized_checkpoint"
+	TopicBlobSidecar         = "blob_sidecar"
+	TopicChainReorg          = "chain_reorg"
+	TopicSingleAttestation   = "single_attestation"
+)
+
+// Define all available topics.
+var defaultAllTopics = []string{
+	TopicBlock,
+	TopicBlockGossip,
+	TopicHead,
+	TopicFinalizedCheckpoint,
+	TopicBlobSidecar,
+	TopicChainReorg,
+	TopicSingleAttestation,
+}

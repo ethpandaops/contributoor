@@ -53,6 +53,7 @@ type BeaconWrapper struct {
 
 // NewBeaconWrapper creates a wrapped beacon node.
 func NewBeaconWrapper(
+	ctx context.Context,
 	log logrus.FieldLogger,
 	traceID string,
 	config *Config,
@@ -69,17 +70,25 @@ func NewBeaconWrapper(
 		NetworkOverride:   config.NetworkOverride,
 	}
 
+	// Create topic manager
+	topicManager := NewTopicManager(log)
+
+	// Register subnet condition for single_attestation if enabled
+	if config.SubnetCheck.Enabled {
+		topicManager.RegisterCondition(
+			TopicSingleAttestation,
+			CreateAttestationSubnetCondition(
+				log,
+				config.BeaconNodeAddress,
+				config.BeaconNodeHeaders,
+				config.SubnetCheck.MaxSubnets,
+			),
+		)
+	}
+
 	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
 	beaconOpts.BeaconSubscription.Enabled = true
-	beaconOpts.BeaconSubscription.Topics = []string{
-		"block",
-		"block_gossip",
-		"head",
-		"finalized_checkpoint",
-		"blob_sidecar",
-		"chain_reorg",
-		"single_attestation",
-	}
+	beaconOpts.BeaconSubscription.Topics = topicManager.FilterTopics(ctx, defaultAllTopics)
 
 	// Create the beacon node.
 	ethcoreBeacon, err := ethcore.NewBeaconNode(log, traceID, ethcoreConfig, beaconOpts)
