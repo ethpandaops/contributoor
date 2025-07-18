@@ -59,6 +59,17 @@ message Config {
   string docker_network = 10;
   // HealthCheckAddress is the (optional) address to serve healthcheck on.
   string health_check_address = 11;
+  // AttestationSubnetCheck controls attestation subnet-based subscription filtering.
+  AttestationSubnetCheck attestation_subnet_check = 12;
+}
+
+// AttestationSubnetCheck represents configuration for attestation subnet checking.
+message AttestationSubnetCheck {
+  // Enabled controls whether attestation subnet checking is enabled.
+  bool enabled = 1;
+  // MaxSubnets is the maximum number of subnets a node can be subscribed to
+  // before single_attestation topic is disabled.
+  uint32 max_subnets = 2 [(buf.validate.field).uint32 = { lte: 64 }];
 }
 
 // OutputServer represents configuration for the output server.

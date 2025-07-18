@@ -4,6 +4,8 @@ import (
 	"errors"
 )
 
+const defaultMaxSubnets = 2
+
 // Config defines the configuration for the Ethereum beacon node.
 type Config struct {
 	// The address of the Beacon node to connect to.
@@ -29,7 +31,7 @@ func NewDefaultConfig() *Config {
 	return &Config{
 		AttestationSubnetConfig: SubnetConfig{
 			Enabled:    true,
-			MaxSubnets: 2,
+			MaxSubnets: defaultMaxSubnets,
 		},
 	}
 }

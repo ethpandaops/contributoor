@@ -107,6 +107,12 @@ func (a *Application) initBeacon(
 	config.BeaconNodeAddress = address
 	config.NetworkOverride = networkOverride
 
+	// Apply attestation subnet configuration if present
+	if a.config.AttestationSubnetCheck != nil {
+		config.AttestationSubnetConfig.Enabled = a.config.AttestationSubnetCheck.Enabled
+		config.AttestationSubnetConfig.MaxSubnets = int(a.config.AttestationSubnetCheck.MaxSubnets)
+	}
+
 	return ethereum.NewBeaconWrapper(
 		ctx,
 		log,

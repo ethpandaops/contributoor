@@ -96,6 +96,34 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			},
 		},
 		{
+			name: "attestation subnet check enabled",
+			args: []string{"--attestation-subnet-check-enabled"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.AttestationSubnetCheck)
+				assert.True(t, cfg.AttestationSubnetCheck.Enabled)
+			},
+		},
+		{
+			name: "attestation subnet max subnets override",
+			args: []string{"--attestation-subnet-max-subnets", "5"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.AttestationSubnetCheck)
+				assert.Equal(t, uint32(5), cfg.AttestationSubnetCheck.MaxSubnets)
+			},
+		},
+		{
+			name: "attestation subnet both flags",
+			args: []string{"--attestation-subnet-check-enabled", "--attestation-subnet-max-subnets", "10"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.AttestationSubnetCheck)
+				assert.True(t, cfg.AttestationSubnetCheck.Enabled)
+				assert.Equal(t, uint32(10), cfg.AttestationSubnetCheck.MaxSubnets)
+			},
+		},
+		{
 			name: "multiple overrides",
 			args: []string{
 				"--network", "sepolia",
@@ -142,6 +170,8 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 				&cli.StringFlag{Name: "password"},
 				&cli.StringFlag{Name: "output-server-tls"},
 				&cli.StringFlag{Name: "contributoor-directory"},
+				&cli.BoolFlag{Name: "attestation-subnet-check-enabled"},
+				&cli.IntFlag{Name: "attestation-subnet-max-subnets", Value: -1},
 			}
 
 			// Create a base config

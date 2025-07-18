@@ -123,7 +123,7 @@ func TestConfig_Validate(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "subnetCheck.maxSubnets must be between 0 and 64 (inclusive)",
+			errorMsg:    "attestationSubnet.maxSubnets must be between 0 and 64 (inclusive)",
 		},
 		{
 			name: "invalid config - subnet check with max subnets > 64",
@@ -135,7 +135,7 @@ func TestConfig_Validate(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "subnetCheck.maxSubnets must be between 0 and 64 (inclusive)",
+			errorMsg:    "attestationSubnet.maxSubnets must be between 0 and 64 (inclusive)",
 		},
 		{
 			name: "valid config - subnet check disabled with invalid max subnets (should not validate)",

@@ -139,5 +139,58 @@ func applyConfigOverridesFromFlags(cfg *config.Config, c *cli.Context) error {
 		cfg.ContributoorDirectory = c.String("contributoor-directory")
 	}
 
+	// Handle attestation subnet check configuration from env
+	if enabled := os.Getenv("CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED"); enabled != "" {
+		log.Infof("Setting attestation subnet check enabled from env to %s", enabled)
+
+		enabledBool, err := strconv.ParseBool(enabled)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse attestation subnet check enabled env var")
+		}
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.Enabled = enabledBool
+		cfg.AttestationSubnetCheck.MaxSubnets = 2
+	}
+
+	if maxSubnets := os.Getenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS"); maxSubnets != "" {
+		log.Infof("Setting attestation subnet max subnets from env to %s", maxSubnets)
+
+		maxSubnetsInt, err := strconv.ParseUint(maxSubnets, 10, 32)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse attestation subnet max subnets env var")
+		}
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MaxSubnets = uint32(maxSubnetsInt)
+	}
+
+	// CLI flag overrides env var
+	if c.Bool("attestation-subnet-check-enabled") {
+		log.Infof("Setting attestation subnet check enabled from CLI to true")
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.Enabled = true
+	}
+
+	if c.Int("attestation-subnet-max-subnets") >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet max subnets from CLI to %d", c.Int("attestation-subnet-max-subnets"))
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MaxSubnets = uint32(c.Int("attestation-subnet-max-subnets")) //nolint:gosec // conversion fine.
+	}
+
 	return nil
 }
