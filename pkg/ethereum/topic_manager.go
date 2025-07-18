@@ -11,15 +11,26 @@ type TopicCondition func(ctx context.Context) (bool, error)
 
 // TopicManager manages conditional topic subscriptions.
 type TopicManager struct {
-	log        logrus.FieldLogger
-	conditions map[string]TopicCondition
+	log         logrus.FieldLogger
+	allTopics   []string
+	conditions  map[string]TopicCondition
+	optInTopics map[string]bool // Topics that require explicit opt-in
 }
 
 // NewTopicManager creates a new topic manager.
-func NewTopicManager(log logrus.FieldLogger) *TopicManager {
+// allTopics are all available topics that can be subscribed to.
+// optInTopics are topics that require explicit conditions to be included.
+func NewTopicManager(log logrus.FieldLogger, allTopics []string, optInTopics []string) *TopicManager {
+	optInMap := make(map[string]bool)
+	for _, topic := range optInTopics {
+		optInMap[topic] = true
+	}
+
 	return &TopicManager{
-		log:        log.WithField("component", "topic_manager"),
-		conditions: make(map[string]TopicCondition),
+		log:         log.WithField("component", "topic_manager"),
+		allTopics:   allTopics,
+		conditions:  make(map[string]TopicCondition),
+		optInTopics: optInMap,
 	}
 }
 
@@ -32,7 +43,12 @@ func (tm *TopicManager) RegisterCondition(topic string, condition TopicCondition
 func (tm *TopicManager) ShouldSubscribe(ctx context.Context, topic string) bool {
 	condition, exists := tm.conditions[topic]
 	if !exists {
-		// No condition registered, subscribe by default
+		// Check if this is an opt-in topic
+		if tm.optInTopics[topic] {
+			// Opt-in topics require a condition to be included
+			return false
+		}
+		// Regular topics are included by default
 		return true
 	}
 
@@ -48,13 +64,13 @@ func (tm *TopicManager) ShouldSubscribe(ctx context.Context, topic string) bool 
 	return subscribe
 }
 
-// FilterTopics returns only the topics that should be subscribed to.
-func (tm *TopicManager) FilterTopics(ctx context.Context, topics []string) []string {
-	var filtered []string
+// GetEnabledTopics returns only the topics that should be subscribed to.
+func (tm *TopicManager) GetEnabledTopics(ctx context.Context) []string {
+	var enabled []string
 
-	for _, topic := range topics {
+	for _, topic := range tm.allTopics {
 		if tm.ShouldSubscribe(ctx, topic) {
-			filtered = append(filtered, topic)
+			enabled = append(enabled, topic)
 
 			continue
 		}
@@ -62,9 +78,9 @@ func (tm *TopicManager) FilterTopics(ctx context.Context, topics []string) []str
 		tm.log.WithField("topic", topic).Debug("Excluding topic based on condition")
 	}
 
-	tm.log.WithField("topics", filtered).Info("Filtered subscription topics")
+	tm.log.WithField("topics", enabled).Info("Enabled subscription topics")
 
-	return filtered
+	return enabled
 }
 
 // CreateAttestationSubnetCondition creates a condition based on attestation subnet participation.

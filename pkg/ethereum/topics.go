@@ -20,3 +20,8 @@ var defaultAllTopics = []string{
 	TopicChainReorg,
 	TopicSingleAttestation,
 }
+
+// Define opt-in topics.
+var optInTopics = []string{
+	TopicSingleAttestation,
+}

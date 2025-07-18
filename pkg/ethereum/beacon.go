@@ -70,8 +70,8 @@ func NewBeaconWrapper(
 		NetworkOverride:   config.NetworkOverride,
 	}
 
-	// Create topic manager
-	topicManager := NewTopicManager(log)
+	// Create topic manager with all topics and single_attestation as opt-in
+	topicManager := NewTopicManager(log, defaultAllTopics, optInTopics)
 
 	// Register subnet condition for single_attestation if enabled
 	if config.SubnetCheck.Enabled {
@@ -88,7 +88,7 @@ func NewBeaconWrapper(
 
 	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
 	beaconOpts.BeaconSubscription.Enabled = true
-	beaconOpts.BeaconSubscription.Topics = topicManager.FilterTopics(ctx, defaultAllTopics)
+	beaconOpts.BeaconSubscription.Topics = topicManager.GetEnabledTopics(ctx)
 
 	// Create the beacon node.
 	ethcoreBeacon, err := ethcore.NewBeaconNode(log, traceID, ethcoreConfig, beaconOpts)
