@@ -70,11 +70,12 @@ func NewBeaconWrapper(
 		NetworkOverride:   config.NetworkOverride,
 	}
 
-	// Create topic manager with all topics and single_attestation as opt-in.
+	// Create topic manager with all topics opt-in topics.
+	// All defaultAllTopics without a condition will be registered by default, unless defined as an optInTopic.
 	topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics)
 
 	// Create and start NodeIdentity if subnet check is enabled.
-	if config.SubnetCheck.Enabled {
+	if config.AttestationSubnetConfig.Enabled {
 		// Only register condition if identity was successfully fetched (we don't want attestations if we
 		// can't determine nodes subnets).
 		identity := NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
@@ -83,7 +84,7 @@ func NewBeaconWrapper(
 		} else {
 			topicMgr.RegisterCondition(
 				TopicSingleAttestation,
-				CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.SubnetCheck.MaxSubnets),
+				CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.AttestationSubnetConfig.MaxSubnets),
 			)
 		}
 	}

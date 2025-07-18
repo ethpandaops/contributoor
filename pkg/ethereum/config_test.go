@@ -84,7 +84,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with subnet check enabled and valid max subnets",
 			config: &Config{
 				BeaconNodeAddress: "http://localhost:5052",
-				SubnetCheck: SubnetCheckConfig{
+				AttestationSubnetConfig: SubnetConfig{
 					Enabled:    true,
 					MaxSubnets: 2,
 				},
@@ -95,7 +95,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with subnet check at boundary (0)",
 			config: &Config{
 				BeaconNodeAddress: "http://localhost:5052",
-				SubnetCheck: SubnetCheckConfig{
+				AttestationSubnetConfig: SubnetConfig{
 					Enabled:    true,
 					MaxSubnets: 0,
 				},
@@ -106,7 +106,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config with subnet check at boundary (64)",
 			config: &Config{
 				BeaconNodeAddress: "http://localhost:5052",
-				SubnetCheck: SubnetCheckConfig{
+				AttestationSubnetConfig: SubnetConfig{
 					Enabled:    true,
 					MaxSubnets: 64,
 				},
@@ -117,7 +117,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid config - subnet check with negative max subnets",
 			config: &Config{
 				BeaconNodeAddress: "http://localhost:5052",
-				SubnetCheck: SubnetCheckConfig{
+				AttestationSubnetConfig: SubnetConfig{
 					Enabled:    true,
 					MaxSubnets: -1,
 				},
@@ -129,7 +129,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid config - subnet check with max subnets > 64",
 			config: &Config{
 				BeaconNodeAddress: "http://localhost:5052",
-				SubnetCheck: SubnetCheckConfig{
+				AttestationSubnetConfig: SubnetConfig{
 					Enabled:    true,
 					MaxSubnets: 65,
 				},
@@ -141,7 +141,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config - subnet check disabled with invalid max subnets (should not validate)",
 			config: &Config{
 				BeaconNodeAddress: "http://localhost:5052",
-				SubnetCheck: SubnetCheckConfig{
+				AttestationSubnetConfig: SubnetConfig{
 					Enabled:    false,
 					MaxSubnets: -1,
 				},

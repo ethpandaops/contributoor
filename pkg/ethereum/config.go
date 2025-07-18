@@ -6,28 +6,28 @@ import (
 
 // Config defines the configuration for the Ethereum beacon node.
 type Config struct {
-	// The address of the Beacon node to connect to
+	// The address of the Beacon node to connect to.
 	BeaconNodeAddress string `yaml:"beaconNodeAddress"`
 	// BeaconNodeHeaders is a map of headers to send to the beacon node.
 	BeaconNodeHeaders map[string]string `yaml:"beaconNodeHeaders"`
-	// NetworkOverride is an optional network name to use instead of what's reported by the beacon node
+	// NetworkOverride is an optional network name to use instead of what's reported by the beacon node.
 	NetworkOverride string `yaml:"networkOverride,omitempty"`
-	// SubnetCheck controls subnet-based subscription filtering
-	SubnetCheck SubnetCheckConfig `yaml:"subnetCheck"`
+	// AttestationSubnetConfig controls attestation subnet-based subscription filtering.
+	AttestationSubnetConfig SubnetConfig `yaml:"attestationSubnet"`
 }
 
-// SubnetCheckConfig controls subnet-based subscription filtering.
-type SubnetCheckConfig struct {
-	// Enabled controls whether to check subnet participation at startup
+// SubnetConfig controls subnet-based subscription filtering.
+type SubnetConfig struct {
+	// Enabled controls whether to check subnet participation at startup.
 	Enabled bool `yaml:"enabled"`
-	// MaxSubnets is the maximum number of subnets to allow for single_attestation subscription
+	// MaxSubnets is the maximum number of subnets the node participates in.
 	MaxSubnets int `yaml:"maxSubnets"`
 }
 
 // NewDefaultConfig returns a new config with default values.
 func NewDefaultConfig() *Config {
 	return &Config{
-		SubnetCheck: SubnetCheckConfig{
+		AttestationSubnetConfig: SubnetConfig{
 			Enabled:    true,
 			MaxSubnets: 2,
 		},
@@ -40,9 +40,9 @@ func (c *Config) Validate() error {
 		return errors.New("beaconNodeAddress is required")
 	}
 
-	if c.SubnetCheck.Enabled {
-		if c.SubnetCheck.MaxSubnets < 0 || c.SubnetCheck.MaxSubnets > 64 {
-			return errors.New("subnetCheck.maxSubnets must be between 0 and 64 (inclusive)")
+	if c.AttestationSubnetConfig.Enabled {
+		if c.AttestationSubnetConfig.MaxSubnets < 0 || c.AttestationSubnetConfig.MaxSubnets > 64 {
+			return errors.New("attestationSubnet.maxSubnets must be between 0 and 64 (inclusive)")
 		}
 	}
 
