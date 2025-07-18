@@ -932,19 +932,25 @@ func TestMainActionInvalidLogLevel(t *testing.T) {
 	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionInvalidLogLevel")
 	cmd.Env = append(os.Environ(), "BE_MAIN_LOGLEVEL_TEST=1")
 
-	// Capture both stdout and stderr
-	output, err := cmd.CombinedOutput()
+	// Start the process
+	err := cmd.Start()
+	require.NoError(t, err)
 
-	// Should exit due to signal or normal exit
+	// Give it time to start and log the invalid level warning
+	time.Sleep(500 * time.Millisecond)
+
+	// Send interrupt signal to trigger shutdown
+	err = cmd.Process.Signal(syscall.SIGINT)
+	require.NoError(t, err)
+
+	// Wait for process to exit
+	err = cmd.Wait()
+
+	// Exit error is expected due to signal
 	if err != nil {
 		_, ok := err.(*exec.ExitError)
 		assert.True(t, ok, "Expected exit error, got: %v", err)
 	}
-
-	// The test should have covered the invalid log level path
-	// We can't easily capture the warning since it's logged asynchronously
-	// but the coverage will show if the path was hit
-	_ = output
 }
 
 // TestMainActionConfigError tests the Action with config creation error.

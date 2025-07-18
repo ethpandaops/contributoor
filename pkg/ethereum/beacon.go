@@ -53,6 +53,7 @@ type BeaconWrapper struct {
 
 // NewBeaconWrapper creates a wrapped beacon node.
 func NewBeaconWrapper(
+	ctx context.Context,
 	log logrus.FieldLogger,
 	traceID string,
 	config *Config,
@@ -69,17 +70,28 @@ func NewBeaconWrapper(
 		NetworkOverride:   config.NetworkOverride,
 	}
 
+	// Create topic manager with all topics opt-in topics.
+	// All defaultAllTopics without a condition will be registered by default, unless defined as an optInTopic.
+	topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics)
+
+	// Create and start NodeIdentity if subnet check is enabled.
+	if config.AttestationSubnetConfig.Enabled {
+		// Only register condition if identity was successfully fetched (we don't want attestations if we
+		// can't determine nodes subnets).
+		identity := NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
+		if err := identity.Start(ctx); err != nil {
+			log.WithError(err).Warn("Failed to fetch node identity")
+		} else {
+			topicMgr.RegisterCondition(
+				TopicSingleAttestation,
+				CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.AttestationSubnetConfig.MaxSubnets),
+			)
+		}
+	}
+
 	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
 	beaconOpts.BeaconSubscription.Enabled = true
-	beaconOpts.BeaconSubscription.Topics = []string{
-		"block",
-		"block_gossip",
-		"head",
-		"finalized_checkpoint",
-		"blob_sidecar",
-		"chain_reorg",
-		"single_attestation",
-	}
+	beaconOpts.BeaconSubscription.Topics = topicMgr.GetEnabledTopics(ctx)
 
 	// Create the beacon node.
 	ethcoreBeacon, err := ethcore.NewBeaconNode(log, traceID, ethcoreConfig, beaconOpts)

@@ -71,7 +71,7 @@ func (a *Application) createBeaconInstance(ctx context.Context, address, traceID
 		return nil, fmt.Errorf("failed to init sinks: %w", err)
 	}
 
-	node, err := a.initBeacon(log, address, traceID, sinks, cache, summary, metrics)
+	node, err := a.initBeacon(ctx, log, address, traceID, sinks, cache, summary, metrics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init beacon: %w", err)
 	}
@@ -88,6 +88,7 @@ func (a *Application) createBeaconInstance(ctx context.Context, address, traceID
 
 // initBeacon creates a new beacon node connection.
 func (a *Application) initBeacon(
+	ctx context.Context,
 	log logrus.FieldLogger,
 	address, traceID string,
 	sinks []sinks.ContributoorSink,
@@ -101,13 +102,22 @@ func (a *Application) initBeacon(
 		networkOverride = a.config.NetworkName
 	}
 
+	// Start with default config
+	config := ethereum.NewDefaultConfig()
+	config.BeaconNodeAddress = address
+	config.NetworkOverride = networkOverride
+
+	// Apply attestation subnet configuration if present
+	if a.config.AttestationSubnetCheck != nil {
+		config.AttestationSubnetConfig.Enabled = a.config.AttestationSubnetCheck.Enabled
+		config.AttestationSubnetConfig.MaxSubnets = int(a.config.AttestationSubnetCheck.MaxSubnets)
+	}
+
 	return ethereum.NewBeaconWrapper(
+		ctx,
 		log,
 		traceID,
-		&ethereum.Config{
-			BeaconNodeAddress: address,
-			NetworkOverride:   networkOverride,
-		},
+		config,
 		sinks,
 		a.clockDrift,
 		cache,
