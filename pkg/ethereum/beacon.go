@@ -70,17 +70,17 @@ func NewBeaconWrapper(
 		NetworkOverride:   config.NetworkOverride,
 	}
 
-	// Create topic manager with all topics and single_attestation as opt-in
+	// Create topic manager with all topics and single_attestation as opt-in.
 	topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics)
 
-	// Create and start NodeIdentity if subnet check is enabled
+	// Create and start NodeIdentity if subnet check is enabled.
 	if config.SubnetCheck.Enabled {
+		// Only register condition if identity was successfully fetched (we don't want attestations if we
+		// can't determine nodes subnets).
 		identity := NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
 		if err := identity.Start(ctx); err != nil {
 			log.WithError(err).Warn("Failed to fetch node identity")
 		} else {
-			// Only register condition if identity was successfully fetched (we don't want attestations if we can't
-			// determine nodes subnets).
 			topicMgr.RegisterCondition(
 				TopicSingleAttestation,
 				CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.SubnetCheck.MaxSubnets),
