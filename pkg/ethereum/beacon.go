@@ -41,14 +41,15 @@ type BeaconNodeAPI interface {
 type BeaconWrapper struct {
 	*ethcore.BeaconNode // Embed ethcore beacon
 
-	log        logrus.FieldLogger
-	traceID    string
-	clockDrift clockdrift.ClockDrift
-	sinks      []sinks.ContributoorSink
-	cache      *events.DuplicateCache
-	summary    *events.Summary
-	metrics    *events.Metrics
-	isHealthy  atomic.Bool // Track connection state for transition logging
+	log           logrus.FieldLogger
+	traceID       string
+	clockDrift    clockdrift.ClockDrift
+	sinks         []sinks.ContributoorSink
+	cache         *events.DuplicateCache
+	summary       *events.Summary
+	metrics       *events.Metrics
+	isHealthy     atomic.Bool // Track connection state for transition logging
+	activeSubnets []int       // Active attestation subnet IDs
 }
 
 // NewBeaconWrapper creates a wrapped beacon node.
@@ -75,6 +76,8 @@ func NewBeaconWrapper(
 	topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics)
 
 	// Create and start NodeIdentity if subnet check is enabled.
+	var activeSubnets []int
+
 	if config.AttestationSubnetConfig.Enabled {
 		// Only register condition if identity was successfully fetched (we don't want attestations if we
 		// can't determine nodes subnets).
@@ -82,9 +85,10 @@ func NewBeaconWrapper(
 		if err := identity.Start(ctx); err != nil {
 			log.WithError(err).Warn("Failed to fetch node identity")
 		} else {
+			activeSubnets = identity.GetAttnets()
 			topicMgr.RegisterCondition(
 				TopicSingleAttestation,
-				CreateAttestationSubnetCondition(len(identity.GetAttnets()), config.AttestationSubnetConfig.MaxSubnets),
+				CreateAttestationSubnetCondition(len(activeSubnets), config.AttestationSubnetConfig.MaxSubnets),
 			)
 		}
 	}
@@ -100,14 +104,15 @@ func NewBeaconWrapper(
 	}
 
 	wrapper := &BeaconWrapper{
-		BeaconNode: ethcoreBeacon,
-		log:        log,
-		traceID:    traceID,
-		clockDrift: clockDrift,
-		sinks:      sinks,
-		cache:      cache,
-		summary:    summary,
-		metrics:    metrics,
+		BeaconNode:    ethcoreBeacon,
+		log:           log,
+		traceID:       traceID,
+		clockDrift:    clockDrift,
+		sinks:         sinks,
+		cache:         cache,
+		summary:       summary,
+		metrics:       metrics,
+		activeSubnets: activeSubnets,
 	}
 
 	// Initialize as unhealthy (false) since the node starts disconnected
@@ -462,4 +467,20 @@ func isSlotDifferenceTooLarge(slotA, slotB uint64) bool {
 	// If slot difference is greater than MaxReasonableSlotDifference,
 	// it's likely from a different network.
 	return slotDiff > MaxReasonableSlotDifference
+}
+
+// IsActiveSubnet checks if the given subnet ID is in the node's active subnets.
+func (w *BeaconWrapper) IsActiveSubnet(subnetID uint64) bool {
+	// If we don't have active subnet information, no subnets are active
+	if len(w.activeSubnets) == 0 {
+		return false
+	}
+
+	for _, activeSubnet := range w.activeSubnets {
+		if activeSubnet >= 0 && uint64(activeSubnet) == subnetID {
+			return true
+		}
+	}
+
+	return false
 }

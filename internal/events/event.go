@@ -29,6 +29,8 @@ type BeaconDataProvider interface {
 	// IsSlotFromUnexpectedNetwork checks if a slot appears to be from an unexpected network
 	// by comparing it with the current wallclock slot.
 	IsSlotFromUnexpectedNetwork(eventSlot uint64) bool
+	// IsActiveSubnet checks if the given subnet ID is in the node's active subnets.
+	IsActiveSubnet(subnetID uint64) bool
 }
 
 // Event is the interface that all events must implement.

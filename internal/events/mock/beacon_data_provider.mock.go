@@ -98,6 +98,20 @@ func (mr *MockBeaconDataProviderMockRecorder) GetWallclock() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWallclock", reflect.TypeOf((*MockBeaconDataProvider)(nil).GetWallclock))
 }
 
+// IsActiveSubnet mocks base method.
+func (m *MockBeaconDataProvider) IsActiveSubnet(subnetID uint64) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsActiveSubnet", subnetID)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsActiveSubnet indicates an expected call of IsActiveSubnet.
+func (mr *MockBeaconDataProviderMockRecorder) IsActiveSubnet(subnetID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsActiveSubnet", reflect.TypeOf((*MockBeaconDataProvider)(nil).IsActiveSubnet), subnetID)
+}
+
 // IsSlotFromUnexpectedNetwork mocks base method.
 func (m *MockBeaconDataProvider) IsSlotFromUnexpectedNetwork(eventSlot uint64) bool {
 	m.ctrl.T.Helper()

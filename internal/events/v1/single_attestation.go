@@ -150,6 +150,22 @@ func (e *SingleAttestationEvent) Ignore(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
+	// Filter by subnet ID - committee index modulo 64 gives us the subnet ID
+	subnetID := uint64(e.data.CommitteeIndex) % 64
+	if !e.beacon.IsActiveSubnet(subnetID) {
+		e.log.WithFields(logrus.Fields{
+			"committee_index": e.data.CommitteeIndex,
+			"subnet_id":       subnetID,
+		}).Debug("Ignoring attestation from inactive subnet")
+
+		return true, nil
+	} else {
+		e.log.WithFields(logrus.Fields{
+			"committee_index": e.data.CommitteeIndex,
+			"subnet_id":       subnetID,
+		}).Info("Decorating attestation from active subnet")
+	}
+
 	hash, err := hashstructure.Hash(e.data, hashstructure.FormatV2, nil)
 	if err != nil {
 		return true, err

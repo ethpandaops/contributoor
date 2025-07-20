@@ -58,3 +58,74 @@ func TestIsSlotDifferenceTooLarge(t *testing.T) {
 		})
 	}
 }
+
+func TestBeaconWrapper_IsActiveSubnet(t *testing.T) {
+	tests := []struct {
+		name          string
+		activeSubnets []int
+		subnetID      uint64
+		expected      bool
+	}{
+		{
+			name:          "empty active subnets denies all",
+			activeSubnets: []int{},
+			subnetID:      5,
+			expected:      false,
+		},
+		{
+			name:          "subnet in active list",
+			activeSubnets: []int{2, 5, 10},
+			subnetID:      5,
+			expected:      true,
+		},
+		{
+			name:          "subnet not in active list",
+			activeSubnets: []int{2, 5, 10},
+			subnetID:      7,
+			expected:      false,
+		},
+		{
+			name:          "zero subnet in active list",
+			activeSubnets: []int{0, 5, 10},
+			subnetID:      0,
+			expected:      true,
+		},
+		{
+			name:          "max subnet ID",
+			activeSubnets: []int{63},
+			subnetID:      63,
+			expected:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &BeaconWrapper{
+				activeSubnets: tt.activeSubnets,
+			}
+			assert.Equal(t, tt.expected, w.IsActiveSubnet(tt.subnetID))
+		})
+	}
+}
+
+func TestCalculateSubnetID(t *testing.T) {
+	tests := []struct {
+		committeeIndex uint64
+		expectedSubnet uint64
+	}{
+		{0, 0},
+		{1, 1},
+		{63, 63},
+		{64, 0},
+		{65, 1},
+		{127, 63},
+		{128, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			subnetID := tt.committeeIndex % 64
+			assert.Equal(t, tt.expectedSubnet, subnetID)
+		})
+	}
+}
