@@ -30,7 +30,7 @@ type SubnetConfig struct {
 func NewDefaultConfig() *Config {
 	return &Config{
 		AttestationSubnetConfig: SubnetConfig{
-			Enabled:    true,
+			Enabled:    false,
 			MaxSubnets: defaultMaxSubnets,
 		},
 	}
