@@ -25,3 +25,13 @@ var defaultAllTopics = []string{
 var optInTopics = []string{
 	TopicSingleAttestation,
 }
+
+// GetDefaultAllTopics returns all available topics.
+func GetDefaultAllTopics() []string {
+	return defaultAllTopics
+}
+
+// GetOptInTopics returns opt-in topics.
+func GetOptInTopics() []string {
+	return optInTopics
+}

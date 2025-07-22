@@ -3,6 +3,7 @@ package ethereum
 import (
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -100,9 +101,26 @@ func TestBeaconWrapper_IsActiveSubnet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := &BeaconWrapper{
-				activeSubnets: tt.activeSubnets,
+			// Create a mock logger
+			log := logrus.New()
+
+			// Create topic config
+			topicConfig := &TopicConfig{
+				AttestationEnabled:    true,
+				AttestationMaxSubnets: 64,
 			}
+
+			// Create topic manager
+			topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics, topicConfig)
+
+			// Set advertised subnets
+			topicMgr.SetAdvertisedSubnets(tt.activeSubnets)
+
+			// Create BeaconWrapper with the topic manager
+			w := &BeaconWrapper{
+				topicManager: topicMgr,
+			}
+
 			assert.Equal(t, tt.expected, w.IsActiveSubnet(tt.subnetID))
 		})
 	}

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	phase0 "github.com/attestantio/go-eth2-client/spec/phase0"
 	ethereum "github.com/ethpandaops/contributoor/pkg/ethereum"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -41,6 +42,18 @@ func (m *MockTopicManager) EXPECT() *MockTopicManagerMockRecorder {
 	return m.recorder
 }
 
+// ExcludeTopic mocks base method.
+func (m *MockTopicManager) ExcludeTopic(topic string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ExcludeTopic", topic)
+}
+
+// ExcludeTopic indicates an expected call of ExcludeTopic.
+func (mr *MockTopicManagerMockRecorder) ExcludeTopic(topic any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExcludeTopic", reflect.TypeOf((*MockTopicManager)(nil).ExcludeTopic), topic)
+}
+
 // GetEnabledTopics mocks base method.
 func (m *MockTopicManager) GetEnabledTopics(ctx context.Context) []string {
 	m.ctrl.T.Helper()
@@ -55,6 +68,60 @@ func (mr *MockTopicManagerMockRecorder) GetEnabledTopics(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnabledTopics", reflect.TypeOf((*MockTopicManager)(nil).GetEnabledTopics), ctx)
 }
 
+// IsActiveSubnet mocks base method.
+func (m *MockTopicManager) IsActiveSubnet(subnetID uint64) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsActiveSubnet", subnetID)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsActiveSubnet indicates an expected call of IsActiveSubnet.
+func (mr *MockTopicManagerMockRecorder) IsActiveSubnet(subnetID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsActiveSubnet", reflect.TypeOf((*MockTopicManager)(nil).IsActiveSubnet), subnetID)
+}
+
+// IsExcluded mocks base method.
+func (m *MockTopicManager) IsExcluded(topic string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsExcluded", topic)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsExcluded indicates an expected call of IsExcluded.
+func (mr *MockTopicManagerMockRecorder) IsExcluded(topic any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExcluded", reflect.TypeOf((*MockTopicManager)(nil).IsExcluded), topic)
+}
+
+// NeedsReconnection mocks base method.
+func (m *MockTopicManager) NeedsReconnection() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NeedsReconnection")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// NeedsReconnection indicates an expected call of NeedsReconnection.
+func (mr *MockTopicManagerMockRecorder) NeedsReconnection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeedsReconnection", reflect.TypeOf((*MockTopicManager)(nil).NeedsReconnection))
+}
+
+// RecordAttestation mocks base method.
+func (m *MockTopicManager) RecordAttestation(subnetID uint64, slot phase0.Slot) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RecordAttestation", subnetID, slot)
+}
+
+// RecordAttestation indicates an expected call of RecordAttestation.
+func (mr *MockTopicManagerMockRecorder) RecordAttestation(subnetID, slot any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordAttestation", reflect.TypeOf((*MockTopicManager)(nil).RecordAttestation), subnetID, slot)
+}
+
 // RegisterCondition mocks base method.
 func (m *MockTopicManager) RegisterCondition(topic string, condition ethereum.TopicCondition) {
 	m.ctrl.T.Helper()
@@ -65,6 +132,30 @@ func (m *MockTopicManager) RegisterCondition(topic string, condition ethereum.To
 func (mr *MockTopicManagerMockRecorder) RegisterCondition(topic, condition any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCondition", reflect.TypeOf((*MockTopicManager)(nil).RegisterCondition), topic, condition)
+}
+
+// ResetAfterReconnection mocks base method.
+func (m *MockTopicManager) ResetAfterReconnection() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ResetAfterReconnection")
+}
+
+// ResetAfterReconnection indicates an expected call of ResetAfterReconnection.
+func (mr *MockTopicManagerMockRecorder) ResetAfterReconnection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetAfterReconnection", reflect.TypeOf((*MockTopicManager)(nil).ResetAfterReconnection))
+}
+
+// SetAdvertisedSubnets mocks base method.
+func (m *MockTopicManager) SetAdvertisedSubnets(subnets []int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAdvertisedSubnets", subnets)
+}
+
+// SetAdvertisedSubnets indicates an expected call of SetAdvertisedSubnets.
+func (mr *MockTopicManagerMockRecorder) SetAdvertisedSubnets(subnets any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAdvertisedSubnets", reflect.TypeOf((*MockTopicManager)(nil).SetAdvertisedSubnets), subnets)
 }
 
 // ShouldSubscribe mocks base method.

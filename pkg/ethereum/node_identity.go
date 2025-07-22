@@ -84,8 +84,8 @@ func (n *nodeIdentity) Start(ctx context.Context) error {
 	n.mu.Unlock()
 
 	n.log.WithFields(logrus.Fields{
-		"peer_id":       identity.PeerID,
-		"attnets_count": len(n.GetAttnets()),
+		"peer_id": identity.PeerID,
+		"attnets": n.GetAttnets(),
 	}).Info("Node identity fetched successfully")
 
 	return nil

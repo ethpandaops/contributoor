@@ -21,6 +21,11 @@ func (a *Application) Start(ctx context.Context) error {
 		}
 	}
 
+	// Initialize beacon factory if not already initialized
+	if a.beaconFactory == nil {
+		a.beaconFactory = ethereum.NewBeaconFactory(a.log, a.clockDrift)
+	}
+
 	// Initialize beacon nodes
 	if err := a.initBeacons(ctx); err != nil {
 		return fmt.Errorf("failed to initialize beacons: %w", err)
@@ -52,8 +57,8 @@ func (a *Application) Start(ctx context.Context) error {
 
 	// Start beacon node components
 	for _, instance := range a.beaconNodes {
-		// Start summary after node is healthy
-		go a.startSummaryWhenHealthy(ctx, instance)
+		// Start monitoring goroutine that handles both summary startup and reconnection
+		go a.monitorBeaconInstance(ctx, instance)
 	}
 
 	a.log.Info("Application started successfully")
@@ -103,19 +108,51 @@ func (a *Application) Stop(ctx context.Context) error {
 	return nil
 }
 
-// startSummaryWhenHealthy starts the summary logger once the beacon node becomes healthy.
-func (a *Application) startSummaryWhenHealthy(ctx context.Context, instance *BeaconNodeInstance) {
+// monitorBeaconInstance handles both summary startup when healthy and reconnection monitoring.
+// It consolidates monitoring logic into a single goroutine per beacon instance.
+func (a *Application) monitorBeaconInstance(ctx context.Context, instance *BeaconNodeInstance) {
+	// Set up reconnection monitoring if the node supports it
+	var reconnectChan <-chan struct{}
+	if wrapper, ok := instance.Node.(*ethereum.BeaconWrapper); ok {
+		reconnectChan = wrapper.NeedsReconnection()
+	}
+
+	// Create ticker for health checks
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+
+	summaryStarted := false
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-instance.stopMonitor:
+			return
 		case <-ticker.C:
-			if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
-				instance.Summary.Start(ctx)
+			// Check if we need to start the summary (only if not already started)
+			if !summaryStarted {
+				if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
+					// Create a cancellable context for the summary
+					summaryCtx, cancel := context.WithCancel(ctx)
+					instance.summaryCancel = cancel
 
+					// Start summary with cancellable context
+					go instance.Summary.Start(summaryCtx)
+
+					summaryStarted = true
+				}
+			}
+		case <-reconnectChan:
+			// Handle reconnection signal
+			if reconnectChan != nil {
+				if err := instance.RestartWithoutSingleAttestation(ctx); err != nil {
+					a.log.WithError(err).WithField("trace_id", instance.traceID).Error(
+						"Failed to restart beacon without single_attestation",
+					)
+				}
+
+				// Exit this monitoring goroutine as a new one will be started by restart process.
 				return
 			}
 		}

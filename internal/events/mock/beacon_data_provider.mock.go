@@ -140,6 +140,18 @@ func (mr *MockBeaconDataProviderMockRecorder) Node() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Node", reflect.TypeOf((*MockBeaconDataProvider)(nil).Node))
 }
 
+// RecordSeenSubnet mocks base method.
+func (m *MockBeaconDataProvider) RecordSeenSubnet(subnetID, slot uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RecordSeenSubnet", subnetID, slot)
+}
+
+// RecordSeenSubnet indicates an expected call of RecordSeenSubnet.
+func (mr *MockBeaconDataProviderMockRecorder) RecordSeenSubnet(subnetID, slot any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordSeenSubnet", reflect.TypeOf((*MockBeaconDataProvider)(nil).RecordSeenSubnet), subnetID, slot)
+}
+
 // Synced mocks base method.
 func (m *MockBeaconDataProvider) Synced(ctx context.Context) error {
 	m.ctrl.T.Helper()
