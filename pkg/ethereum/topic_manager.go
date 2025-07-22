@@ -45,6 +45,8 @@ type TopicConfig struct {
 	MismatchThreshold int
 	// MismatchCooldown is the cooldown period between reconnections.
 	MismatchCooldown time.Duration
+	// SubnetHighWaterMark is the threshold for temporary subnet participation.
+	SubnetHighWaterMark int
 }
 
 // topicManager implements TopicManager with attestation subnet tracking.
@@ -67,6 +69,7 @@ type topicManager struct {
 	detectionWindow   int
 	mismatchThreshold int
 	cooldownPeriod    time.Duration
+	highWaterMark     int
 
 	// Mismatch tracking.
 	mismatchCount    int
@@ -100,6 +103,7 @@ func NewTopicManager(log logrus.FieldLogger, config *TopicConfig) TopicManager {
 		detectionWindow:   cfg.MismatchDetectionWindow,
 		mismatchThreshold: cfg.MismatchThreshold,
 		cooldownPeriod:    cfg.MismatchCooldown,
+		highWaterMark:     cfg.SubnetHighWaterMark,
 		mismatchEnabled:   cfg.AttestationEnabled, // Mismatch detection is enabled when attestation is enabled
 		reconnectChan:     make(chan struct{}),
 	}
@@ -286,7 +290,9 @@ func (tm *topicManager) checkForMismatch() bool {
 		return false
 	}
 
-	// Check if we're seeing attestations from non-advertised subnets
+	// Count non-advertised subnets from existing seenSubnets map
+	nonAdvertisedCount := 0
+
 	for seenSubnet := range tm.seenSubnets {
 		isAdvertised := false
 
@@ -299,11 +305,22 @@ func (tm *topicManager) checkForMismatch() bool {
 		}
 
 		if !isAdvertised {
-			return true
+			nonAdvertisedCount++
 		}
 	}
 
-	return false
+	// Log warning when approaching high water mark (80% threshold)
+	warningThreshold := int(float64(tm.highWaterMark) * 0.8)
+	if nonAdvertisedCount >= warningThreshold && nonAdvertisedCount <= tm.highWaterMark {
+		tm.log.WithFields(logrus.Fields{
+			"non_advertised_count": nonAdvertisedCount,
+			"high_water_mark":      tm.highWaterMark,
+			"advertised_subnets":   tm.advertisedSubnets,
+		}).Warn("Approaching subnet high water mark threshold")
+	}
+
+	// Only mismatch if we exceed high water mark
+	return nonAdvertisedCount > tm.highWaterMark
 }
 
 // signalReconnection signals that a reconnection is needed.
@@ -333,6 +350,7 @@ func getDefaultTopicConfig() *TopicConfig {
 		MismatchDetectionWindow: 32,
 		MismatchThreshold:       3,
 		MismatchCooldown:        5 * time.Minute,
+		SubnetHighWaterMark:     5,
 	}
 }
 

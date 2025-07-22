@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/ethpandaops/contributoor/pkg/ethereum/mock"
 	"github.com/sirupsen/logrus"
@@ -230,4 +232,287 @@ func TestCreateAttestationSubnetCondition(t *testing.T) {
 			assert.Equal(t, tt.expectSubscribe, shouldSubscribe)
 		})
 	}
+}
+
+func TestTopicManager_HighWaterMarkLogic(t *testing.T) {
+	tests := []struct {
+		name                string
+		advertisedSubnets   []int
+		seenSubnets         []uint64
+		highWaterMark       int
+		expectMismatch      bool
+		expectWarningLogged bool
+		description         string
+	}{
+		{
+			name:              "no advertised subnets - no mismatch",
+			advertisedSubnets: []int{},
+			seenSubnets:       []uint64{1, 2, 3},
+			highWaterMark:     5,
+			expectMismatch:    false,
+			description:       "Should not mismatch when no subnets are advertised",
+		},
+		{
+			name:              "all seen subnets are advertised - no mismatch",
+			advertisedSubnets: []int{1, 2, 3},
+			seenSubnets:       []uint64{1, 2, 3},
+			highWaterMark:     5,
+			expectMismatch:    false,
+			description:       "Should not mismatch when all seen subnets are advertised",
+		},
+		{
+			name:              "non-advertised count below high water mark - no mismatch",
+			advertisedSubnets: []int{1, 2},
+			seenSubnets:       []uint64{1, 2, 3, 4, 5},
+			highWaterMark:     5,
+			expectMismatch:    false,
+			description:       "3 non-advertised subnets (3,4,5) < high water mark (5)",
+		},
+		{
+			name:              "non-advertised count exactly at high water mark - no mismatch",
+			advertisedSubnets: []int{1, 2},
+			seenSubnets:       []uint64{1, 2, 3, 4, 5, 6, 7},
+			highWaterMark:     5,
+			expectMismatch:    false,
+			description:       "5 non-advertised subnets (3,4,5,6,7) = high water mark (5)",
+		},
+		{
+			name:              "non-advertised count exceeds high water mark - mismatch",
+			advertisedSubnets: []int{1, 2},
+			seenSubnets:       []uint64{1, 2, 3, 4, 5, 6, 7, 8},
+			highWaterMark:     5,
+			expectMismatch:    true,
+			description:       "6 non-advertised subnets (3,4,5,6,7,8) > high water mark (5)",
+		},
+		{
+			name:                "approaching high water mark threshold (80%) - warning",
+			advertisedSubnets:   []int{1, 2},
+			seenSubnets:         []uint64{1, 2, 3, 4, 5, 6},
+			highWaterMark:       5,
+			expectMismatch:      false,
+			expectWarningLogged: true,
+			description:         "4 non-advertised subnets = 80% of high water mark (5)",
+		},
+		{
+			name:              "high water mark zero - any non-advertised triggers mismatch",
+			advertisedSubnets: []int{1, 2},
+			seenSubnets:       []uint64{1, 2, 3},
+			highWaterMark:     0,
+			expectMismatch:    true,
+			description:       "High water mark of 0 means no tolerance for non-advertised subnets",
+		},
+		{
+			name:              "high water mark one - allows one non-advertised subnet",
+			advertisedSubnets: []int{1, 2},
+			seenSubnets:       []uint64{1, 2, 3},
+			highWaterMark:     1,
+			expectMismatch:    false,
+			description:       "1 non-advertised subnet (3) <= high water mark (1)",
+		},
+		{
+			name:              "high water mark one - two non-advertised triggers mismatch",
+			advertisedSubnets: []int{1, 2},
+			seenSubnets:       []uint64{1, 2, 3, 4},
+			highWaterMark:     1,
+			expectMismatch:    true,
+			description:       "2 non-advertised subnets (3,4) > high water mark (1)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := logrus.New()
+			log.SetLevel(logrus.DebugLevel)
+
+			config := &ethereum.TopicConfig{
+				AllTopics:               []string{"block"},
+				OptInTopics:             []string{},
+				AttestationEnabled:      true,
+				MismatchDetectionWindow: 32,
+				MismatchThreshold:       1,
+				MismatchCooldown:        5 * time.Minute,
+				SubnetHighWaterMark:     tt.highWaterMark,
+			}
+			tm := ethereum.NewTopicManager(log, config)
+
+			// Set advertised subnets
+			tm.SetAdvertisedSubnets(tt.advertisedSubnets)
+
+			// Record attestations from seen subnets
+			for i, subnet := range tt.seenSubnets {
+				tm.RecordAttestation(subnet, phase0.Slot(i))
+			}
+
+			// Check if reconnection is needed (which indicates mismatch threshold was hit)
+			select {
+			case <-tm.NeedsReconnection():
+				assert.True(t, tt.expectMismatch, "Unexpected mismatch for: %s", tt.description)
+			default:
+				assert.False(t, tt.expectMismatch, "Expected mismatch but none occurred for: %s", tt.description)
+			}
+		})
+	}
+}
+
+func TestTopicManager_HighWaterMarkWithCooldown(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	config := &ethereum.TopicConfig{
+		AllTopics:               []string{"block"},
+		OptInTopics:             []string{},
+		AttestationEnabled:      true,
+		MismatchDetectionWindow: 10, // Small window for easier testing
+		MismatchThreshold:       1,  // Trigger on first mismatch for simpler test
+		MismatchCooldown:        100 * time.Millisecond,
+		SubnetHighWaterMark:     2,
+	}
+	tm := ethereum.NewTopicManager(log, config)
+
+	// Set advertised subnets
+	tm.SetAdvertisedSubnets([]int{1, 2})
+
+	// Record attestations exceeding high water mark
+	// First record the advertised subnets, then non-advertised ones
+	tm.RecordAttestation(1, phase0.Slot(1))
+	tm.RecordAttestation(2, phase0.Slot(1))
+	tm.RecordAttestation(3, phase0.Slot(1))
+	tm.RecordAttestation(4, phase0.Slot(1))
+	tm.RecordAttestation(5, phase0.Slot(1)) // Now have 3 non-advertised, exceeds high water mark
+
+	// Should trigger immediately (threshold is 1)
+	select {
+	case <-tm.NeedsReconnection():
+		// Expected
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected reconnection after threshold reached")
+	}
+
+	// Reset and try again immediately - should respect cooldown
+	tm.ResetAfterReconnection()
+	tm.SetAdvertisedSubnets([]int{1, 2})
+
+	// Try to trigger again immediately (within cooldown period)
+	tm.RecordAttestation(1, phase0.Slot(20)) // New window
+	tm.RecordAttestation(2, phase0.Slot(20))
+	tm.RecordAttestation(3, phase0.Slot(20))
+	tm.RecordAttestation(4, phase0.Slot(20))
+	tm.RecordAttestation(5, phase0.Slot(20)) // Exceeds high water mark again
+
+	// Even with mismatch detected, should not trigger due to cooldown
+	select {
+	case <-tm.NeedsReconnection():
+		t.Fatal("Should respect cooldown period")
+	default:
+		// Expected - cooldown prevents reconnection
+	}
+
+	// Wait for cooldown to expire
+	time.Sleep(150 * time.Millisecond)
+
+	// Now try again after cooldown expired
+	tm.RecordAttestation(1, phase0.Slot(35)) // Another new window
+	tm.RecordAttestation(2, phase0.Slot(35))
+	tm.RecordAttestation(3, phase0.Slot(35))
+	tm.RecordAttestation(4, phase0.Slot(35))
+	tm.RecordAttestation(5, phase0.Slot(35)) // Exceeds high water mark
+
+	// Should trigger now that cooldown has expired
+	select {
+	case <-tm.NeedsReconnection():
+		// Expected after cooldown
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected reconnection after cooldown expired")
+	}
+}
+
+func TestTopicManager_HighWaterMarkEdgeCases(t *testing.T) {
+	t.Run("high water mark with detection window reset", func(t *testing.T) {
+		log := logrus.New()
+		log.SetLevel(logrus.DebugLevel)
+
+		config := &ethereum.TopicConfig{
+			AllTopics:               []string{"block"},
+			OptInTopics:             []string{},
+			AttestationEnabled:      true,
+			MismatchDetectionWindow: 5, // Small window
+			MismatchThreshold:       1,
+			MismatchCooldown:        5 * time.Minute,
+			SubnetHighWaterMark:     3,
+		}
+		tm := ethereum.NewTopicManager(log, config)
+
+		tm.SetAdvertisedSubnets([]int{1})
+
+		// Fill first window
+		for slot := uint64(0); slot < 5; slot++ {
+			tm.RecordAttestation(1, phase0.Slot(slot))
+			tm.RecordAttestation(2, phase0.Slot(slot))
+		}
+
+		// Jump to new window - should reset tracking
+		tm.RecordAttestation(1, phase0.Slot(10))
+		tm.RecordAttestation(2, phase0.Slot(10))
+		tm.RecordAttestation(3, phase0.Slot(10))
+		tm.RecordAttestation(4, phase0.Slot(10))
+
+		// Should not trigger (only 3 non-advertised in new window)
+		select {
+		case <-tm.NeedsReconnection():
+			t.Fatal("Should not trigger within high water mark")
+		default:
+			// Expected
+		}
+	})
+
+	t.Run("high water mark with changing advertised subnets", func(t *testing.T) {
+		log := logrus.New()
+		log.SetLevel(logrus.DebugLevel)
+
+		config := &ethereum.TopicConfig{
+			AllTopics:               []string{"block"},
+			OptInTopics:             []string{},
+			AttestationEnabled:      true,
+			MismatchDetectionWindow: 32,
+			MismatchThreshold:       1,
+			MismatchCooldown:        5 * time.Minute,
+			SubnetHighWaterMark:     2,
+		}
+		tm := ethereum.NewTopicManager(log, config)
+
+		// Start with subnets 1,2
+		tm.SetAdvertisedSubnets([]int{1, 2})
+		tm.RecordAttestation(1, phase0.Slot(1))
+		tm.RecordAttestation(2, phase0.Slot(1))
+		tm.RecordAttestation(3, phase0.Slot(1))
+		tm.RecordAttestation(4, phase0.Slot(1))
+
+		// Change advertised subnets
+		tm.SetAdvertisedSubnets([]int{3, 4})
+
+		// Now 1,2 are non-advertised
+		tm.RecordAttestation(1, phase0.Slot(2))
+		tm.RecordAttestation(2, phase0.Slot(2))
+		tm.RecordAttestation(3, phase0.Slot(2))
+		tm.RecordAttestation(4, phase0.Slot(2))
+
+		// Should trigger (all 4 seen, but now 1,2 are non-advertised, total 2 = high water mark)
+		select {
+		case <-tm.NeedsReconnection():
+			t.Fatal("Should not trigger when at high water mark")
+		default:
+			// Expected - at threshold but not over
+		}
+
+		// Add one more non-advertised
+		tm.RecordAttestation(5, phase0.Slot(3))
+
+		// Should trigger now (3 non-advertised > 2)
+		select {
+		case <-tm.NeedsReconnection():
+			// Expected
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Expected reconnection when exceeding high water mark")
+		}
+	})
 }
