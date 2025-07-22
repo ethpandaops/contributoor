@@ -41,17 +41,27 @@ type BeaconNodeInstance struct {
 	Address      string // The beacon node's address
 	TopicManager ethereum.TopicManager
 
-	// Reconnection handling
+	// Reconnection handling.
+	// The reconnection logic is designed to handle subnet mismatch scenarios where a beacon node
+	// is receiving attestations from subnets it's not actively participating in. This can happen
+	// when a validator's subnet assignments change but the beacon node hasn't updated its
+	// subscriptions. The flow works as follows:
+	//
+	// 1. TopicManager tracks attestations and detects when we receive data from non-advertised subnets
+	// 2. After a configurable threshold of mismatches, TopicManager signals for reconnection
+	// 3. The monitoring goroutine receives this signal and calls RestartWithoutSingleAttestation
+	// 4. RestartWithoutSingleAttestation creates a new beacon instance excluding the problematic topic
+	// 5. The BeaconFactory ensures consistent creation of both initial and restarted instances
 	reconnectMutex sync.Mutex
 	lastReconnect  time.Time
 	log            logrus.FieldLogger
 	traceID        string
-	app            *Application // Reference to parent application
+	app            *Application // Reference to parent application for accessing BeaconFactory during restart.
 
-	// Channel to signal monitoring goroutines to stop
+	// Channel to signal monitoring goroutines to stop.
 	stopMonitor chan struct{}
 
-	// Cancel function for summary goroutine
+	// Cancel function for summary goroutine.
 	summaryCancel context.CancelFunc
 }
 
@@ -97,10 +107,9 @@ func New(opts Options) (*Application, error) {
 		clockDriftSyncInterval: clockDriftSyncInterval,
 	}
 
-	// If clock drift service is provided, use it. Otherwise we'll create one during Start()
+	// If clock drift service is provided, use it. Otherwise, we'll create one during Start().
 	if opts.ClockDrift != nil {
 		app.clockDrift = opts.ClockDrift
-		// Initialize beacon factory now that we have clock drift
 		app.beaconFactory = ethereum.NewBeaconFactory(app.log, app.clockDrift)
 	}
 
