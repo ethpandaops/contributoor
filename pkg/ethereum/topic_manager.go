@@ -16,14 +16,11 @@ type TopicCondition func(ctx context.Context) (bool, error)
 
 // TopicManager manages topic subscriptions and tracks attestation subnets.
 type TopicManager interface {
-	// Existing topic management methods
 	RegisterCondition(topic string, condition TopicCondition)
 	ShouldSubscribe(ctx context.Context, topic string) bool
 	GetEnabledTopics(ctx context.Context) []string
 	ExcludeTopic(topic string)
 	IsExcluded(topic string) bool
-
-	// New subnet tracking methods for attestation topics
 	SetAdvertisedSubnets(subnets []int)
 	RecordAttestation(subnetID uint64, slot phase0.Slot)
 	IsActiveSubnet(subnetID uint64) bool
@@ -34,17 +31,21 @@ type TopicManager interface {
 
 // TopicConfig configures topic manager behavior including subnet tracking.
 type TopicConfig struct {
-	// AttestationEnabled controls if attestation subnet checking is enabled
+	// AllTopics
+	AllTopics []string
+	// OptInTopics
+	OptInTopics []string
+	// AttestationEnabled controls if attestation subnet checking is enabled.
 	AttestationEnabled bool
-	// AttestationMaxSubnets is the max subnets before disabling single_attestation
+	// AttestationMaxSubnets is the max subnets before disabling single_attestation.
 	AttestationMaxSubnets int
-	// MismatchEnabled controls if mismatch detection is enabled
+	// MismatchEnabled controls if mismatch detection is enabled.
 	MismatchEnabled bool
-	// MismatchDetectionWindow is the number of slots to track
+	// MismatchDetectionWindow is the number of slots to track.
 	MismatchDetectionWindow int
-	// MismatchThreshold is the number of mismatches before reconnection
+	// MismatchThreshold is the number of mismatches before reconnection.
 	MismatchThreshold int
-	// MismatchCooldown is the cooldown period between reconnections
+	// MismatchCooldown is the cooldown period between reconnections.
 	MismatchCooldown time.Duration
 }
 
@@ -53,72 +54,55 @@ type topicManager struct {
 	mu  sync.RWMutex
 	log logrus.FieldLogger
 
-	// Topic management (existing)
+	// Topic management.
 	allTopics      []string
 	optInTopics    map[string]bool
 	conditions     map[string]TopicCondition
 	excludedTopics map[string]bool
 
-	// Attestation subnet tracking (new)
+	// Attestation subnet tracking.
 	advertisedSubnets []int
 	seenSubnets       map[uint64]bool
 	trackingStartSlot phase0.Slot
 
-	// Configuration
+	// Configuration.
 	detectionWindow   int
 	mismatchThreshold int
 	cooldownPeriod    time.Duration
 
-	// Mismatch tracking
+	// Mismatch tracking.
 	mismatchCount    int
 	lastMismatchTime time.Time
 	mismatchEnabled  bool
 
-	// Reconnection signaling
+	// Reconnection signaling.
 	reconnectChan chan struct{}
 	reconnectOnce sync.Once
 }
 
 // NewTopicManager creates a new topic manager with subnet configuration.
-func NewTopicManager(log logrus.FieldLogger, allTopics []string, optInTopics []string, config *TopicConfig) TopicManager {
-	optInMap := make(map[string]bool, len(optInTopics))
-	for _, topic := range optInTopics {
-		optInMap[topic] = true
+func NewTopicManager(log logrus.FieldLogger, config *TopicConfig) TopicManager {
+	cfg := getDefaultTopicConfig()
+	if config != nil {
+		cfg = config
 	}
 
-	// Apply defaults
-	detectionWindow := 32
-	mismatchThreshold := 3
-	cooldownPeriod := 5 * time.Minute
-	mismatchEnabled := false
-
-	if config != nil {
-		if config.MismatchDetectionWindow > 0 {
-			detectionWindow = config.MismatchDetectionWindow
-		}
-
-		if config.MismatchThreshold > 0 {
-			mismatchThreshold = config.MismatchThreshold
-		}
-
-		if config.MismatchCooldown > 0 {
-			cooldownPeriod = config.MismatchCooldown
-		}
-
-		mismatchEnabled = config.MismatchEnabled
+	optInMap := make(map[string]bool, len(cfg.OptInTopics))
+	for _, topic := range cfg.OptInTopics {
+		optInMap[topic] = true
 	}
 
 	return &topicManager{
 		log:               log.WithField("component", "topic_manager"),
-		allTopics:         allTopics,
+		allTopics:         cfg.AllTopics,
 		conditions:        make(map[string]TopicCondition),
 		optInTopics:       optInMap,
 		excludedTopics:    make(map[string]bool),
 		seenSubnets:       make(map[uint64]bool),
-		detectionWindow:   detectionWindow,
-		mismatchThreshold: mismatchThreshold,
-		cooldownPeriod:    cooldownPeriod,
-		mismatchEnabled:   mismatchEnabled,
+		detectionWindow:   cfg.MismatchDetectionWindow,
+		mismatchThreshold: cfg.MismatchThreshold,
+		cooldownPeriod:    cfg.MismatchCooldown,
+		mismatchEnabled:   cfg.MismatchEnabled,
 		reconnectChan:     make(chan struct{}),
 	}
 }
@@ -339,6 +323,20 @@ func (tm *topicManager) getSeenSubnetsList() []uint64 {
 	}
 
 	return subnets
+}
+
+// getDefaultTopicConfig returns a TopicConfig with default values.
+func getDefaultTopicConfig() *TopicConfig {
+	return &TopicConfig{
+		AllTopics:               []string{},
+		OptInTopics:             []string{},
+		AttestationEnabled:      false,
+		AttestationMaxSubnets:   0,
+		MismatchEnabled:         false,
+		MismatchDetectionWindow: 32,
+		MismatchThreshold:       3,
+		MismatchCooldown:        5 * time.Minute,
+	}
 }
 
 // CreateAttestationSubnetCondition creates a condition based on attestation subnet participation.

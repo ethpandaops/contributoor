@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/electra"
@@ -43,128 +42,16 @@ type BeaconNodeAPI interface {
 type BeaconWrapper struct {
 	*ethcore.BeaconNode // Embed ethcore beacon
 
-	log           logrus.FieldLogger
-	traceID       string
-	clockDrift    clockdrift.ClockDrift
-	sinks         []sinks.ContributoorSink
-	cache         *events.DuplicateCache
-	config        *Config
-	summary       *events.Summary
-	metrics       *events.Metrics
-	isHealthy     atomic.Bool // Track connection state for transition logging
-	activeSubnets []int       // Active attestation subnet IDs
-	topicManager  TopicManager
-}
-
-// NewBeaconWrapper creates a wrapped beacon node.
-func NewBeaconWrapper(
-	ctx context.Context,
-	log logrus.FieldLogger,
-	traceID string,
-	config *Config,
-	sinks []sinks.ContributoorSink,
-	clockDrift clockdrift.ClockDrift,
-	cache *events.DuplicateCache,
-	summary *events.Summary,
-	metrics *events.Metrics,
-	excludedTopics []string,
-) (*BeaconWrapper, error) {
-	// Prepare ethcore config.
-	ethcoreConfig := &ethcore.Config{
-		BeaconNodeAddress: config.BeaconNodeAddress,
-		BeaconNodeHeaders: config.BeaconNodeHeaders,
-		NetworkOverride:   config.NetworkOverride,
-	}
-
-	// Create topic manager with all topics opt-in topics.
-	// All defaultAllTopics without a condition will be registered by default, unless defined as an optInTopic.
-	topicConfig := &TopicConfig{
-		AttestationEnabled:    config.AttestationSubnetConfig.Enabled,
-		AttestationMaxSubnets: config.AttestationSubnetConfig.MaxSubnets,
-	}
-
-	// Handle subnet mismatch detection config
-	if config.SubnetMismatchDetection != nil {
-		topicConfig.MismatchEnabled = config.SubnetMismatchDetection.Enabled
-		topicConfig.MismatchDetectionWindow = int(config.SubnetMismatchDetection.DetectionWindow)
-		topicConfig.MismatchThreshold = int(config.SubnetMismatchDetection.MismatchThreshold)
-		topicConfig.MismatchCooldown = time.Duration(config.SubnetMismatchDetection.CooldownSeconds) * time.Second
-	}
-
-	topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics, topicConfig)
-
-	// Apply any excluded topics
-	for _, topic := range excludedTopics {
-		topicMgr.ExcludeTopic(topic)
-
-		log.WithField("topic", topic).Info("Excluded topic from subscriptions")
-	}
-
-	// Create and start NodeIdentity if subnet check is enabled.
-	var activeSubnets []int
-
-	if config.AttestationSubnetConfig.Enabled {
-		// Only register condition if identity was successfully fetched (we don't want attestations if we
-		// can't determine nodes subnets).
-		identity := NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
-		if err := identity.Start(ctx); err != nil {
-			log.WithError(err).Warn("Failed to fetch node identity")
-		} else {
-			activeSubnets = identity.GetAttnets()
-			topicMgr.RegisterCondition(
-				TopicSingleAttestation,
-				CreateAttestationSubnetCondition(len(activeSubnets), config.AttestationSubnetConfig.MaxSubnets),
-			)
-		}
-	}
-
-	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
-	beaconOpts.BeaconSubscription.Enabled = true
-	beaconOpts.BeaconSubscription.Topics = topicMgr.GetEnabledTopics(ctx)
-
-	// Create the beacon node.
-	ethcoreBeacon, err := ethcore.NewBeaconNode(log, traceID, ethcoreConfig, beaconOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ethcore beacon: %w", err)
-	}
-
-	wrapper := &BeaconWrapper{
-		BeaconNode:    ethcoreBeacon,
-		log:           log,
-		traceID:       traceID,
-		clockDrift:    clockDrift,
-		config:        config,
-		sinks:         sinks,
-		cache:         cache,
-		summary:       summary,
-		metrics:       metrics,
-		activeSubnets: activeSubnets,
-		topicManager:  topicMgr,
-	}
-
-	// Set advertised subnets in topic manager
-	if len(activeSubnets) > 0 {
-		topicMgr.SetAdvertisedSubnets(activeSubnets)
-	}
-
-	// Log subnet mismatch detection status
-	if config.SubnetMismatchDetection != nil && config.SubnetMismatchDetection.Enabled {
-		log.WithFields(logrus.Fields{
-			"detection_window":   config.SubnetMismatchDetection.DetectionWindow,
-			"mismatch_threshold": config.SubnetMismatchDetection.MismatchThreshold,
-			"cooldown_period":    time.Duration(config.SubnetMismatchDetection.CooldownSeconds) * time.Second,
-		}).Info("Subnet mismatch detection enabled")
-	} else {
-		log.Info("Subnet mismatch detection disabled")
-	}
-
-	// Initialize as unhealthy (false) since the node starts disconnected
-	wrapper.isHealthy.Store(false)
-
-	// Register OnReady callback to setup event subscriptions.
-	ethcoreBeacon.OnReady(wrapper.setupEventSubscriptions)
-
-	return wrapper, nil
+	log          logrus.FieldLogger
+	traceID      string
+	clockDrift   clockdrift.ClockDrift
+	sinks        []sinks.ContributoorSink
+	cache        *events.DuplicateCache
+	config       *Config
+	summary      *events.Summary
+	metrics      *events.Metrics
+	isHealthy    atomic.Bool // Track connection state for transition logging
+	topicManager TopicManager
 }
 
 // Start to handle sink lifecycle.

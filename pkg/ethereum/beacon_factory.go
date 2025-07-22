@@ -3,6 +3,7 @@ package ethereum
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
@@ -74,6 +75,20 @@ func (bf *BeaconFactory) CreateBeacon(ctx context.Context, opts *BeaconOptions) 
 		summary:      opts.Summary,
 		metrics:      opts.Metrics,
 		topicManager: opts.TopicManager,
+	}
+
+	// Initialize as unhealthy (false) since the node starts disconnected
+	wrapper.isHealthy.Store(false)
+
+	// Log subnet mismatch detection status
+	if opts.Config.SubnetMismatchDetection != nil && opts.Config.SubnetMismatchDetection.Enabled {
+		bf.log.WithFields(logrus.Fields{
+			"detection_window":   opts.Config.SubnetMismatchDetection.DetectionWindow,
+			"mismatch_threshold": opts.Config.SubnetMismatchDetection.MismatchThreshold,
+			"cooldown_period":    time.Duration(opts.Config.SubnetMismatchDetection.CooldownSeconds) * time.Second,
+		}).Info("Subnet mismatch detection enabled")
+	} else {
+		bf.log.Info("Subnet mismatch detection disabled")
 	}
 
 	// Setup event subscriptions on ready

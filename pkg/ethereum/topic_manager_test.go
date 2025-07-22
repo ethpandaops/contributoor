@@ -75,7 +75,11 @@ func TestTopicManager_ShouldSubscribe(t *testing.T) {
 			if tt.isOptIn {
 				optInTopics = []string{tt.topic}
 			}
-			tm := ethereum.NewTopicManager(log, allTopics, optInTopics, nil)
+			config := &ethereum.TopicConfig{
+				AllTopics:   allTopics,
+				OptInTopics: optInTopics,
+			}
+			tm := ethereum.NewTopicManager(log, config)
 
 			if tt.condition != nil {
 				tm.RegisterCondition(tt.topic, tt.condition)
@@ -152,7 +156,11 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 			if tt.setupOptIn {
 				optInTopics = []string{"single_attestation"}
 			}
-			tm := ethereum.NewTopicManager(log, tt.allTopics, optInTopics, nil)
+			config := &ethereum.TopicConfig{
+				AllTopics:   tt.allTopics,
+				OptInTopics: optInTopics,
+			}
+			tm := ethereum.NewTopicManager(log, config)
 
 			for topic, condition := range tt.conditions {
 				tm.RegisterCondition(topic, condition)

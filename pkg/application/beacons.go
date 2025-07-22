@@ -50,7 +50,7 @@ func (a *Application) initBeacons(ctx context.Context) error {
 
 // createBeaconInstance creates a single beacon node instance with all its components.
 func (a *Application) createBeaconInstance(ctx context.Context, log logrus.FieldLogger, address, traceID string, excludedTopics []string) (*BeaconNodeInstance, error) {
-	// Create components
+	// Create components.
 	cache, err := a.initCache()
 	if err != nil {
 		return nil, fmt.Errorf("failed to init cache: %w", err)
@@ -71,7 +71,7 @@ func (a *Application) createBeaconInstance(ctx context.Context, log logrus.Field
 		return nil, fmt.Errorf("failed to init sinks: %w", err)
 	}
 
-	// Create beacon configuration
+	// Create beacon configuration.
 	var networkOverride string
 	if a.config.NetworkName != "" {
 		networkOverride = a.config.NetworkName
@@ -81,8 +81,9 @@ func (a *Application) createBeaconInstance(ctx context.Context, log logrus.Field
 	config.BeaconNodeAddress = address
 	config.NetworkOverride = networkOverride
 
-	// Apply attestation subnet configuration if present
+	// Apply attestation subnet configuration if present.
 	if a.config.AttestationSubnetCheck != nil {
+		config.SubnetMismatchDetection.Enabled = a.config.AttestationSubnetCheck.Enabled
 		config.AttestationSubnetConfig.Enabled = a.config.AttestationSubnetCheck.Enabled
 		config.AttestationSubnetConfig.MaxSubnets = 2
 
@@ -91,24 +92,19 @@ func (a *Application) createBeaconInstance(ctx context.Context, log logrus.Field
 		}
 	}
 
-	// For now, enable subnet mismatch detection by default
-	// TODO: Add this to the config file structure
-	config.SubnetMismatchDetection.Enabled = true
-	config.SubnetMismatchDetection.DetectionWindow = 2   // 2 slots for testing
-	config.SubnetMismatchDetection.MismatchThreshold = 2 // Lower threshold for testing
-
-	// Create topic configuration and manager
-	topicConfig := &ethereum.TopicConfig{
+	// Create topic configuration and manager.
+	topicManager := ethereum.NewTopicManager(log, &ethereum.TopicConfig{
+		AllTopics:               ethereum.GetDefaultAllTopics(),
+		OptInTopics:             ethereum.GetOptInTopics(),
 		AttestationEnabled:      config.AttestationSubnetConfig.Enabled,
 		AttestationMaxSubnets:   config.AttestationSubnetConfig.MaxSubnets,
 		MismatchEnabled:         config.SubnetMismatchDetection.Enabled,
 		MismatchDetectionWindow: int(config.SubnetMismatchDetection.DetectionWindow),
 		MismatchThreshold:       int(config.SubnetMismatchDetection.MismatchThreshold),
 		MismatchCooldown:        time.Duration(config.SubnetMismatchDetection.CooldownSeconds) * time.Second,
-	}
-	topicManager := ethereum.NewTopicManager(log, ethereum.GetDefaultAllTopics(), ethereum.GetOptInTopics(), topicConfig)
+	})
 
-	// Check for attestation subnet participation if enabled
+	// Check for attestation subnet participation if enabled.
 	var activeSubnets []int
 
 	if config.AttestationSubnetConfig.Enabled {

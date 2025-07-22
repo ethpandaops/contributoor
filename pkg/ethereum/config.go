@@ -39,8 +39,8 @@ func NewDefaultConfig() *Config {
 		},
 		SubnetMismatchDetection: &configv1.SubnetMismatchDetection{
 			Enabled:           false,
-			DetectionWindow:   32,
-			MismatchThreshold: 3,
+			DetectionWindow:   2,
+			MismatchThreshold: 2,
 			CooldownSeconds:   300,
 		},
 	}

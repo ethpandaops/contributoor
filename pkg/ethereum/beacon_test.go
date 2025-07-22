@@ -106,12 +106,14 @@ func TestBeaconWrapper_IsActiveSubnet(t *testing.T) {
 
 			// Create topic config
 			topicConfig := &TopicConfig{
+				AllTopics:             GetDefaultAllTopics(),
+				OptInTopics:           GetOptInTopics(),
 				AttestationEnabled:    true,
 				AttestationMaxSubnets: 64,
 			}
 
 			// Create topic manager
-			topicMgr := NewTopicManager(log, defaultAllTopics, optInTopics, topicConfig)
+			topicMgr := NewTopicManager(log, topicConfig)
 
 			// Set advertised subnets
 			topicMgr.SetAdvertisedSubnets(tt.activeSubnets)
