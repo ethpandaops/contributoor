@@ -9,10 +9,19 @@ import (
 	"time"
 
 	"github.com/ethpandaops/contributoor/internal/events"
+	"github.com/ethpandaops/contributoor/internal/sinks"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
+
+// beaconComponents holds all the components needed for a beacon instance.
+type beaconComponents struct {
+	cache   *events.DuplicateCache
+	metrics *events.Metrics
+	summary *events.Summary
+	sinks   []sinks.ContributoorSink
+}
 
 // initBeacons initializes all beacon node instances from the configuration.
 func (a *Application) initBeacons(ctx context.Context) error {
@@ -49,8 +58,67 @@ func (a *Application) initBeacons(ctx context.Context) error {
 }
 
 // createBeaconInstance creates a single beacon node instance with all its components.
-func (a *Application) createBeaconInstance(ctx context.Context, log logrus.FieldLogger, address, traceID string, excludedTopics []string) (*BeaconNodeInstance, error) {
-	// Create components.
+func (a *Application) createBeaconInstance(
+	ctx context.Context,
+	log logrus.FieldLogger,
+	address, traceID string,
+	excludedTopics []string,
+) (*BeaconNodeInstance, error) {
+	// Create components.,
+	components, err := a.createBeaconComponents(ctx, log, traceID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create beacon configuration.
+	config := a.createBeaconConfig(address)
+
+	// Create and configure topic manager.
+	topicManager, err := a.createTopicManager(ctx, log, config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure beacon factory exists
+	if a.beaconFactory == nil {
+		a.beaconFactory = ethereum.NewBeaconFactory(log, a.clockDrift)
+	}
+
+	// Create beacon using factory
+	beaconOpts := &ethereum.BeaconOptions{
+		TraceID:       traceID,
+		Config:        config,
+		Sinks:         components.sinks,
+		Cache:         components.cache,
+		Summary:       components.summary,
+		Metrics:       components.metrics,
+		TopicManager:  topicManager,
+		ExcludeTopics: excludedTopics,
+	}
+
+	node, err := a.beaconFactory.CreateBeacon(ctx, beaconOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create beacon: %w", err)
+	}
+
+	return &BeaconNodeInstance{
+		Node:          node,
+		Cache:         components.cache,
+		Sinks:         components.sinks,
+		Metrics:       components.metrics,
+		Summary:       components.summary,
+		Address:       address,
+		TopicManager:  topicManager,
+		log:           log,
+		traceID:       traceID,
+		app:           a,
+		stopMonitor:   make(chan struct{}),
+		summaryCancel: nil, // Will be set when the summary starts.
+	}, nil
+}
+
+// createBeaconComponents creates all the necessary parts for a beacon instance.
+func (a *Application) createBeaconComponents(ctx context.Context, log logrus.FieldLogger, traceID string) (*beaconComponents, error) {
 	cache, err := a.initCache()
 	if err != nil {
 		return nil, fmt.Errorf("failed to init cache: %w", err)
@@ -66,24 +134,30 @@ func (a *Application) createBeaconInstance(ctx context.Context, log logrus.Field
 		return nil, fmt.Errorf("failed to init summary: %w", err)
 	}
 
-	sinks, err := a.initSinks(ctx, log, traceID)
+	allSinks, err := a.initSinks(ctx, log, traceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init sinks: %w", err)
 	}
 
-	// Create beacon configuration.
-	var networkOverride string
-	if a.config.NetworkName != "" {
-		networkOverride = a.config.NetworkName
-	}
+	return &beaconComponents{
+		cache:   cache,
+		metrics: metrics,
+		summary: summary,
+		sinks:   allSinks,
+	}, nil
+}
 
+// createBeaconConfig creates the configuration for a beacon node.
+func (a *Application) createBeaconConfig(address string) *ethereum.Config {
 	config := ethereum.NewDefaultConfig()
 	config.BeaconNodeAddress = address
-	config.NetworkOverride = networkOverride
+
+	if a.config.NetworkName != "" {
+		config.NetworkOverride = a.config.NetworkName
+	}
 
 	// Apply attestation subnet configuration if present.
 	if a.config.AttestationSubnetCheck != nil {
-		config.SubnetMismatchDetection.Enabled = a.config.AttestationSubnetCheck.Enabled
 		config.AttestationSubnetConfig.Enabled = a.config.AttestationSubnetCheck.Enabled
 		config.AttestationSubnetConfig.MaxSubnets = 2
 
@@ -92,27 +166,28 @@ func (a *Application) createBeaconInstance(ctx context.Context, log logrus.Field
 		}
 	}
 
-	// Create topic configuration and manager.
+	return config
+}
+
+// createTopicManager creates and configures a topic manager for the beacon node.
+func (a *Application) createTopicManager(ctx context.Context, log logrus.FieldLogger, config *ethereum.Config) (ethereum.TopicManager, error) {
 	topicManager := ethereum.NewTopicManager(log, &ethereum.TopicConfig{
 		AllTopics:               ethereum.GetDefaultAllTopics(),
 		OptInTopics:             ethereum.GetOptInTopics(),
 		AttestationEnabled:      config.AttestationSubnetConfig.Enabled,
 		AttestationMaxSubnets:   config.AttestationSubnetConfig.MaxSubnets,
-		MismatchEnabled:         config.SubnetMismatchDetection.Enabled,
-		MismatchDetectionWindow: int(config.SubnetMismatchDetection.DetectionWindow),
-		MismatchThreshold:       int(config.SubnetMismatchDetection.MismatchThreshold),
-		MismatchCooldown:        time.Duration(config.SubnetMismatchDetection.CooldownSeconds) * time.Second,
+		MismatchDetectionWindow: config.AttestationSubnetConfig.MismatchDetectionWindow,
+		MismatchThreshold:       config.AttestationSubnetConfig.MismatchThreshold,
+		MismatchCooldown:        time.Duration(config.AttestationSubnetConfig.MismatchCooldownSeconds) * time.Second,
 	})
 
-	// Check for attestation subnet participation if enabled.
-	var activeSubnets []int
-
+	// Check for attestation subnet participation if enabled
 	if config.AttestationSubnetConfig.Enabled {
 		identity := ethereum.NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
-		if ierr := identity.Start(ctx); ierr != nil {
-			log.WithError(ierr).Warn("Failed to fetch node identity")
+		if err := identity.Start(ctx); err != nil {
+			log.WithError(err).Warn("Failed to fetch node identity")
 		} else {
-			activeSubnets = identity.GetAttnets()
+			activeSubnets := identity.GetAttnets()
 			topicManager.RegisterCondition(
 				ethereum.TopicSingleAttestation,
 				ethereum.CreateAttestationSubnetCondition(len(activeSubnets), config.AttestationSubnetConfig.MaxSubnets),
@@ -121,42 +196,7 @@ func (a *Application) createBeaconInstance(ctx context.Context, log logrus.Field
 		}
 	}
 
-	// Create beacon factory if not already created
-	if a.beaconFactory == nil {
-		a.beaconFactory = ethereum.NewBeaconFactory(log, a.clockDrift)
-	}
-
-	// Create beacon using factory
-	beaconOpts := &ethereum.BeaconOptions{
-		TraceID:       traceID,
-		Config:        config,
-		Sinks:         sinks,
-		Cache:         cache,
-		Summary:       summary,
-		Metrics:       metrics,
-		TopicManager:  topicManager,
-		ExcludeTopics: excludedTopics,
-	}
-
-	node, err := a.beaconFactory.CreateBeacon(ctx, beaconOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create beacon: %w", err)
-	}
-
-	return &BeaconNodeInstance{
-		Node:          node,
-		Cache:         cache,
-		Sinks:         sinks,
-		Metrics:       metrics,
-		Summary:       summary,
-		Address:       address,
-		TopicManager:  topicManager,
-		log:           log,
-		traceID:       traceID,
-		app:           a,
-		stopMonitor:   make(chan struct{}),
-		summaryCancel: nil, // Will be set when summary starts
-	}, nil
+	return topicManager, nil
 }
 
 // initCache creates a new duplicate event cache.

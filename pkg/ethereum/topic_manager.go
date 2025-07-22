@@ -39,8 +39,6 @@ type TopicConfig struct {
 	AttestationEnabled bool
 	// AttestationMaxSubnets is the max subnets before disabling single_attestation.
 	AttestationMaxSubnets int
-	// MismatchEnabled controls if mismatch detection is enabled.
-	MismatchEnabled bool
 	// MismatchDetectionWindow is the number of slots to track.
 	MismatchDetectionWindow int
 	// MismatchThreshold is the number of mismatches before reconnection.
@@ -102,7 +100,7 @@ func NewTopicManager(log logrus.FieldLogger, config *TopicConfig) TopicManager {
 		detectionWindow:   cfg.MismatchDetectionWindow,
 		mismatchThreshold: cfg.MismatchThreshold,
 		cooldownPeriod:    cfg.MismatchCooldown,
-		mismatchEnabled:   cfg.MismatchEnabled,
+		mismatchEnabled:   cfg.AttestationEnabled, // Mismatch detection is enabled when attestation is enabled
 		reconnectChan:     make(chan struct{}),
 	}
 }
@@ -332,7 +330,6 @@ func getDefaultTopicConfig() *TopicConfig {
 		OptInTopics:             []string{},
 		AttestationEnabled:      false,
 		AttestationMaxSubnets:   0,
-		MismatchEnabled:         false,
 		MismatchDetectionWindow: 32,
 		MismatchThreshold:       3,
 		MismatchCooldown:        5 * time.Minute,

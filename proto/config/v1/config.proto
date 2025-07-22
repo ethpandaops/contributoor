@@ -61,8 +61,6 @@ message Config {
   string health_check_address = 11;
   // AttestationSubnetCheck controls attestation subnet-based subscription filtering.
   AttestationSubnetCheck attestation_subnet_check = 12;
-  // SubnetMismatchDetection controls subnet mismatch detection and reconnection.
-  SubnetMismatchDetection subnet_mismatch_detection = 13;
 }
 
 // AttestationSubnetCheck represents configuration for attestation subnet checking.
@@ -74,20 +72,6 @@ message AttestationSubnetCheck {
   uint32 max_subnets = 2 [(buf.validate.field).uint32 = { lte: 64 }];
 }
 
-// SubnetMismatchDetection controls subnet mismatch detection for attestation topics.
-message SubnetMismatchDetection {
-  // Enable or disable subnet mismatch detection
-  bool enabled = 1;
-  
-  // Number of slots to track for subnet activity (default: 32)
-  uint32 detection_window = 2 [(buf.validate.field).uint32 = { gte: 1, lte: 64 }];
-  
-  // Number of mismatches required before triggering reconnection (default: 3)
-  uint32 mismatch_threshold = 3 [(buf.validate.field).uint32 = { gte: 1, lte: 10 }];
-  
-  // Cooldown period between reconnections in seconds (default: 300 = 5 minutes)
-  uint32 cooldown_seconds = 4 [(buf.validate.field).uint32 = { gte: 60, lte: 3600 }];
-}
 
 // OutputServer represents configuration for the output server.
 message OutputServer {

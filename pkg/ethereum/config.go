@@ -2,8 +2,6 @@ package ethereum
 
 import (
 	"errors"
-
-	configv1 "github.com/ethpandaops/contributoor/pkg/config/v1"
 )
 
 const defaultMaxSubnets = 2
@@ -18,30 +16,31 @@ type Config struct {
 	NetworkOverride string `yaml:"networkOverride,omitempty"`
 	// AttestationSubnetConfig controls attestation subnet-based subscription filtering.
 	AttestationSubnetConfig SubnetConfig `yaml:"attestationSubnet"`
-	// SubnetMismatchDetection controls subnet mismatch detection and reconnection.
-	SubnetMismatchDetection *configv1.SubnetMismatchDetection `yaml:"subnetMismatchDetection"`
 }
 
-// SubnetConfig controls subnet-based subscription filtering.
+// SubnetConfig controls subnet-based subscription filtering and mismatch detection.
 type SubnetConfig struct {
 	// Enabled controls whether to check subnet participation at startup.
 	Enabled bool `yaml:"enabled"`
 	// MaxSubnets is the maximum number of subnets the node participates in.
 	MaxSubnets int `yaml:"maxSubnets"`
+	// MismatchDetectionWindow is the number of slots to track for subnet activity.
+	MismatchDetectionWindow int `yaml:"mismatchDetectionWindow"`
+	// MismatchThreshold is the number of mismatches required before triggering reconnection.
+	MismatchThreshold int `yaml:"mismatchThreshold"`
+	// MismatchCooldownSeconds is the cooldown period between reconnections in seconds.
+	MismatchCooldownSeconds int `yaml:"mismatchCooldownSeconds"`
 }
 
 // NewDefaultConfig returns a new config with default values.
 func NewDefaultConfig() *Config {
 	return &Config{
 		AttestationSubnetConfig: SubnetConfig{
-			Enabled:    false,
-			MaxSubnets: defaultMaxSubnets,
-		},
-		SubnetMismatchDetection: &configv1.SubnetMismatchDetection{
-			Enabled:           false,
-			DetectionWindow:   2,
-			MismatchThreshold: 2,
-			CooldownSeconds:   300,
+			Enabled:                 false,
+			MaxSubnets:              defaultMaxSubnets,
+			MismatchDetectionWindow: 2,   // 2 slots for testing
+			MismatchThreshold:       2,   // Lower threshold for testing
+			MismatchCooldownSeconds: 300, // 5 minutes
 		},
 	}
 }
@@ -55,20 +54,6 @@ func (c *Config) Validate() error {
 	if c.AttestationSubnetConfig.Enabled {
 		if c.AttestationSubnetConfig.MaxSubnets < 0 || c.AttestationSubnetConfig.MaxSubnets > 64 {
 			return errors.New("attestationSubnet.maxSubnets must be between 0 and 64 (inclusive)")
-		}
-	}
-
-	if c.SubnetMismatchDetection != nil && c.SubnetMismatchDetection.Enabled {
-		if c.SubnetMismatchDetection.DetectionWindow < 1 || c.SubnetMismatchDetection.DetectionWindow > 64 {
-			return errors.New("subnetMismatchDetection.detectionWindow must be between 1 and 64 (inclusive)")
-		}
-
-		if c.SubnetMismatchDetection.MismatchThreshold < 1 {
-			return errors.New("subnetMismatchDetection.mismatchThreshold must be at least 1")
-		}
-
-		if c.SubnetMismatchDetection.CooldownSeconds < 1 {
-			return errors.New("subnetMismatchDetection.cooldownSeconds must be at least 1")
 		}
 	}
 
