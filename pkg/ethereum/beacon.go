@@ -114,16 +114,21 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		if w.isHealthy.CompareAndSwap(false, true) {
 			w.log.WithField("trace_id", w.traceID).Info("Beacon node connection restored")
 
-			// Upon reconnection, check the node's identity again to check attents the nodes participating in.
-			// TODO: We need to compare w.activeSubnets[] with identity.GetAttnets(). If they are different
-			// we need to stop/start the beacon node somehow. The idea is that it runs through NewBeaconWrapper
-			// again, so it subscribes to the correct participating attnets. Or something similar, i don't
-			// know if that is the right approach yet? It might need to happen further up the stack in
-			// initBeacons() maybe?
-			if w.config.AttestationSubnetConfig.Enabled {
+			// Upon reconnection, check if the node's attestation subnets have changed
+			if w.config.AttestationSubnetConfig.Enabled && w.topicManager != nil {
 				identity := NewNodeIdentity(w.log, w.config.BeaconNodeAddress, w.config.BeaconNodeHeaders)
 				if err := identity.Start(ctx); err != nil {
-					w.log.WithError(err).Warn("Failed to fetch node identity")
+					w.log.WithError(err).Warn("Failed to fetch node identity on reconnection")
+				} else {
+					newSubnets := identity.GetAttnets()
+
+					// Update the topic manager with the current subnets
+					// If these differ from what the beacon was previously advertising,
+					// the mismatch detection will catch it when we receive attestations
+					// from the old subnets that are no longer advertised
+					w.topicManager.SetAdvertisedSubnets(newSubnets)
+
+					w.log.WithField("subnets", newSubnets).Info("Updated attestation subnets after reconnection")
 				}
 			}
 		}
