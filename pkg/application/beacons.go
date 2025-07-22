@@ -37,7 +37,7 @@ func (a *Application) initBeacons(ctx context.Context) error {
 
 		logCtx := a.log.WithField("trace_id", traceID)
 
-		instance, err := a.createBeaconInstance(ctx, address, traceID, logCtx)
+		instance, err := a.createBeaconInstance(ctx, logCtx, address, traceID, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create beacon instance: %w", err)
 		}
@@ -49,12 +49,7 @@ func (a *Application) initBeacons(ctx context.Context) error {
 }
 
 // createBeaconInstance creates a single beacon node instance with all its components.
-func (a *Application) createBeaconInstance(ctx context.Context, address, traceID string, log logrus.FieldLogger) (*BeaconNodeInstance, error) {
-	return a.createBeaconInstanceWithOptions(ctx, address, traceID, log, nil)
-}
-
-// createBeaconInstanceWithOptions creates a beacon instance with optional excluded topics.
-func (a *Application) createBeaconInstanceWithOptions(ctx context.Context, address, traceID string, log logrus.FieldLogger, excludedTopics []string) (*BeaconNodeInstance, error) {
+func (a *Application) createBeaconInstance(ctx context.Context, log logrus.FieldLogger, address, traceID string, excludedTopics []string) (*BeaconNodeInstance, error) {
 	// Create components
 	cache, err := a.initCache()
 	if err != nil {
@@ -244,7 +239,7 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 	excludedTopics := []string{ethereum.TopicSingleAttestation}
 
 	// Create new beacon instance with excluded topics.
-	newInstance, err := b.app.createBeaconInstanceWithOptions(ctx, b.Address, newTraceID, b.log, excludedTopics)
+	newInstance, err := b.app.createBeaconInstance(ctx, b.log, b.Address, newTraceID, excludedTopics)
 	if err != nil {
 		b.log.WithError(err).Error("Failed to create new beacon instance")
 
