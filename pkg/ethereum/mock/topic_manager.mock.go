@@ -12,6 +12,7 @@ package mock
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	phase0 "github.com/attestantio/go-eth2-client/spec/phase0"
 	ethereum "github.com/ethpandaops/contributoor/pkg/ethereum"
@@ -52,6 +53,20 @@ func (m *MockTopicManager) ExcludeTopic(topic string) {
 func (mr *MockTopicManagerMockRecorder) ExcludeTopic(topic any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExcludeTopic", reflect.TypeOf((*MockTopicManager)(nil).ExcludeTopic), topic)
+}
+
+// GetCooldownPeriod mocks base method.
+func (m *MockTopicManager) GetCooldownPeriod() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCooldownPeriod")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// GetCooldownPeriod indicates an expected call of GetCooldownPeriod.
+func (mr *MockTopicManagerMockRecorder) GetCooldownPeriod() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCooldownPeriod", reflect.TypeOf((*MockTopicManager)(nil).GetCooldownPeriod))
 }
 
 // GetEnabledTopics mocks base method.

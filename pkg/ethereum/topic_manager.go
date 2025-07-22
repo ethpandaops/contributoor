@@ -29,6 +29,7 @@ type TopicManager interface {
 	IsActiveSubnet(subnetID uint64) bool
 	NeedsReconnection() <-chan struct{}
 	ResetAfterReconnection()
+	GetCooldownPeriod() time.Duration
 }
 
 // TopicConfig configures topic manager behavior including subnet tracking.
@@ -286,6 +287,14 @@ func (tm *topicManager) ResetAfterReconnection() {
 	// Create new channel for future reconnections
 	tm.reconnectChan = make(chan struct{})
 	tm.reconnectOnce = sync.Once{}
+}
+
+// GetCooldownPeriod returns the configured cooldown period between reconnections.
+func (tm *topicManager) GetCooldownPeriod() time.Duration {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	return tm.cooldownPeriod
 }
 
 // checkForMismatch checks if there's a subnet mismatch (must be called with lock held).

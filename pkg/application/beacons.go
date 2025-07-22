@@ -200,9 +200,11 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 	b.reconnectMutex.Lock()
 	defer b.reconnectMutex.Unlock()
 
-	// Check cooldown period
-	// TODO: In the future, we could get this from TopicManager config
-	cooldownPeriod := 5 * time.Minute
+	// Check cooldown period from TopicManager configuration
+	cooldownPeriod := 5 * time.Minute // default fallback
+	if b.TopicManager != nil {
+		cooldownPeriod = b.TopicManager.GetCooldownPeriod()
+	}
 
 	if time.Since(b.lastReconnect) < cooldownPeriod {
 		b.log.Debug("Skipping reconnection due to cooldown period")
