@@ -155,8 +155,6 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 					// the mismatch detection will catch it when we receive attestations
 					// from the old subnets that are no longer advertised
 					w.topicManager.SetAdvertisedSubnets(newSubnets)
-
-					w.log.WithField("subnets", newSubnets).Info("Updated attestation subnets after reconnection")
 				}
 			}
 		}
