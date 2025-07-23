@@ -84,8 +84,9 @@ func (n *nodeIdentity) Start(ctx context.Context) error {
 	n.mu.Unlock()
 
 	n.log.WithFields(logrus.Fields{
-		"peer_id": identity.PeerID,
-		"attnets": n.GetAttnets(),
+		"peer_id":     identity.PeerID,
+		"attnets":     n.GetAttnets(),
+		"attnets_hex": identity.Metadata.Attnets,
 	}).Info("Node identity fetched successfully")
 
 	return nil
@@ -105,7 +106,7 @@ func (n *nodeIdentity) GetAttnets() []int {
 		return nil
 	}
 
-	subnets, err := parseAttnetsBitmask(n.identity.Metadata.Attnets)
+	subnets, err := ParseAttnetsBitmask(n.identity.Metadata.Attnets)
 	if err != nil {
 		n.log.WithError(err).Warn("Failed to parse attnets bitmask")
 
@@ -153,8 +154,12 @@ func (n *nodeIdentity) fetchIdentity(ctx context.Context) (*NodeIdentityData, er
 	return &identityResp.Data, nil
 }
 
-// parseAttnetsBitmask returns active subnet ids from the attnets hex string.
-func parseAttnetsBitmask(attnets string) ([]int, error) {
+// ParseAttnetsBitmask parses the attnets hex string into a slice of active subnet IDs.
+// Each bit in the attnets bitfield corresponds to a subnet (0–63), with bits ordered LSB-first.
+// That is, bit 0 of byte 0 = subnet 0, bit 7 of byte 0 = subnet 7, bit 0 of byte 1 = subnet 8, etc.
+// Do not incorrectly treat bits as MSB-first (bit 7 first), this will result in the subnet IDs
+// and cause you a world of fucking pain.
+func ParseAttnetsBitmask(attnets string) ([]int, error) {
 	attnets = strings.TrimPrefix(attnets, "0x")
 
 	bytes, err := hex.DecodeString(attnets)
@@ -164,19 +169,13 @@ func parseAttnetsBitmask(attnets string) ([]int, error) {
 
 	var activeSubnets []int
 
-	maxBytes := len(bytes)
-	if maxBytes > 8 {
-		maxBytes = 8
-	}
-
-	for byteIdx := 0; byteIdx < maxBytes; byteIdx++ {
+	// Max 64 subnets = 8 bytes
+	for byteIdx := 0; byteIdx < len(bytes) && byteIdx < 8; byteIdx++ {
 		b := bytes[byteIdx]
 		for bit := 0; bit < 8; bit++ {
-			if b&(1<<(7-bit)) != 0 {
+			if b&(1<<bit) != 0 {
 				subnetID := byteIdx*8 + bit
-				if subnetID < 64 {
-					activeSubnets = append(activeSubnets, subnetID)
-				}
+				activeSubnets = append(activeSubnets, subnetID)
 			}
 		}
 	}
