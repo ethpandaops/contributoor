@@ -255,7 +255,7 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 	// Signal monitoring goroutines to stop
 	close(b.stopMonitor)
 
-	// Stop the current beacon node
+	// Stop the current beacon node (this will also stop all sinks via BeaconWrapper.Stop())
 	if err := b.Node.Stop(ctx); err != nil {
 		b.log.WithError(err).Error("Failed to stop beacon node")
 	}
@@ -271,6 +271,7 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 	// Create a new beacon node without single_attestation.
 	// Use a modified traceID to avoid metrics collision.
 	newTraceID := fmt.Sprintf("%s-nosub", b.traceID)
+	b.log = b.log.WithField("trace_id", newTraceID)
 
 	// Exclude single_attestation topic when creating new beacon.
 	excludedTopics := []string{ethereum.TopicSingleAttestation}
@@ -295,6 +296,8 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 	b.Metrics = newInstance.Metrics
 	b.Summary = newInstance.Summary
 	b.TopicManager = newInstance.TopicManager
+	b.Sinks = newInstance.Sinks
+	b.Cache = newInstance.Cache
 	b.traceID = newTraceID
 	b.lastReconnect = time.Now()
 
@@ -303,8 +306,8 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 	b.summaryCancel = nil // Will be set when summary starts.
 
 	// Clean up old components that are no longer needed.
-	// The old Cache and Sinks are reused, so we don't stop them.
 	// The old Node, Metrics, and Summary have been replaced.
+	// The old Sinks have been stopped and replaced with new ones.
 	_ = oldNode
 	_ = oldMetrics
 	_ = oldSummary
