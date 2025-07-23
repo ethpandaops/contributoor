@@ -30,6 +30,10 @@ type SubnetConfig struct {
 	MismatchThreshold int `yaml:"mismatchThreshold"`
 	// MismatchCooldownSeconds is the cooldown period between reconnections in seconds.
 	MismatchCooldownSeconds int `yaml:"mismatchCooldownSeconds"`
+	// SubnetHighWaterMark allows temporary participation in additional subnets
+	// without triggering a restart. This accommodates validators temporarily
+	// joining subnets to submit attestations while protecting privacy.
+	SubnetHighWaterMark int `yaml:"subnetHighWaterMark"`
 }
 
 // NewDefaultConfig returns a new config with default values.
@@ -41,6 +45,7 @@ func NewDefaultConfig() *Config {
 			MismatchDetectionWindow: 2,   // 2 slots for testing
 			MismatchThreshold:       2,   // Lower threshold for testing
 			MismatchCooldownSeconds: 300, // 5 minutes
+			SubnetHighWaterMark:     5,   // Allow up to 5 additional temporary subnets
 		},
 	}
 }

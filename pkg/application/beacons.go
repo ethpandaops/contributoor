@@ -179,6 +179,7 @@ func (a *Application) createTopicManager(ctx context.Context, log logrus.FieldLo
 		MismatchDetectionWindow: config.AttestationSubnetConfig.MismatchDetectionWindow,
 		MismatchThreshold:       config.AttestationSubnetConfig.MismatchThreshold,
 		MismatchCooldown:        time.Duration(config.AttestationSubnetConfig.MismatchCooldownSeconds) * time.Second,
+		SubnetHighWaterMark:     config.AttestationSubnetConfig.SubnetHighWaterMark,
 	})
 
 	// Check for attestation subnet participation if enabled
