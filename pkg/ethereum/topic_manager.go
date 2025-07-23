@@ -27,6 +27,8 @@ type TopicManager interface {
 	NeedsReconnection() <-chan struct{}
 	ResetAfterReconnection()
 	GetCooldownPeriod() time.Duration
+	StartSubnetRefresh(ctx context.Context, refreshInterval time.Duration, nodeIdentityFetcher func() []int)
+	StopSubnetRefresh()
 }
 
 // TopicConfig configures topic manager behavior including subnet tracking.
@@ -79,6 +81,9 @@ type topicManager struct {
 	// Reconnection signaling.
 	reconnectChan chan struct{}
 	reconnectOnce sync.Once
+
+	// Subnet refresh.
+	refreshCancel context.CancelFunc
 }
 
 // NewTopicManager creates a new topic manager with subnet configuration.
@@ -186,7 +191,7 @@ func (tm *topicManager) SetAdvertisedSubnets(subnets []int) {
 	defer tm.mu.Unlock()
 
 	tm.advertisedSubnets = subnets
-	tm.log.WithField("subnets", subnets).Debug("Set advertised attestation subnets")
+	tm.log.WithField("subnets", subnets).Info("Set advertised attestation subnets")
 }
 
 // RecordAttestation records an attestation for subnet tracking.
@@ -229,6 +234,7 @@ func (tm *topicManager) RecordAttestation(subnetID uint64, slot phase0.Slot) {
 			"threshold":          tm.mismatchThreshold,
 			"advertised_subnets": tm.advertisedSubnets,
 			"seen_subnets":       tm.getSeenSubnetsList(),
+			"slot":               slot,
 		}).Warn("Subnet mismatch detected")
 
 		if tm.mismatchCount >= tm.mismatchThreshold {
@@ -338,6 +344,74 @@ func (tm *topicManager) getSeenSubnetsList() []uint64 {
 	}
 
 	return subnets
+}
+
+// StartSubnetRefresh starts periodic refresh of advertised subnets.
+func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval time.Duration, nodeIdentityFetcher func() []int) {
+	tm.mu.Lock()
+	// Cancel any existing refresh goroutine
+	if tm.refreshCancel != nil {
+		tm.refreshCancel()
+	}
+
+	// Create new context for this refresh goroutine
+	refreshCtx, cancel := context.WithCancel(ctx)
+	tm.refreshCancel = cancel
+	tm.mu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(refreshInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-refreshCtx.Done():
+				return
+			case <-ticker.C:
+				// Fetch current subnets
+				newSubnets := nodeIdentityFetcher()
+				if newSubnets != nil {
+					// Check if subnets have changed
+					tm.mu.Lock()
+					changed := false
+
+					if len(newSubnets) != len(tm.advertisedSubnets) {
+						changed = true
+					} else {
+						for i, subnet := range newSubnets {
+							if i >= len(tm.advertisedSubnets) || subnet != tm.advertisedSubnets[i] {
+								changed = true
+
+								break
+							}
+						}
+					}
+
+					if changed {
+						tm.log.WithFields(logrus.Fields{
+							"old_subnets": tm.advertisedSubnets,
+							"new_subnets": newSubnets,
+						}).Info("Advertised subnets changed, updating")
+
+						tm.advertisedSubnets = newSubnets
+					}
+
+					tm.mu.Unlock()
+				}
+			}
+		}
+	}()
+}
+
+// StopSubnetRefresh stops the periodic refresh of advertised subnets.
+func (tm *topicManager) StopSubnetRefresh() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	if tm.refreshCancel != nil {
+		tm.refreshCancel()
+		tm.refreshCancel = nil
+	}
 }
 
 // getDefaultTopicConfig returns a TopicConfig with default values.

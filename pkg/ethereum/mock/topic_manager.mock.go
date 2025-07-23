@@ -186,3 +186,27 @@ func (mr *MockTopicManagerMockRecorder) ShouldSubscribe(ctx, topic any) *gomock.
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSubscribe", reflect.TypeOf((*MockTopicManager)(nil).ShouldSubscribe), ctx, topic)
 }
+
+// StartSubnetRefresh mocks base method.
+func (m *MockTopicManager) StartSubnetRefresh(ctx context.Context, refreshInterval time.Duration, nodeIdentityFetcher func() []int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StartSubnetRefresh", ctx, refreshInterval, nodeIdentityFetcher)
+}
+
+// StartSubnetRefresh indicates an expected call of StartSubnetRefresh.
+func (mr *MockTopicManagerMockRecorder) StartSubnetRefresh(ctx, refreshInterval, nodeIdentityFetcher any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartSubnetRefresh", reflect.TypeOf((*MockTopicManager)(nil).StartSubnetRefresh), ctx, refreshInterval, nodeIdentityFetcher)
+}
+
+// StopSubnetRefresh mocks base method.
+func (m *MockTopicManager) StopSubnetRefresh() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StopSubnetRefresh")
+}
+
+// StopSubnetRefresh indicates an expected call of StopSubnetRefresh.
+func (mr *MockTopicManagerMockRecorder) StopSubnetRefresh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopSubnetRefresh", reflect.TypeOf((*MockTopicManager)(nil).StopSubnetRefresh))
+}

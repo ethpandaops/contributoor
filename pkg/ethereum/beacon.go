@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync/atomic"
+	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/electra"
@@ -65,13 +66,40 @@ func (w *BeaconWrapper) Start(ctx context.Context) error {
 	}
 
 	// The upstream Start() is now blocking and waits until the node is ready.
-	return w.BeaconNode.Start(ctx)
+	if err := w.BeaconNode.Start(ctx); err != nil {
+		return err
+	}
+
+	// Start subnet refresh if attestation subnet tracking is enabled
+	if w.config.AttestationSubnetConfig.Enabled && w.topicManager != nil {
+		// Create a fetcher function that gets the current attnets
+		fetcher := func() []int {
+			identity := NewNodeIdentity(w.log, w.config.BeaconNodeAddress, w.config.BeaconNodeHeaders)
+			if err := identity.Start(ctx); err != nil {
+				w.log.WithError(err).Debug("Failed to fetch node identity during refresh")
+
+				return nil
+			}
+
+			return identity.GetAttnets()
+		}
+
+		// Start refreshing every 30 seconds
+		w.topicManager.StartSubnetRefresh(ctx, 30*time.Second, fetcher)
+	}
+
+	return nil
 }
 
 // Stop to handle sink lifecycle.
 func (w *BeaconWrapper) Stop(ctx context.Context) error {
 	// Mark as unhealthy to prevent health check logs
 	w.isHealthy.Store(false)
+
+	// Stop subnet refresh if it's running
+	if w.topicManager != nil {
+		w.topicManager.StopSubnetRefresh()
+	}
 
 	// Stop upstream first.
 	if err := w.BeaconNode.Stop(ctx); err != nil {
