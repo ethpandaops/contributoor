@@ -71,10 +71,11 @@ type topicManager struct {
 	trackingStartSlot phase0.Slot
 
 	// Configuration.
-	detectionWindow   int
-	mismatchThreshold int
-	cooldownPeriod    time.Duration
-	highWaterMark     int
+	detectionWindow       int
+	mismatchThreshold     int
+	cooldownPeriod        time.Duration
+	highWaterMark         int
+	attestationMaxSubnets int
 
 	// Mismatch tracking.
 	mismatchCount    int
@@ -102,19 +103,20 @@ func NewTopicManager(log logrus.FieldLogger, config *TopicConfig) TopicManager {
 	}
 
 	return &topicManager{
-		log:               log.WithField("component", "topic_manager"),
-		allTopics:         cfg.AllTopics,
-		conditions:        make(map[string]TopicCondition),
-		optInTopics:       optInMap,
-		excludedTopics:    make(map[string]bool),
-		selectedSubnet:    -1, // -1 indicates no subnet selected yet
-		seenSubnets:       make(map[uint64]bool),
-		detectionWindow:   cfg.MismatchDetectionWindow,
-		mismatchThreshold: cfg.MismatchThreshold,
-		cooldownPeriod:    cfg.MismatchCooldown,
-		highWaterMark:     cfg.SubnetHighWaterMark,
-		mismatchEnabled:   cfg.AttestationEnabled, // Mismatch detection is enabled when attestation is enabled
-		reconnectChan:     make(chan struct{}),
+		log:                   log.WithField("component", "topic_manager"),
+		allTopics:             cfg.AllTopics,
+		conditions:            make(map[string]TopicCondition),
+		optInTopics:           optInMap,
+		excludedTopics:        make(map[string]bool),
+		selectedSubnet:        -1, // -1 indicates no subnet selected yet
+		seenSubnets:           make(map[uint64]bool),
+		detectionWindow:       cfg.MismatchDetectionWindow,
+		mismatchThreshold:     cfg.MismatchThreshold,
+		cooldownPeriod:        cfg.MismatchCooldown,
+		highWaterMark:         cfg.SubnetHighWaterMark,
+		attestationMaxSubnets: cfg.AttestationMaxSubnets,
+		mismatchEnabled:       cfg.AttestationEnabled, // Mismatch detection is enabled when attestation is enabled
+		reconnectChan:         make(chan struct{}),
 	}
 }
 
@@ -196,25 +198,31 @@ func (tm *topicManager) SetAdvertisedSubnets(subnets []int) {
 
 	tm.advertisedSubnets = subnets
 
-	// Randomly select one subnet to forward events for
-	if len(subnets) > 0 {
-		// Use crypto/rand for secure random selection
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(subnets))))
-		if err != nil {
-			// Fallback to first subnet if random selection fails
-			tm.selectedSubnet = subnets[0]
-			tm.log.WithError(err).Warn("Failed to randomly select subnet, using first subnet")
-		} else {
-			tm.selectedSubnet = subnets[n.Int64()]
-		}
+	// Only select a random subnet if attestations will be enabled
+	// (i.e., when subnet count is within the max threshold)
+	attestationsWillBeEnabled := tm.attestationMaxSubnets > 0 && len(subnets) <= tm.attestationMaxSubnets
 
-		tm.log.WithFields(logrus.Fields{
-			"advertised_subnets": subnets,
-			"selected_subnet":    tm.selectedSubnet,
-		}).Info("Set advertised attestation subnets and selected random subnet for forwarding")
+	if len(subnets) > 0 {
+		if attestationsWillBeEnabled {
+			// Randomly select one subnet to forward events for
+			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(subnets))))
+			if err != nil {
+				tm.selectedSubnet = subnets[0]
+				tm.log.WithError(err).Warn("Failed to randomly select subnet, using first subnet")
+			} else {
+				tm.selectedSubnet = subnets[n.Int64()]
+			}
+
+			tm.log.WithFields(logrus.Fields{
+				"selected_subnet": tm.selectedSubnet,
+			}).Info("Selected random subnet for forwarding")
+		} else {
+			// Attestations won't be enabled due to too many subnets
+			tm.selectedSubnet = -1
+		}
 	} else {
 		tm.selectedSubnet = -1
-		tm.log.WithField("subnets", subnets).Info("Set advertised attestation subnets (none selected for forwarding)")
+		tm.log.WithField("subnets", subnets).Warn("Missing advertised attestation subnets")
 	}
 }
 
@@ -427,7 +435,9 @@ func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval 
 						tm.advertisedSubnets = newSubnets
 
 						// Re-select a random subnet when advertised subnets change
-						if len(newSubnets) > 0 {
+						attestationsWillBeEnabled := tm.attestationMaxSubnets > 0 && len(newSubnets) <= tm.attestationMaxSubnets
+
+						if len(newSubnets) > 0 && attestationsWillBeEnabled {
 							n, err := rand.Int(rand.Reader, big.NewInt(int64(len(newSubnets))))
 							if err != nil {
 								tm.selectedSubnet = newSubnets[0]
@@ -441,6 +451,12 @@ func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval 
 							}).Info("Re-selected random subnet for forwarding")
 						} else {
 							tm.selectedSubnet = -1
+							if len(newSubnets) > 0 && !attestationsWillBeEnabled {
+								tm.log.WithFields(logrus.Fields{
+									"subnet_count": len(newSubnets),
+									"max_subnets":  tm.attestationMaxSubnets,
+								}).Debug("Attestations disabled due to subnet count exceeding threshold")
+							}
 						}
 					}
 

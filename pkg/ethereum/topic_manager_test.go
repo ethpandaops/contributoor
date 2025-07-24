@@ -521,8 +521,12 @@ func TestTopicManager_RandomSubnetSelection(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	// Create a topic manager with default config
-	tm := ethereum.NewTopicManager(log, nil)
+	// Create a topic manager with attestation enabled config
+	config := &ethereum.TopicConfig{
+		AttestationEnabled:    true,
+		AttestationMaxSubnets: 64, // Allow up to 64 subnets
+	}
+	tm := ethereum.NewTopicManager(log, config)
 
 	// Test 1: Setting advertised subnets should select one randomly
 	advertisedSubnets := []int{10, 20, 30, 40}
@@ -554,6 +558,43 @@ func TestTopicManager_RandomSubnetSelection(t *testing.T) {
 	assert.False(t, tm.IsActiveSubnet(43), "Non-advertised subnet should not be active")
 }
 
+func TestTopicManager_TooManySubnetsDisablesSelection(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	// Create a topic manager with a low max subnet threshold
+	config := &ethereum.TopicConfig{
+		AttestationEnabled:    true,
+		AttestationMaxSubnets: 2, // Only allow up to 2 subnets
+	}
+	tm := ethereum.NewTopicManager(log, config)
+
+	// Test 1: Within threshold - should select a subnet
+	tm.SetAdvertisedSubnets([]int{10, 20})
+	activeCount := 0
+	for i := 0; i < 64; i++ {
+		if tm.IsActiveSubnet(uint64(i)) {
+			activeCount++
+		}
+	}
+	assert.Equal(t, 1, activeCount, "Should have exactly one active subnet when within threshold")
+
+	// Test 2: Exceeding threshold - should not select any subnet
+	allSubnets := make([]int, 64)
+	for i := 0; i < 64; i++ {
+		allSubnets[i] = i
+	}
+	tm.SetAdvertisedSubnets(allSubnets)
+
+	for i := 0; i < 64; i++ {
+		assert.False(t, tm.IsActiveSubnet(uint64(i)), "No subnet should be active when count exceeds threshold")
+	}
+
+	// Test 3: Right at threshold - should select a subnet
+	tm.SetAdvertisedSubnets([]int{30})
+	assert.True(t, tm.IsActiveSubnet(30), "Single subnet within threshold should be active")
+}
+
 func TestTopicManager_MismatchDetectionExcludesNotSelectedSubnets(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
@@ -561,6 +602,7 @@ func TestTopicManager_MismatchDetectionExcludesNotSelectedSubnets(t *testing.T) 
 	// Create a topic manager with mismatch detection enabled
 	config := &ethereum.TopicConfig{
 		AttestationEnabled:      true,
+		AttestationMaxSubnets:   2,
 		MismatchDetectionWindow: 10,
 		MismatchThreshold:       1,
 		MismatchCooldown:        100 * time.Millisecond,
