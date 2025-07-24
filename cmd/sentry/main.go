@@ -116,6 +116,30 @@ func main() {
 				Value:    -1, // -1 indicates not set via CLI
 				Required: false,
 			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-mismatch-detection-window",
+				Usage:    "number of slots to track for subnet activity",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-mismatch-threshold",
+				Usage:    "number of mismatches required before triggering reconnection",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-mismatch-cooldown-seconds",
+				Usage:    "cooldown period between reconnections in seconds",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-high-water-mark",
+				Usage:    "number of additional temporary subnets allowed without triggering a restart",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
 			&cli.BoolFlag{
 				Name:     "release",
 				Usage:    "print release and exit",

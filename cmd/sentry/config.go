@@ -258,5 +258,153 @@ func applyAttestationSubnetConfig(cfg *config.Config, c *cli.Context) error {
 		cfg.AttestationSubnetCheck.MaxSubnets = uint32(c.Int("attestation-subnet-max-subnets")) //nolint:gosec // conversion fine.
 	}
 
+	// Handle mismatch detection window
+	if err := applyMismatchDetectionWindow(cfg, c); err != nil {
+		return err
+	}
+
+	// Handle mismatch threshold
+	if err := applyMismatchThreshold(cfg, c); err != nil {
+		return err
+	}
+
+	// Handle mismatch cooldown
+	if err := applyMismatchCooldown(cfg, c); err != nil {
+		return err
+	}
+
+	// Handle subnet high water mark
+	if err := applySubnetHighWaterMark(cfg, c); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// applyMismatchDetectionWindow applies mismatch detection window configuration.
+func applyMismatchDetectionWindow(cfg *config.Config, c *cli.Context) error {
+	// Handle env var
+	if window := os.Getenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MISMATCH_DETECTION_WINDOW"); window != "" {
+		log.Infof("Setting attestation subnet mismatch detection window from env to %s", window)
+
+		windowInt, err := strconv.ParseUint(window, 10, 32)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse attestation subnet mismatch detection window env var")
+		}
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MismatchDetectionWindow = uint32(windowInt)
+	}
+
+	// CLI flag overrides env var
+	if c.Int("attestation-subnet-mismatch-detection-window") >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet mismatch detection window from CLI to %d", c.Int("attestation-subnet-mismatch-detection-window"))
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MismatchDetectionWindow = uint32(c.Int("attestation-subnet-mismatch-detection-window")) //nolint:gosec // conversion fine.
+	}
+
+	return nil
+}
+
+// applyMismatchThreshold applies mismatch threshold configuration.
+func applyMismatchThreshold(cfg *config.Config, c *cli.Context) error {
+	// Handle env var
+	if threshold := os.Getenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MISMATCH_THRESHOLD"); threshold != "" {
+		log.Infof("Setting attestation subnet mismatch threshold from env to %s", threshold)
+
+		thresholdInt, err := strconv.ParseUint(threshold, 10, 32)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse attestation subnet mismatch threshold env var")
+		}
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MismatchThreshold = uint32(thresholdInt)
+	}
+
+	// CLI flag overrides env var
+	if c.Int("attestation-subnet-mismatch-threshold") >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet mismatch threshold from CLI to %d", c.Int("attestation-subnet-mismatch-threshold"))
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MismatchThreshold = uint32(c.Int("attestation-subnet-mismatch-threshold")) //nolint:gosec // conversion fine.
+	}
+
+	return nil
+}
+
+// applyMismatchCooldown applies mismatch cooldown configuration.
+func applyMismatchCooldown(cfg *config.Config, c *cli.Context) error {
+	// Handle env var
+	if cooldown := os.Getenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MISMATCH_COOLDOWN_SECONDS"); cooldown != "" {
+		log.Infof("Setting attestation subnet mismatch cooldown from env to %s seconds", cooldown)
+
+		cooldownInt, err := strconv.ParseUint(cooldown, 10, 32)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse attestation subnet mismatch cooldown env var")
+		}
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MismatchCooldownSeconds = uint32(cooldownInt)
+	}
+
+	// CLI flag overrides env var
+	if c.Int("attestation-subnet-mismatch-cooldown-seconds") >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet mismatch cooldown from CLI to %d seconds", c.Int("attestation-subnet-mismatch-cooldown-seconds"))
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.MismatchCooldownSeconds = uint32(c.Int("attestation-subnet-mismatch-cooldown-seconds")) //nolint:gosec // conversion fine.
+	}
+
+	return nil
+}
+
+// applySubnetHighWaterMark applies subnet high water mark configuration.
+func applySubnetHighWaterMark(cfg *config.Config, c *cli.Context) error {
+	// Handle env var
+	if watermark := os.Getenv("CONTRIBUTOOR_ATTESTATION_SUBNET_HIGH_WATER_MARK"); watermark != "" {
+		log.Infof("Setting attestation subnet high water mark from env to %s", watermark)
+
+		watermarkInt, err := strconv.ParseUint(watermark, 10, 32)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse attestation subnet high water mark env var")
+		}
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.SubnetHighWaterMark = uint32(watermarkInt)
+	}
+
+	// CLI flag overrides env var
+	if c.Int("attestation-subnet-high-water-mark") >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet high water mark from CLI to %d", c.Int("attestation-subnet-high-water-mark"))
+
+		if cfg.AttestationSubnetCheck == nil {
+			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
+		}
+
+		cfg.AttestationSubnetCheck.SubnetHighWaterMark = uint32(c.Int("attestation-subnet-high-water-mark")) //nolint:gosec // conversion fine.
+	}
+
 	return nil
 }
