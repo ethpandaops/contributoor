@@ -4,7 +4,18 @@ import (
 	"errors"
 )
 
-const defaultMaxSubnets = 2
+const (
+	// Max number of subnets acceptable to monitor.
+	defaultMaxSubnets = 2
+	// Number of slots to track to determine a mismatch.
+	defaultMismatchDetectionWindow = 2
+	// Number of times a detection window mismatch needs to trigger before reconnection.
+	defaultMismatchThreshold = 1
+	// Number of seconds post reconnection before another reconnection can potentially occur.
+	defaultMismatchCooldownSeconds = 300 // 5 minutes.
+	// Number of additional events on subnets other than the advetised allowed before mismatch is triggered.
+	subnetHighWaterMark = 5
+)
 
 // Config defines the configuration for the Ethereum beacon node.
 type Config struct {
@@ -42,10 +53,10 @@ func NewDefaultConfig() *Config {
 		AttestationSubnetConfig: SubnetConfig{
 			Enabled:                 false,
 			MaxSubnets:              defaultMaxSubnets,
-			MismatchDetectionWindow: 32,
-			MismatchThreshold:       1,
-			MismatchCooldownSeconds: 300, // 5 minutes
-			SubnetHighWaterMark:     5,   // Allow up to 5 additional temporary subnets
+			MismatchDetectionWindow: defaultMismatchDetectionWindow,
+			MismatchThreshold:       defaultMismatchThreshold,
+			MismatchCooldownSeconds: defaultMismatchCooldownSeconds,
+			SubnetHighWaterMark:     subnetHighWaterMark,
 		},
 	}
 }

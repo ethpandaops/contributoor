@@ -70,6 +70,16 @@ message AttestationSubnetCheck {
   // MaxSubnets is the maximum number of subnets a node can be subscribed to
   // before single_attestation topic is disabled.
   uint32 max_subnets = 2 [(buf.validate.field).uint32 = { lte: 64 }];
+  // MismatchDetectionWindow is the number of slots to track for subnet activity.
+  uint32 mismatch_detection_window = 3;
+  // MismatchThreshold is the number of mismatches required before triggering reconnection.
+  uint32 mismatch_threshold = 4;
+  // MismatchCooldownSeconds is the cooldown period between reconnections in seconds.
+  uint32 mismatch_cooldown_seconds = 5;
+  // SubnetHighWaterMark allows temporary participation in additional subnets
+  // without triggering a restart. This accommodates validators temporarily
+  // joining subnets to submit attestations while protecting privacy.
+  uint32 subnet_high_water_mark = 6;
 }
 
 

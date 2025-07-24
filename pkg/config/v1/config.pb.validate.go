@@ -237,6 +237,14 @@ func (m *AttestationSubnetCheck) validate(all bool) error {
 
 	// no validation rules for MaxSubnets
 
+	// no validation rules for MismatchDetectionWindow
+
+	// no validation rules for MismatchThreshold
+
+	// no validation rules for MismatchCooldownSeconds
+
+	// no validation rules for SubnetHighWaterMark
+
 	if len(errors) > 0 {
 		return AttestationSubnetCheckMultiError(errors)
 	}
