@@ -42,8 +42,8 @@ func NewDefaultConfig() *Config {
 		AttestationSubnetConfig: SubnetConfig{
 			Enabled:                 false,
 			MaxSubnets:              defaultMaxSubnets,
-			MismatchDetectionWindow: 2,   // 2 slots for testing
-			MismatchThreshold:       2,   // Lower threshold for testing
+			MismatchDetectionWindow: 32,
+			MismatchThreshold:       1,
 			MismatchCooldownSeconds: 300, // 5 minutes
 			SubnetHighWaterMark:     5,   // Allow up to 5 additional temporary subnets
 		},

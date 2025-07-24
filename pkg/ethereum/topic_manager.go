@@ -2,6 +2,8 @@ package ethereum
 
 import (
 	"context"
+	"crypto/rand"
+	"math/big"
 	"sync"
 	"time"
 
@@ -64,14 +66,16 @@ type topicManager struct {
 
 	// Attestation subnet tracking.
 	advertisedSubnets []int
+	selectedSubnet    int // The randomly selected subnet to forward events for
 	seenSubnets       map[uint64]bool
 	trackingStartSlot phase0.Slot
 
 	// Configuration.
-	detectionWindow   int
-	mismatchThreshold int
-	cooldownPeriod    time.Duration
-	highWaterMark     int
+	detectionWindow       int
+	mismatchThreshold     int
+	cooldownPeriod        time.Duration
+	highWaterMark         int
+	attestationMaxSubnets int
 
 	// Mismatch tracking.
 	mismatchCount    int
@@ -99,18 +103,20 @@ func NewTopicManager(log logrus.FieldLogger, config *TopicConfig) TopicManager {
 	}
 
 	return &topicManager{
-		log:               log.WithField("component", "topic_manager"),
-		allTopics:         cfg.AllTopics,
-		conditions:        make(map[string]TopicCondition),
-		optInTopics:       optInMap,
-		excludedTopics:    make(map[string]bool),
-		seenSubnets:       make(map[uint64]bool),
-		detectionWindow:   cfg.MismatchDetectionWindow,
-		mismatchThreshold: cfg.MismatchThreshold,
-		cooldownPeriod:    cfg.MismatchCooldown,
-		highWaterMark:     cfg.SubnetHighWaterMark,
-		mismatchEnabled:   cfg.AttestationEnabled, // Mismatch detection is enabled when attestation is enabled
-		reconnectChan:     make(chan struct{}),
+		log:                   log.WithField("component", "topic_manager"),
+		allTopics:             cfg.AllTopics,
+		conditions:            make(map[string]TopicCondition),
+		optInTopics:           optInMap,
+		excludedTopics:        make(map[string]bool),
+		selectedSubnet:        -1, // -1 indicates no subnet selected yet
+		seenSubnets:           make(map[uint64]bool),
+		detectionWindow:       cfg.MismatchDetectionWindow,
+		mismatchThreshold:     cfg.MismatchThreshold,
+		cooldownPeriod:        cfg.MismatchCooldown,
+		highWaterMark:         cfg.SubnetHighWaterMark,
+		attestationMaxSubnets: cfg.AttestationMaxSubnets,
+		mismatchEnabled:       cfg.AttestationEnabled, // Mismatch detection is enabled when attestation is enabled
+		reconnectChan:         make(chan struct{}),
 	}
 }
 
@@ -191,7 +197,33 @@ func (tm *topicManager) SetAdvertisedSubnets(subnets []int) {
 	defer tm.mu.Unlock()
 
 	tm.advertisedSubnets = subnets
-	tm.log.WithField("subnets", subnets).Info("Set advertised attestation subnets")
+
+	// Only select a random subnet if attestations will be enabled
+	// (i.e., when subnet count is within the max threshold)
+	attestationsWillBeEnabled := tm.attestationMaxSubnets > 0 && len(subnets) <= tm.attestationMaxSubnets
+
+	if len(subnets) > 0 {
+		if attestationsWillBeEnabled {
+			// Randomly select one subnet to forward events for
+			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(subnets))))
+			if err != nil {
+				tm.selectedSubnet = subnets[0]
+				tm.log.WithError(err).Warn("Failed to randomly select subnet, using first subnet")
+			} else {
+				tm.selectedSubnet = subnets[n.Int64()]
+			}
+
+			tm.log.WithFields(logrus.Fields{
+				"selected_subnet": tm.selectedSubnet,
+			}).Info("Selected random subnet for forwarding")
+		} else {
+			// Attestations won't be enabled due to too many subnets
+			tm.selectedSubnet = -1
+		}
+	} else {
+		tm.selectedSubnet = -1
+		tm.log.WithField("subnets", subnets).Warn("Missing advertised attestation subnets")
+	}
 }
 
 // RecordAttestation records an attestation for subnet tracking.
@@ -233,6 +265,7 @@ func (tm *topicManager) RecordAttestation(subnetID uint64, slot phase0.Slot) {
 			"mismatch_count":     tm.mismatchCount,
 			"threshold":          tm.mismatchThreshold,
 			"advertised_subnets": tm.advertisedSubnets,
+			"selected_subnet":    tm.selectedSubnet,
 			"seen_subnets":       tm.getSeenSubnetsList(),
 			"slot":               slot,
 		}).Warn("Subnet mismatch detected")
@@ -252,13 +285,8 @@ func (tm *topicManager) IsActiveSubnet(subnetID uint64) bool {
 	tm.mu.RLock()
 	defer tm.mu.RUnlock()
 
-	for _, subnet := range tm.advertisedSubnets {
-		if uint64(subnet) == subnetID { //nolint:gosec // conversion safe.
-			return true
-		}
-	}
-
-	return false
+	// Only the selected subnet is considered active for forwarding
+	return tm.selectedSubnet >= 0 && uint64(tm.selectedSubnet) == subnetID
 }
 
 // NeedsReconnection returns a channel that signals when reconnection is needed.
@@ -297,7 +325,10 @@ func (tm *topicManager) checkForMismatch() bool {
 	}
 
 	// Count non-advertised subnets from existing seenSubnets map
+	// We only count subnets that are NOT advertised at all, excluding those that
+	// are advertised but not selected for forwarding
 	nonAdvertisedCount := 0
+	advertisedButNotSelected := 0
 
 	for seenSubnet := range tm.seenSubnets {
 		isAdvertised := false
@@ -305,6 +336,11 @@ func (tm *topicManager) checkForMismatch() bool {
 		for _, advertised := range tm.advertisedSubnets {
 			if uint64(advertised) == seenSubnet { //nolint:gosec // conversion safe.
 				isAdvertised = true
+
+				// Count advertised but not selected subnets
+				if tm.selectedSubnet >= 0 && uint64(tm.selectedSubnet) != seenSubnet {
+					advertisedButNotSelected++
+				}
 
 				break
 			}
@@ -319,13 +355,16 @@ func (tm *topicManager) checkForMismatch() bool {
 	warningThreshold := int(float64(tm.highWaterMark) * 0.8)
 	if nonAdvertisedCount >= warningThreshold && nonAdvertisedCount <= tm.highWaterMark {
 		tm.log.WithFields(logrus.Fields{
-			"non_advertised_count": nonAdvertisedCount,
-			"high_water_mark":      tm.highWaterMark,
-			"advertised_subnets":   tm.advertisedSubnets,
+			"non_advertised_count":        nonAdvertisedCount,
+			"advertised_but_not_selected": advertisedButNotSelected,
+			"high_water_mark":             tm.highWaterMark,
+			"advertised_subnets":          tm.advertisedSubnets,
+			"selected_subnet":             tm.selectedSubnet,
 		}).Warn("Approaching subnet high water mark threshold")
 	}
 
-	// Only mismatch if we exceed high water mark
+	// Only mismatch if we exceed high water mark with truly non-advertised subnets
+	// Advertised-but-not-selected subnets are NOT counted towards the high water mark
 	return nonAdvertisedCount > tm.highWaterMark
 }
 
@@ -394,6 +433,31 @@ func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval 
 						}).Info("Advertised subnets changed, updating")
 
 						tm.advertisedSubnets = newSubnets
+
+						// Re-select a random subnet when advertised subnets change
+						attestationsWillBeEnabled := tm.attestationMaxSubnets > 0 && len(newSubnets) <= tm.attestationMaxSubnets
+
+						if len(newSubnets) > 0 && attestationsWillBeEnabled {
+							n, err := rand.Int(rand.Reader, big.NewInt(int64(len(newSubnets))))
+							if err != nil {
+								tm.selectedSubnet = newSubnets[0]
+								tm.log.WithError(err).Warn("Failed to randomly select subnet, using first subnet")
+							} else {
+								tm.selectedSubnet = newSubnets[n.Int64()]
+							}
+
+							tm.log.WithFields(logrus.Fields{
+								"selected_subnet": tm.selectedSubnet,
+							}).Info("Re-selected random subnet for forwarding")
+						} else {
+							tm.selectedSubnet = -1
+							if len(newSubnets) > 0 && !attestationsWillBeEnabled {
+								tm.log.WithFields(logrus.Fields{
+									"subnet_count": len(newSubnets),
+									"max_subnets":  tm.attestationMaxSubnets,
+								}).Debug("Attestations disabled due to subnet count exceeding threshold")
+							}
+						}
 					}
 
 					tm.mu.Unlock()
