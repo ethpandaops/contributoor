@@ -3,7 +3,7 @@ name: release
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 
 permissions:
   contents: write
@@ -63,17 +63,21 @@ jobs:
           fi
 
       - name: Release
-        uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -e DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} \
+            -e DOCKER_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }} \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e RELEASE_SUFFIX=${{ env.RELEASE_SUFFIX }} \
+            goreleaser/goreleaser-cross:v1.24.0 release --clean --config .goreleaser.yaml.new
 
   trigger-installer-update:
     needs: [goreleaser]
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref, '-') }}
     steps:
       - name: Get version
         id: get_version
