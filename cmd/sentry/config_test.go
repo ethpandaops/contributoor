@@ -668,12 +668,14 @@ func TestAttestationSubnetConfigOverride(t *testing.T) {
 			expectedMax:     15,
 		},
 		{
-			name:          "No config when nothing set",
-			envEnabled:    "",
-			envMaxSubnets: "",
-			cliEnabled:    false,
-			cliMaxSubnets: -1,
-			expectNil:     true,
+			name:            "No config when nothing set",
+			envEnabled:      "",
+			envMaxSubnets:   "",
+			cliEnabled:      false,
+			cliMaxSubnets:   -1,
+			expectNil:       false,
+			expectedEnabled: false,
+			expectedMax:     0,
 		},
 	}
 
