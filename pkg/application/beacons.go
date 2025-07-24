@@ -164,6 +164,23 @@ func (a *Application) createBeaconConfig(address string) *ethereum.Config {
 		if int(a.config.AttestationSubnetCheck.MaxSubnets) != 0 {
 			config.AttestationSubnetConfig.MaxSubnets = int(a.config.AttestationSubnetCheck.MaxSubnets)
 		}
+
+		// Apply mismatch detection settings if provided
+		if a.config.AttestationSubnetCheck.MismatchDetectionWindow != 0 {
+			config.AttestationSubnetConfig.MismatchDetectionWindow = int(a.config.AttestationSubnetCheck.MismatchDetectionWindow)
+		}
+
+		if a.config.AttestationSubnetCheck.MismatchThreshold != 0 {
+			config.AttestationSubnetConfig.MismatchThreshold = int(a.config.AttestationSubnetCheck.MismatchThreshold)
+		}
+
+		if a.config.AttestationSubnetCheck.MismatchCooldownSeconds != 0 {
+			config.AttestationSubnetConfig.MismatchCooldownSeconds = int(a.config.AttestationSubnetCheck.MismatchCooldownSeconds)
+		}
+
+		if a.config.AttestationSubnetCheck.SubnetHighWaterMark != 0 {
+			config.AttestationSubnetConfig.SubnetHighWaterMark = int(a.config.AttestationSubnetCheck.SubnetHighWaterMark)
+		}
 	}
 
 	return config
@@ -171,6 +188,19 @@ func (a *Application) createBeaconConfig(address string) *ethereum.Config {
 
 // createTopicManager creates and configures a topic manager for the beacon node.
 func (a *Application) createTopicManager(ctx context.Context, log logrus.FieldLogger, config *ethereum.Config) (ethereum.TopicManager, error) {
+	// Log attestation subnet configuration
+	if config.AttestationSubnetConfig.Enabled {
+		log.WithFields(logrus.Fields{
+			"max_subnets":               config.AttestationSubnetConfig.MaxSubnets,
+			"mismatch_detection_window": config.AttestationSubnetConfig.MismatchDetectionWindow,
+			"mismatch_threshold":        config.AttestationSubnetConfig.MismatchThreshold,
+			"mismatch_cooldown_seconds": config.AttestationSubnetConfig.MismatchCooldownSeconds,
+			"subnet_high_water_mark":    config.AttestationSubnetConfig.SubnetHighWaterMark,
+		}).Info("Attestation subnet checking enabled")
+	} else {
+		log.Info("Attestation subnet checking disabled")
+	}
+
 	topicManager := ethereum.NewTopicManager(log, &ethereum.TopicConfig{
 		AllTopics:               ethereum.GetDefaultAllTopics(),
 		OptInTopics:             ethereum.GetOptInTopics(),
