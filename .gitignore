@@ -10,3 +10,4 @@ config.yaml
 dist
 
 .vscode
+.goreleaser.yaml.new
