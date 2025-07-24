@@ -516,3 +516,88 @@ func TestTopicManager_HighWaterMarkEdgeCases(t *testing.T) {
 		}
 	})
 }
+
+func TestTopicManager_RandomSubnetSelection(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	// Create a topic manager with default config
+	tm := ethereum.NewTopicManager(log, nil)
+
+	// Test 1: Setting advertised subnets should select one randomly
+	advertisedSubnets := []int{10, 20, 30, 40}
+	tm.SetAdvertisedSubnets(advertisedSubnets)
+
+	// Verify only the selected subnet is active
+	activeCount := 0
+	var activeSubnet int
+	for _, subnet := range advertisedSubnets {
+		if tm.IsActiveSubnet(uint64(subnet)) {
+			activeCount++
+			activeSubnet = subnet
+		}
+	}
+
+	assert.Equal(t, 1, activeCount, "Exactly one subnet should be active")
+	assert.Contains(t, advertisedSubnets, activeSubnet, "Active subnet should be from advertised list")
+
+	// Test 2: Empty advertised subnets should result in no active subnet
+	tm.SetAdvertisedSubnets([]int{})
+	for i := 0; i < 64; i++ {
+		assert.False(t, tm.IsActiveSubnet(uint64(i)), "No subnet should be active when advertised list is empty")
+	}
+
+	// Test 3: Single advertised subnet should always be selected
+	tm.SetAdvertisedSubnets([]int{42})
+	assert.True(t, tm.IsActiveSubnet(42), "Single advertised subnet should be active")
+	assert.False(t, tm.IsActiveSubnet(41), "Non-advertised subnet should not be active")
+	assert.False(t, tm.IsActiveSubnet(43), "Non-advertised subnet should not be active")
+}
+
+func TestTopicManager_MismatchDetectionExcludesNotSelectedSubnets(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	// Create a topic manager with mismatch detection enabled
+	config := &ethereum.TopicConfig{
+		AttestationEnabled:      true,
+		MismatchDetectionWindow: 10,
+		MismatchThreshold:       1,
+		MismatchCooldown:        100 * time.Millisecond,
+		SubnetHighWaterMark:     2,
+	}
+	tm := ethereum.NewTopicManager(log, config)
+
+	// Set advertised subnets (e.g., 1, 2, 3, 4)
+	// Only one will be randomly selected for forwarding
+	advertisedSubnets := []int{1, 2, 3, 4}
+	tm.SetAdvertisedSubnets(advertisedSubnets)
+
+	// Record attestations from all advertised subnets
+	for _, subnet := range advertisedSubnets {
+		tm.RecordAttestation(uint64(subnet), phase0.Slot(1))
+	}
+
+	// Also record some non-advertised subnets
+	tm.RecordAttestation(10, phase0.Slot(1))
+	tm.RecordAttestation(11, phase0.Slot(1))
+
+	// Should not trigger reconnection yet (only 2 non-advertised subnets)
+	select {
+	case <-tm.NeedsReconnection():
+		t.Fatal("Should not trigger with only 2 non-advertised subnets")
+	default:
+		// Expected
+	}
+
+	// Add one more non-advertised subnet to exceed high water mark
+	tm.RecordAttestation(12, phase0.Slot(1))
+
+	// Now should trigger (3 non-advertised > 2 high water mark)
+	select {
+	case <-tm.NeedsReconnection():
+		// Expected - advertised-but-not-selected subnets don't count
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected reconnection when non-advertised subnets exceed high water mark")
+	}
+}

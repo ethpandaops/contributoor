@@ -61,71 +61,70 @@ func TestIsSlotDifferenceTooLarge(t *testing.T) {
 }
 
 func TestBeaconWrapper_IsActiveSubnet(t *testing.T) {
-	tests := []struct {
-		name          string
-		activeSubnets []int
-		subnetID      uint64
-		expected      bool
-	}{
-		{
-			name:          "empty active subnets denies all",
-			activeSubnets: []int{},
-			subnetID:      5,
-			expected:      false,
-		},
-		{
-			name:          "subnet in active list",
-			activeSubnets: []int{2, 5, 10},
-			subnetID:      5,
-			expected:      true,
-		},
-		{
-			name:          "subnet not in active list",
-			activeSubnets: []int{2, 5, 10},
-			subnetID:      7,
-			expected:      false,
-		},
-		{
-			name:          "zero subnet in active list",
-			activeSubnets: []int{0, 5, 10},
-			subnetID:      0,
-			expected:      true,
-		},
-		{
-			name:          "max subnet ID",
-			activeSubnets: []int{63},
-			subnetID:      63,
-			expected:      true,
-		},
-	}
+	// Test 1: Empty active subnets denies all
+	t.Run("empty active subnets denies all", func(t *testing.T) {
+		log := logrus.New()
+		topicConfig := &TopicConfig{
+			AllTopics:             GetDefaultAllTopics(),
+			OptInTopics:           GetOptInTopics(),
+			AttestationEnabled:    true,
+			AttestationMaxSubnets: 64,
+		}
+		topicMgr := NewTopicManager(log, topicConfig)
+		topicMgr.SetAdvertisedSubnets([]int{})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock logger
-			log := logrus.New()
+		w := &BeaconWrapper{topicManager: topicMgr}
+		assert.False(t, w.IsActiveSubnet(5))
+	})
 
-			// Create topic config
-			topicConfig := &TopicConfig{
-				AllTopics:             GetDefaultAllTopics(),
-				OptInTopics:           GetOptInTopics(),
-				AttestationEnabled:    true,
-				AttestationMaxSubnets: 64,
+	// Test 2: With advertised subnets, only one is randomly selected
+	t.Run("only one subnet from advertised list is active", func(t *testing.T) {
+		log := logrus.New()
+		topicConfig := &TopicConfig{
+			AllTopics:             GetDefaultAllTopics(),
+			OptInTopics:           GetOptInTopics(),
+			AttestationEnabled:    true,
+			AttestationMaxSubnets: 64,
+		}
+		topicMgr := NewTopicManager(log, topicConfig)
+		advertisedSubnets := []int{2, 5, 10}
+		topicMgr.SetAdvertisedSubnets(advertisedSubnets)
+
+		w := &BeaconWrapper{topicManager: topicMgr}
+
+		// Count how many subnets are active
+		activeCount := 0
+		var activeSubnet int
+		for _, subnet := range advertisedSubnets {
+			if w.IsActiveSubnet(uint64(subnet)) {
+				activeCount++
+				activeSubnet = subnet
 			}
+		}
 
-			// Create topic manager
-			topicMgr := NewTopicManager(log, topicConfig)
+		assert.Equal(t, 1, activeCount, "Exactly one subnet should be active")
+		assert.Contains(t, advertisedSubnets, activeSubnet, "Active subnet should be from advertised list")
 
-			// Set advertised subnets
-			topicMgr.SetAdvertisedSubnets(tt.activeSubnets)
+		// Non-advertised subnet should not be active
+		assert.False(t, w.IsActiveSubnet(7))
+	})
 
-			// Create BeaconWrapper with the topic manager
-			w := &BeaconWrapper{
-				topicManager: topicMgr,
-			}
+	// Test 3: Single subnet is always selected
+	t.Run("single subnet is always selected", func(t *testing.T) {
+		log := logrus.New()
+		topicConfig := &TopicConfig{
+			AllTopics:             GetDefaultAllTopics(),
+			OptInTopics:           GetOptInTopics(),
+			AttestationEnabled:    true,
+			AttestationMaxSubnets: 64,
+		}
+		topicMgr := NewTopicManager(log, topicConfig)
+		topicMgr.SetAdvertisedSubnets([]int{63})
 
-			assert.Equal(t, tt.expected, w.IsActiveSubnet(tt.subnetID))
-		})
-	}
+		w := &BeaconWrapper{topicManager: topicMgr}
+		assert.True(t, w.IsActiveSubnet(63))
+		assert.False(t, w.IsActiveSubnet(62))
+	})
 }
 
 func TestCalculateSubnetID(t *testing.T) {
