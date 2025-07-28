@@ -1,0 +1,2 @@
+[files]
+extend-exclude = ["pkg/ethereum/node_identity_test.go"]

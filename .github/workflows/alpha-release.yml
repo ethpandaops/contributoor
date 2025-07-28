@@ -23,10 +23,19 @@ jobs:
           RELEASE_SUFFIX=${GITHUB_REF#refs/heads/release/}
 
           # Fetch all tags and get the latest that matches the pattern
-          # Using the refs/tags API
-          LATEST_VERSION=$(curl --silent "https://api.github.com/repos/$GITHUB_REPOSITORY/git/refs/tags" \
-                      | jq -r --arg suffix "$RELEASE_SUFFIX" '.[] | select(.ref | test("refs/tags/v?[0-9]+\\.[0-9]+\\.[0-9]+-" + $suffix + "$")) | .ref' \
+          # Using the refs/tags API with authentication
+          LATEST_VERSION=$(curl --silent -H "Authorization: token $GITHUB_TOKEN" \
+                      "https://api.github.com/repos/$GITHUB_REPOSITORY/git/refs/tags" \
+                      | jq -r --arg suffix "$RELEASE_SUFFIX" \
+                      'if type == "array" then .[] | select(.ref | test("refs/tags/v?[0-9]+\\.[0-9]+\\.[0-9]+-" + $suffix + "$")) | .ref else empty end' \
                       | sed 's|refs/tags/||' | sort -V | tail -n 1)
+
+          # Alternative: Use git commands directly which is more reliable
+          if [[ -z "$LATEST_VERSION" ]]; then
+            echo "API call failed or returned no results, trying git command..."
+            LATEST_VERSION=$(git tag -l "*-${RELEASE_SUFFIX}" | grep -E "^v?[0-9]+\.[0-9]+\.[0-9]+-${RELEASE_SUFFIX}$" | sort -V | tail -n 1)
+          fi
+
           echo "Found latest $RELEASE_SUFFIX version: $LATEST_VERSION"
 
           # Default to 0.0.0 if no matching release was found

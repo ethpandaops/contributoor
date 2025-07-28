@@ -105,6 +105,35 @@ func (m *Config) validate(all bool) error {
 
 	// no validation rules for HealthCheckAddress
 
+	if all {
+		switch v := interface{}(m.GetAttestationSubnetCheck()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ConfigValidationError{
+					field:  "AttestationSubnetCheck",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ConfigValidationError{
+					field:  "AttestationSubnetCheck",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAttestationSubnetCheck()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ConfigValidationError{
+				field:  "AttestationSubnetCheck",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return ConfigMultiError(errors)
 	}
@@ -181,6 +210,120 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ConfigValidationError{}
+
+// Validate checks the field values on AttestationSubnetCheck with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *AttestationSubnetCheck) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AttestationSubnetCheck with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// AttestationSubnetCheckMultiError, or nil if none found.
+func (m *AttestationSubnetCheck) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AttestationSubnetCheck) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Enabled
+
+	// no validation rules for MaxSubnets
+
+	// no validation rules for MismatchDetectionWindow
+
+	// no validation rules for MismatchThreshold
+
+	// no validation rules for MismatchCooldownSeconds
+
+	// no validation rules for SubnetHighWaterMark
+
+	if len(errors) > 0 {
+		return AttestationSubnetCheckMultiError(errors)
+	}
+
+	return nil
+}
+
+// AttestationSubnetCheckMultiError is an error wrapping multiple validation
+// errors returned by AttestationSubnetCheck.ValidateAll() if the designated
+// constraints aren't met.
+type AttestationSubnetCheckMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AttestationSubnetCheckMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AttestationSubnetCheckMultiError) AllErrors() []error { return m }
+
+// AttestationSubnetCheckValidationError is the validation error returned by
+// AttestationSubnetCheck.Validate if the designated constraints aren't met.
+type AttestationSubnetCheckValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AttestationSubnetCheckValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AttestationSubnetCheckValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AttestationSubnetCheckValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AttestationSubnetCheckValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AttestationSubnetCheckValidationError) ErrorName() string {
+	return "AttestationSubnetCheckValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e AttestationSubnetCheckValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAttestationSubnetCheck.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AttestationSubnetCheckValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AttestationSubnetCheckValidationError{}
 
 // Validate checks the field values on OutputServer with the rules defined in
 // the proto definition for this message. If any rules are violated, the first

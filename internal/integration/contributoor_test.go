@@ -11,6 +11,9 @@ import (
 
 	"github.com/ethpandaops/contributoor/pkg/config/v1"
 	"github.com/ethpandaops/ethereum-package-go"
+	"github.com/ethpandaops/ethereum-package-go/pkg/client"
+	ethconfig "github.com/ethpandaops/ethereum-package-go/pkg/config"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,9 +30,21 @@ func TestContributoor_AllClients(t *testing.T) {
 	// Start a single network with ALL consensus clients
 	t.Log("Starting test network with all consensus clients...")
 
+	// Create participants with validators
+	// Need ~1400 validators per node (8400 total) for 2+ committees per slot. It's still not enough to completely
+	// test subnet mismatch functionality, but anymore is impractical.
+	participants := []ethconfig.ParticipantConfig{
+		{ELType: client.Geth, CLType: client.Lighthouse, Count: 1, ValidatorCount: 1400},
+		{ELType: client.Geth, CLType: client.Teku, Count: 1, ValidatorCount: 1400},
+		{ELType: client.Geth, CLType: client.Prysm, Count: 1, ValidatorCount: 1400},
+		{ELType: client.Geth, CLType: client.Nimbus, Count: 1, ValidatorCount: 1400},
+		{ELType: client.Geth, CLType: client.Lodestar, Count: 1, ValidatorCount: 1400},
+		{ELType: client.Geth, CLType: client.Grandine, Count: 1, ValidatorCount: 1400},
+	}
+
 	net, err := ethereum.Run(
 		ctx,
-		ethereum.AllCLs(), // This gives us geth + all consensus clients
+		ethereum.WithParticipants(participants),
 		ethereum.WithChainID(12345),
 		ethereum.WithWaitForGenesis(),
 		ethereum.WithDockerCacheParams(true, "docker.ethquokkaops.io"),
@@ -76,6 +91,11 @@ func TestContributoor_AllClients(t *testing.T) {
 	cfg.HealthCheckAddress = ":19091"
 	cfg.ContributoorDirectory = t.TempDir()
 	cfg.RunMethod = config.RunMethod_RUN_METHOD_BINARY
+	cfg.LogLevel = logrus.DebugLevel.String()
+	cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{
+		Enabled:    true,
+		MaxSubnets: 2,
+	}
 
 	// Start Contributoor connected to ALL beacon nodes
 	contributoor, contribCleanup := StartContributoor(t, ctx, cfg, true)
@@ -154,7 +174,7 @@ func TestContributoor_AllClients(t *testing.T) {
 	require.NoError(t, err, "Failed to read health response")
 
 	healthStr := string(healthBody)
-	t.Logf("Health check response: %s", healthStr)
+	t.Logf("Health check response: %s\n", healthStr)
 
 	// Health endpoint returns OK if at least one beacon is healthy
 	require.Contains(t, healthStr, "OK", "Expected OK health status")

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"runtime"
 	"sync/atomic"
+	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/electra"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/internal/contributoor"
@@ -41,70 +43,16 @@ type BeaconNodeAPI interface {
 type BeaconWrapper struct {
 	*ethcore.BeaconNode // Embed ethcore beacon
 
-	log        logrus.FieldLogger
-	traceID    string
-	clockDrift clockdrift.ClockDrift
-	sinks      []sinks.ContributoorSink
-	cache      *events.DuplicateCache
-	summary    *events.Summary
-	metrics    *events.Metrics
-	isHealthy  atomic.Bool // Track connection state for transition logging
-}
-
-// NewBeaconWrapper creates a wrapped beacon node.
-func NewBeaconWrapper(
-	log logrus.FieldLogger,
-	traceID string,
-	config *Config,
-	sinks []sinks.ContributoorSink,
-	clockDrift clockdrift.ClockDrift,
-	cache *events.DuplicateCache,
-	summary *events.Summary,
-	metrics *events.Metrics,
-) (*BeaconWrapper, error) {
-	// Prepare ethcore config.
-	ethcoreConfig := &ethcore.Config{
-		BeaconNodeAddress: config.BeaconNodeAddress,
-		BeaconNodeHeaders: config.BeaconNodeHeaders,
-		NetworkOverride:   config.NetworkOverride,
-	}
-
-	beaconOpts := &ethcore.Options{Options: beacon.DefaultOptions()}
-	beaconOpts.BeaconSubscription.Enabled = true
-	beaconOpts.BeaconSubscription.Topics = []string{
-		"block",
-		"block_gossip",
-		"head",
-		"finalized_checkpoint",
-		"blob_sidecar",
-		"chain_reorg",
-		"single_attestation",
-	}
-
-	// Create the beacon node.
-	ethcoreBeacon, err := ethcore.NewBeaconNode(log, traceID, ethcoreConfig, beaconOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ethcore beacon: %w", err)
-	}
-
-	wrapper := &BeaconWrapper{
-		BeaconNode: ethcoreBeacon,
-		log:        log,
-		traceID:    traceID,
-		clockDrift: clockDrift,
-		sinks:      sinks,
-		cache:      cache,
-		summary:    summary,
-		metrics:    metrics,
-	}
-
-	// Initialize as unhealthy (false) since the node starts disconnected
-	wrapper.isHealthy.Store(false)
-
-	// Register OnReady callback to setup event subscriptions.
-	ethcoreBeacon.OnReady(wrapper.setupEventSubscriptions)
-
-	return wrapper, nil
+	log          logrus.FieldLogger
+	traceID      string
+	clockDrift   clockdrift.ClockDrift
+	sinks        []sinks.ContributoorSink
+	cache        *events.DuplicateCache
+	config       *Config
+	summary      *events.Summary
+	metrics      *events.Metrics
+	isHealthy    atomic.Bool // Track connection state for transition logging
+	topicManager TopicManager
 }
 
 // Start to handle sink lifecycle.
@@ -118,11 +66,41 @@ func (w *BeaconWrapper) Start(ctx context.Context) error {
 	}
 
 	// The upstream Start() is now blocking and waits until the node is ready.
-	return w.BeaconNode.Start(ctx)
+	if err := w.BeaconNode.Start(ctx); err != nil {
+		return err
+	}
+
+	// Start subnet refresh if attestation subnet tracking is enabled
+	if w.config.AttestationSubnetConfig.Enabled && w.topicManager != nil {
+		// Create a fetcher function that gets the current attnets
+		fetcher := func() []int {
+			identity := NewNodeIdentity(w.log, w.config.BeaconNodeAddress, w.config.BeaconNodeHeaders)
+			if err := identity.Start(ctx); err != nil {
+				w.log.WithError(err).Debug("Failed to fetch node identity during refresh")
+
+				return nil
+			}
+
+			return identity.GetAttnets()
+		}
+
+		// Start refreshing every 30 seconds
+		w.topicManager.StartSubnetRefresh(ctx, 30*time.Second, fetcher)
+	}
+
+	return nil
 }
 
 // Stop to handle sink lifecycle.
 func (w *BeaconWrapper) Stop(ctx context.Context) error {
+	// Mark as unhealthy to prevent health check logs
+	w.isHealthy.Store(false)
+
+	// Stop subnet refresh if it's running
+	if w.topicManager != nil {
+		w.topicManager.StopSubnetRefresh()
+	}
+
 	// Stop upstream first.
 	if err := w.BeaconNode.Stop(ctx); err != nil {
 		w.log.WithError(err).Error("Failed to stop beacon node")
@@ -139,6 +117,8 @@ func (w *BeaconWrapper) Stop(ctx context.Context) error {
 }
 
 // setupEventSubscriptions is fired when beacon becomes healthy.
+//
+//nolint:gocyclo // splitting would add further complexity.
 func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 	node := w.Node()
 
@@ -146,8 +126,10 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 	w.isHealthy.Store(true)
 
 	node.OnHealthCheckFailed(ctx, func(ctx context.Context, event *beacon.HealthCheckFailedEvent) error {
-		// Always log connection failures
-		w.log.WithField("trace_id", w.traceID).Warn("Beacon node connection lost")
+		// Only log if we're still healthy (this filters out messages from stopped beacons)
+		if w.isHealthy.Load() {
+			w.log.WithField("trace_id", w.traceID).Warn("Beacon node connection lost")
+		}
 
 		// Update state
 		w.isHealthy.Store(false)
@@ -156,9 +138,25 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 	})
 
 	node.OnHealthCheckSucceeded(ctx, func(ctx context.Context, event *beacon.HealthCheckSucceededEvent) error {
-		// Only log when transitioning from unhealthy to healthy
+		// Only log when transitioning from unhealthy to healthy.
 		if w.isHealthy.CompareAndSwap(false, true) {
 			w.log.WithField("trace_id", w.traceID).Info("Beacon node connection restored")
+
+			// Upon reconnection, check if the node's attestation subnets have changed
+			if w.config.AttestationSubnetConfig.Enabled && w.topicManager != nil {
+				identity := NewNodeIdentity(w.log, w.config.BeaconNodeAddress, w.config.BeaconNodeHeaders)
+				if err := identity.Start(ctx); err != nil {
+					w.log.WithError(err).Warn("Failed to fetch node identity on reconnection")
+				} else {
+					newSubnets := identity.GetAttnets()
+
+					// Update the topic manager with the current subnets
+					// If these differ from what the beacon was previously advertising,
+					// the mismatch detection will catch it when we receive attestations
+					// from the old subnets that are no longer advertised
+					w.topicManager.SetAdvertisedSubnets(newSubnets)
+				}
+			}
 		}
 
 		return nil
@@ -433,6 +431,38 @@ func (b *BeaconWrapper) IsSlotFromUnexpectedNetwork(eventSlot uint64) bool {
 	}
 
 	return isSlotDifferenceTooLarge(eventSlot, currentSlot.Number())
+}
+
+// IsActiveSubnet checks if the given subnet ID is in the node's active subnets.
+func (w *BeaconWrapper) IsActiveSubnet(subnetID uint64) bool {
+	if w.topicManager == nil {
+		return false
+	}
+
+	return w.topicManager.IsActiveSubnet(subnetID)
+}
+
+// RecordSeenSubnet records that we've seen an attestation from a specific subnet.
+func (w *BeaconWrapper) RecordSeenSubnet(subnetID uint64, slot uint64) {
+	if w.topicManager == nil {
+		return
+	}
+
+	w.topicManager.RecordAttestation(subnetID, phase0.Slot(slot))
+}
+
+// NeedsReconnection returns a channel that signals when reconnection is needed.
+func (w *BeaconWrapper) NeedsReconnection() <-chan struct{} {
+	if w.topicManager == nil {
+		return nil
+	}
+
+	return w.topicManager.NeedsReconnection()
+}
+
+// GetTopicManager returns the topic manager for this beacon wrapper.
+func (w *BeaconWrapper) GetTopicManager() TopicManager {
+	return w.topicManager
 }
 
 // isSlotDifferenceTooLarge checks if the difference between two slots exceeds the

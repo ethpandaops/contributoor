@@ -106,6 +106,41 @@ func main() {
 				Required: false,
 			},
 			&cli.BoolFlag{
+				Name:     "attestation-subnet-check-enabled",
+				Usage:    "enable attestation subnet checking for single_attestation topic filtering",
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-max-subnets",
+				Usage:    "maximum number of subnets a node can be subscribed to before single_attestation topic is disabled (0-64)",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-mismatch-detection-window",
+				Usage:    "number of slots to track for subnet activity",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-mismatch-threshold",
+				Usage:    "number of mismatches required before triggering reconnection",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-mismatch-cooldown-seconds",
+				Usage:    "cooldown period between reconnections in seconds",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "attestation-subnet-high-water-mark",
+				Usage:    "number of additional temporary subnets allowed without triggering a restart",
+				Value:    -1, // -1 indicates not set via CLI
+				Required: false,
+			},
+			&cli.BoolFlag{
 				Name:     "release",
 				Usage:    "print release and exit",
 				Required: false,

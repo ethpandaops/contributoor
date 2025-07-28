@@ -96,6 +96,34 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			},
 		},
 		{
+			name: "attestation subnet check enabled",
+			args: []string{"--attestation-subnet-check-enabled"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.AttestationSubnetCheck)
+				assert.True(t, cfg.AttestationSubnetCheck.Enabled)
+			},
+		},
+		{
+			name: "attestation subnet max subnets override",
+			args: []string{"--attestation-subnet-max-subnets", "5"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.AttestationSubnetCheck)
+				assert.Equal(t, uint32(5), cfg.AttestationSubnetCheck.MaxSubnets)
+			},
+		},
+		{
+			name: "attestation subnet both flags",
+			args: []string{"--attestation-subnet-check-enabled", "--attestation-subnet-max-subnets", "10"},
+			validate: func(t *testing.T, cfg *config.Config) {
+				t.Helper()
+				require.NotNil(t, cfg.AttestationSubnetCheck)
+				assert.True(t, cfg.AttestationSubnetCheck.Enabled)
+				assert.Equal(t, uint32(10), cfg.AttestationSubnetCheck.MaxSubnets)
+			},
+		},
+		{
 			name: "multiple overrides",
 			args: []string{
 				"--network", "sepolia",
@@ -142,6 +170,8 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 				&cli.StringFlag{Name: "password"},
 				&cli.StringFlag{Name: "output-server-tls"},
 				&cli.StringFlag{Name: "contributoor-directory"},
+				&cli.BoolFlag{Name: "attestation-subnet-check-enabled"},
+				&cli.IntFlag{Name: "attestation-subnet-max-subnets", Value: -1},
 			}
 
 			// Create a base config
@@ -423,6 +453,8 @@ func TestCreateConfigLogLevel(t *testing.T) {
 				&cli.StringFlag{Name: "password"},
 				&cli.StringFlag{Name: "output-server-tls"},
 				&cli.StringFlag{Name: "contributoor-directory"},
+				&cli.BoolFlag{Name: "attestation-subnet-check-enabled"},
+				&cli.IntFlag{Name: "attestation-subnet-max-subnets", Value: -1},
 			}
 
 			var createdConfig *config.Config
@@ -582,6 +614,184 @@ func TestDebugFlag(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, debugMode)
+}
+
+func TestAttestationSubnetConfigOverride(t *testing.T) {
+	tests := []struct {
+		name            string
+		envEnabled      string
+		envMaxSubnets   string
+		cliEnabled      bool
+		cliMaxSubnets   int
+		expectNil       bool
+		expectedEnabled bool
+		expectedMax     uint32
+	}{
+		{
+			name:            "CLI overrides env - both flags",
+			envEnabled:      "false",
+			envMaxSubnets:   "5",
+			cliEnabled:      true,
+			cliMaxSubnets:   10,
+			expectNil:       false,
+			expectedEnabled: true,
+			expectedMax:     10,
+		},
+		{
+			name:            "Env values used when no CLI",
+			envEnabled:      "true",
+			envMaxSubnets:   "7",
+			cliEnabled:      false,
+			cliMaxSubnets:   -1,
+			expectNil:       false,
+			expectedEnabled: true,
+			expectedMax:     7,
+		},
+		{
+			name:            "Only enabled via CLI",
+			envEnabled:      "",
+			envMaxSubnets:   "",
+			cliEnabled:      true,
+			cliMaxSubnets:   -1,
+			expectNil:       false,
+			expectedEnabled: true,
+			expectedMax:     0, // Default when not set
+		},
+		{
+			name:            "Only max subnets via CLI",
+			envEnabled:      "",
+			envMaxSubnets:   "",
+			cliEnabled:      false,
+			cliMaxSubnets:   15,
+			expectNil:       false,
+			expectedEnabled: false,
+			expectedMax:     15,
+		},
+		{
+			name:            "No config when nothing set",
+			envEnabled:      "",
+			envMaxSubnets:   "",
+			cliEnabled:      false,
+			cliMaxSubnets:   -1,
+			expectNil:       false,
+			expectedEnabled: false,
+			expectedMax:     0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.NewDefaultConfig()
+
+			// Set env vars if provided
+			if tt.envEnabled != "" {
+				os.Setenv("CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED", tt.envEnabled)
+				defer os.Unsetenv("CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED")
+			}
+			if tt.envMaxSubnets != "" {
+				os.Setenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS", tt.envMaxSubnets)
+				defer os.Unsetenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS")
+			}
+
+			// Create CLI app
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.BoolFlag{Name: "attestation-subnet-check-enabled"},
+				&cli.IntFlag{Name: "attestation-subnet-max-subnets", Value: -1},
+			}
+
+			app.Action = func(c *cli.Context) error {
+				return applyConfigOverridesFromFlags(cfg, c)
+			}
+
+			// Build args
+			args := []string{"app"}
+			if tt.cliEnabled {
+				args = append(args, "--attestation-subnet-check-enabled")
+			}
+			if tt.cliMaxSubnets >= 0 {
+				args = append(args, "--attestation-subnet-max-subnets", fmt.Sprintf("%d", tt.cliMaxSubnets))
+			}
+
+			// Run app
+			err := app.Run(args)
+			require.NoError(t, err)
+
+			// Verify the values
+			if tt.expectNil {
+				assert.Nil(t, cfg.AttestationSubnetCheck)
+			} else {
+				require.NotNil(t, cfg.AttestationSubnetCheck)
+				assert.Equal(t, tt.expectedEnabled, cfg.AttestationSubnetCheck.Enabled)
+				assert.Equal(t, tt.expectedMax, cfg.AttestationSubnetCheck.MaxSubnets)
+			}
+		})
+	}
+}
+
+func TestAttestationSubnetConfigErrors(t *testing.T) {
+	tests := []struct {
+		name          string
+		envVars       map[string]string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "invalid enabled value from env",
+			envVars: map[string]string{
+				"CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED": "not-a-bool",
+			},
+			expectError:   true,
+			errorContains: "failed to parse attestation subnet check enabled env var",
+		},
+		{
+			name: "invalid max subnets from env",
+			envVars: map[string]string{
+				"CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS": "not-a-number",
+			},
+			expectError:   true,
+			errorContains: "failed to parse attestation subnet max subnets env var",
+		},
+		{
+			name: "negative max subnets from env",
+			envVars: map[string]string{
+				"CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS": "-5",
+			},
+			expectError:   true,
+			errorContains: "failed to parse attestation subnet max subnets env var",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set env vars
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+				defer os.Unsetenv(k)
+			}
+
+			app := cli.NewApp()
+			app.Flags = []cli.Flag{
+				&cli.BoolFlag{Name: "attestation-subnet-check-enabled"},
+				&cli.IntFlag{Name: "attestation-subnet-max-subnets", Value: -1},
+			}
+
+			cfg := config.NewDefaultConfig()
+
+			app.Action = func(c *cli.Context) error {
+				return applyConfigOverridesFromFlags(cfg, c)
+			}
+
+			err := app.Run([]string{"app"})
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestContributoorDirectoryOverride(t *testing.T) {
