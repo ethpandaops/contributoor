@@ -484,11 +484,11 @@ func getDefaultTopicConfig() *TopicConfig {
 		AllTopics:               []string{},
 		OptInTopics:             []string{},
 		AttestationEnabled:      false,
-		AttestationMaxSubnets:   0,
-		MismatchDetectionWindow: 32,
-		MismatchThreshold:       3,
+		AttestationMaxSubnets:   2,
+		MismatchDetectionWindow: 2,
+		MismatchThreshold:       1,
 		MismatchCooldown:        5 * time.Minute,
-		SubnetHighWaterMark:     5,
+		SubnetHighWaterMark:     30,
 	}
 }
 
