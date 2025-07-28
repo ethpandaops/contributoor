@@ -11,7 +11,7 @@ require (
 	github.com/attestantio/go-eth2-client v0.26.0
 	github.com/beevik/ntp v1.4.3
 	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.62.1-0.20250710044500-b1a6c7fe376a
+	github.com/ethpandaops/beacon v0.64.0
 	github.com/ethpandaops/ethcore v0.0.0-20250715003243-943418834fa7
 	github.com/ethpandaops/ethereum-package-go v0.5.0
 	github.com/ethpandaops/ethwallclock v0.4.0
