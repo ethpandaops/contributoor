@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Build contributoor image
         run: |
           docker build -f Dockerfile.ci -t ethpandaops/contributoor:local .
