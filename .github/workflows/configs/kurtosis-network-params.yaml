@@ -10,7 +10,7 @@ participants:
   # Prysm beacon node
   - el_type: geth
     cl_type: prysm
-    cl_image: ethpandaops/prysm-beacon-chain:fusaka-devnet-3
+    cl_image: ethpandaops/prysm-beacon-chain:develop
     count: 1
 
   # Lighthouse beacon node
@@ -28,7 +28,7 @@ participants:
   # Lodestar beacon node
   - el_type: geth
     cl_type: lodestar
-    cl_image: ethpandaops/lodestar:unstable
+    cl_image: ethpandaops/lodestar:fusaka-devnet-3
     count: 1
 
   # Grandine beacon node
