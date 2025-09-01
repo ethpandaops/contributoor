@@ -23,6 +23,7 @@ import (
 func TestMain(t *testing.T) {
 	// Save original args
 	oldArgs := os.Args
+
 	defer func() { os.Args = oldArgs }()
 
 	// Test release flag
@@ -30,6 +31,7 @@ func TestMain(t *testing.T) {
 		// This test needs to run the actual binary
 		if os.Getenv("BE_MAIN_TEST") == "1" {
 			os.Args = []string{"contributoor", "--release"}
+
 			main()
 
 			return
@@ -174,7 +176,9 @@ func TestCLIApp(t *testing.T) {
 			// Set up environment
 			for k, v := range tt.envVars {
 				oldVal := os.Getenv(k)
+
 				os.Setenv(k, v)
+
 				defer os.Setenv(k, oldVal)
 			}
 
@@ -301,7 +305,9 @@ log_level: "info"
 metrics_address: ":9090"
 run_method: 1
 `
+
 				_, err = tmpFile.WriteString(configContent)
+
 				require.NoError(t, err)
 
 				app := &cli.App{
@@ -367,7 +373,9 @@ run_method: 1
 			// Set up environment
 			for k, v := range tt.setupEnv {
 				oldVal := os.Getenv(k)
+
 				os.Setenv(k, v)
+
 				defer os.Setenv(k, oldVal)
 			}
 
@@ -379,6 +387,7 @@ run_method: 1
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, cfg)
+
 				if tt.validate != nil {
 					tt.validate(t, cfg)
 				}
@@ -397,7 +406,9 @@ func TestSignalHandling(t *testing.T) {
 
 	go func() {
 		<-sigChan
+
 		shutdownChan <- true
+
 		cancel()
 	}()
 
@@ -468,8 +479,11 @@ func TestLogLevelConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Capture log output
 			var buf bytes.Buffer
+
 			oldOut := log.Out
+
 			log.SetOutput(&buf)
+
 			defer log.SetOutput(oldOut)
 
 			// Reset log level
@@ -484,8 +498,10 @@ func TestLogLevelConfiguration(t *testing.T) {
 				level, err := logrus.ParseLevel(cfg.LogLevel)
 				if err != nil {
 					log.WithField("level", cfg.LogLevel).WithError(err).Warn("Invalid log level, defaulting to info")
+
 					level = logrus.InfoLevel
 				}
+
 				log.SetLevel(level)
 				log.WithField("level", level.String()).Info("Log level set")
 			}
@@ -561,9 +577,11 @@ func TestSystemdIntegration(t *testing.T) {
 			if oldInvocationID != "" {
 				os.Setenv("INVOCATION_ID", oldInvocationID)
 			}
+
 			if oldJournalStream != "" {
 				os.Setenv("JOURNAL_STREAM", oldJournalStream)
 			}
+
 			if oldNotifySocket != "" {
 				os.Setenv("NOTIFY_SOCKET", oldNotifySocket)
 			}
@@ -581,6 +599,7 @@ func TestMainExitCodes(t *testing.T) {
 	// Test the release flag
 	if os.Getenv("BE_EXIT_TEST") == "1" {
 		os.Args = []string{"contributoor", "--release"}
+
 		main()
 
 		return
@@ -618,12 +637,15 @@ func TestConcurrentShutdown(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
+
 		<-sigChan
+
 		cancel()
 	}()
 
 	// Send multiple signals
 	sigChan <- syscall.SIGINT
+
 	sigChan <- syscall.SIGTERM // Should be ignored
 
 	// Wait for handler
@@ -642,6 +664,7 @@ func TestConcurrentShutdown(t *testing.T) {
 func TestMainAction(t *testing.T) {
 	// Save original logger
 	originalLog := log
+
 	defer func() { log = originalLog }()
 
 	tests := []struct {
@@ -752,6 +775,7 @@ func TestMainAction(t *testing.T) {
 						level, lerr := logrus.ParseLevel(cfg.LogLevel)
 						if lerr != nil {
 							log.WithField("level", cfg.LogLevel).WithError(lerr).Warn("Invalid log level, defaulting to info")
+
 							level = logrus.InfoLevel
 						}
 
@@ -789,6 +813,7 @@ func TestMainAction(t *testing.T) {
 
 			if tt.expectError {
 				assert.Error(t, err)
+
 				if tt.errorContains != "" {
 					assert.Contains(t, err.Error(), tt.errorContains)
 				}
@@ -813,6 +838,7 @@ func TestMainActionWithApplication(t *testing.T) {
 	if os.Getenv("BE_MAIN_ACTION_TEST") == "1" {
 		// Set a valid beacon node address to avoid connection errors
 		os.Args = []string{"contributoor", "--beacon-node-address", "http://localhost:5052"}
+
 		main()
 
 		return
@@ -860,14 +886,18 @@ beacon_node_address: "http://localhost:5052"
 log_level: "info"
 run_method: 3
 `
+
 		_, err = tmpFile.WriteString(configContent)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to write config: %v\n", err)
+
 			os.Exit(1)
 		}
+
 		tmpFile.Close()
 
 		os.Args = []string{"contributoor", "--config", tmpFile.Name()}
+
 		main()
 
 		return
@@ -906,6 +936,7 @@ func flagSet(t *testing.T, flags []cli.Flag, args []string) *cli.Context {
 
 	// Parse args to create a context
 	var ctx *cli.Context
+
 	app.Action = func(c *cli.Context) error {
 		ctx = c
 
@@ -923,6 +954,7 @@ func TestMainActionInvalidLogLevel(t *testing.T) {
 	// This test runs main() to cover the invalid log level warning path
 	if os.Getenv("BE_MAIN_LOGLEVEL_TEST") == "1" {
 		os.Args = []string{"contributoor", "--beacon-node-address", "http://localhost:5052", "--log-level", "invalid"}
+
 		main()
 
 		return
@@ -958,6 +990,7 @@ func TestMainActionConfigError(t *testing.T) {
 	// This test runs main() to cover the config error path
 	if os.Getenv("BE_MAIN_CONFIG_ERROR_TEST") == "1" {
 		os.Args = []string{"contributoor", "--config", "/non/existent/config.yaml"}
+
 		main()
 
 		return
@@ -972,6 +1005,7 @@ func TestMainActionConfigError(t *testing.T) {
 
 	// Should exit with error
 	assert.Error(t, err)
+
 	exitErr, ok := err.(*exec.ExitError)
 	assert.True(t, ok, "Expected exit error")
 	assert.NotEqual(t, 0, exitErr.ExitCode())
@@ -986,6 +1020,7 @@ func TestMainActionApplicationError(t *testing.T) {
 	if os.Getenv("BE_MAIN_APP_ERROR_TEST") == "1" {
 		// Use invalid output-server-tls to trigger an error
 		os.Args = []string{"contributoor", "--output-server-tls", "not-a-bool"}
+
 		main()
 
 		return
@@ -1000,6 +1035,7 @@ func TestMainActionApplicationError(t *testing.T) {
 
 	// Should exit with error
 	assert.Error(t, err)
+
 	exitErr, ok := err.(*exec.ExitError)
 	assert.True(t, ok, "Expected exit error")
 	assert.NotEqual(t, 0, exitErr.ExitCode())

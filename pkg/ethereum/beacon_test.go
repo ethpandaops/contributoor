@@ -93,8 +93,11 @@ func TestBeaconWrapper_IsActiveSubnet(t *testing.T) {
 		w := &BeaconWrapper{topicManager: topicMgr}
 
 		// Count how many subnets are active
-		activeCount := 0
-		var activeSubnet int
+		var (
+			activeCount  = 0
+			activeSubnet int
+		)
+
 		for _, subnet := range advertisedSubnets {
 			if w.IsActiveSubnet(uint64(subnet)) {
 				activeCount++

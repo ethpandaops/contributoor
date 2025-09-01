@@ -14,6 +14,7 @@ func (a *Application) handleHealthCheck(w http.ResponseWriter, r *http.Request) 
 	for traceID, instance := range a.beaconNodes {
 		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
 			w.WriteHeader(http.StatusOK)
+
 			fmt.Fprintf(w, "OK - beacon %s is healthy", traceID)
 
 			return

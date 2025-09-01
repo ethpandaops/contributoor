@@ -133,6 +133,7 @@ func TestNodeIdentity_Headers(t *testing.T) {
 				}
 			}
 		}`
+
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(response))
 	}))
@@ -184,6 +185,7 @@ func TestNodeIdentity_GetAttnets(t *testing.T) {
 						}
 					}
 				}`
+
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(response))
 			}))

@@ -51,6 +51,7 @@ func TestGenerateBeaconTraceIDs(t *testing.T) {
 
 				// Verify all IDs are unique
 				uniqueIDs := make(map[string]bool)
+
 				for _, id := range ids {
 					assert.NotEmpty(t, id)
 					assert.False(t, uniqueIDs[id], "Found duplicate ID: %s", id)

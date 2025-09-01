@@ -27,7 +27,9 @@ func main() {
 
 	go func() {
 		<-sigChan
+
 		log.Info("Received shutdown signal")
+
 		cancel()
 	}()
 

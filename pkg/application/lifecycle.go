@@ -80,7 +80,9 @@ func (a *Application) Stop(ctx context.Context) error {
 	// Create a timeout context if one wasn't provided
 	if ctx == nil {
 		var cancel context.CancelFunc
+
 		ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
+
 		defer cancel()
 	}
 
