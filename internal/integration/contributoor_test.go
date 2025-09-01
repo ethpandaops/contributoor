@@ -108,6 +108,7 @@ func TestContributoor_AllClients(t *testing.T) {
 	// Query metrics
 	resp, err := http.Get("http://localhost:19090/metrics")
 	require.NoError(t, err, "Failed to query metrics")
+
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
@@ -144,6 +145,7 @@ func TestContributoor_AllClients(t *testing.T) {
 							// Remove trailing newline if present
 							count = strings.TrimSuffix(count, "\n")
 							countInt := 0
+
 							if _, serr := fmt.Sscanf(count, "%d", &countInt); serr == nil && countInt > 0 {
 								traceIDsWithEvents[traceID] += countInt
 							}
@@ -155,6 +157,7 @@ func TestContributoor_AllClients(t *testing.T) {
 	}
 
 	t.Logf("Found events from %d beacon nodes", len(traceIDsWithEvents))
+
 	for traceID, count := range traceIDsWithEvents {
 		t.Logf("Trace ID %s: %d events", traceID, count)
 	}
@@ -166,6 +169,7 @@ func TestContributoor_AllClients(t *testing.T) {
 	// Check health endpoint
 	healthResp, err := http.Get("http://localhost:19091/healthz")
 	require.NoError(t, err, "Failed to query health endpoint")
+
 	defer healthResp.Body.Close()
 
 	require.Equal(t, http.StatusOK, healthResp.StatusCode, "Expected healthy status")
@@ -188,13 +192,16 @@ func TestContributoor_AllClients(t *testing.T) {
 
 	// Count healthy nodes
 	healthyCount := 0
+
 	for traceID, health := range healthStatus.BeaconNodes {
 		t.Logf("Beacon %s: connected=%v, healthy=%v, address=%s",
 			traceID, health.Connected, health.Healthy, health.Address)
+
 		if health.Healthy {
 			healthyCount++
 		}
 	}
+
 	require.GreaterOrEqual(t, healthyCount, len(beaconNodes)-1,
 		"Expected at least %d healthy beacon nodes", len(beaconNodes)-1)
 

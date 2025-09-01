@@ -134,6 +134,7 @@ func (n *nodeIdentity) fetchIdentity(ctx context.Context) (*NodeIdentityData, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch identity: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {

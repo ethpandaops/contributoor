@@ -180,6 +180,7 @@ func (tm *topicManager) GetEnabledTopics(ctx context.Context) []string {
 func (tm *topicManager) ExcludeTopic(topic string) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
+
 	tm.excludedTopics[topic] = true
 }
 
@@ -412,6 +413,7 @@ func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval 
 				if newSubnets != nil {
 					// Check if subnets have changed
 					tm.mu.Lock()
+
 					changed := false
 
 					if len(newSubnets) != len(tm.advertisedSubnets) {

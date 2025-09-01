@@ -72,15 +72,20 @@ func TestTopicManager_ShouldSubscribe(t *testing.T) {
 			log.SetLevel(logrus.DebugLevel)
 
 			// Use a simple topic list for testing
-			allTopics := []string{"block", "head", tt.topic}
-			var optInTopics []string
+			var (
+				allTopics   = []string{"block", "head", tt.topic}
+				optInTopics []string
+			)
+
 			if tt.isOptIn {
 				optInTopics = []string{tt.topic}
 			}
+
 			config := &ethereum.TopicConfig{
 				AllTopics:   allTopics,
 				OptInTopics: optInTopics,
 			}
+
 			tm := ethereum.NewTopicManager(log, config)
 
 			if tt.condition != nil {
@@ -158,6 +163,7 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 			if tt.setupOptIn {
 				optInTopics = []string{"single_attestation"}
 			}
+
 			config := &ethereum.TopicConfig{
 				AllTopics:   tt.allTopics,
 				OptInTopics: optInTopics,
@@ -220,6 +226,7 @@ func TestCreateAttestationSubnetCondition(t *testing.T) {
 			for i := 0; i < tt.subnetCount; i++ {
 				subnets[i] = i
 			}
+
 			mockIdentity.EXPECT().GetAttnets().Return(subnets).AnyTimes()
 
 			// Create condition
@@ -333,6 +340,7 @@ func TestTopicManager_HighWaterMarkLogic(t *testing.T) {
 				MismatchCooldown:        5 * time.Minute,
 				SubnetHighWaterMark:     tt.highWaterMark,
 			}
+
 			tm := ethereum.NewTopicManager(log, config)
 
 			// Set advertised subnets
@@ -367,6 +375,7 @@ func TestTopicManager_HighWaterMarkWithCooldown(t *testing.T) {
 		MismatchCooldown:        100 * time.Millisecond,
 		SubnetHighWaterMark:     2,
 	}
+
 	tm := ethereum.NewTopicManager(log, config)
 
 	// Set advertised subnets
@@ -440,6 +449,7 @@ func TestTopicManager_HighWaterMarkEdgeCases(t *testing.T) {
 			MismatchCooldown:        5 * time.Minute,
 			SubnetHighWaterMark:     3,
 		}
+
 		tm := ethereum.NewTopicManager(log, config)
 
 		tm.SetAdvertisedSubnets([]int{1})
@@ -478,6 +488,7 @@ func TestTopicManager_HighWaterMarkEdgeCases(t *testing.T) {
 			MismatchCooldown:        5 * time.Minute,
 			SubnetHighWaterMark:     2,
 		}
+
 		tm := ethereum.NewTopicManager(log, config)
 
 		// Start with subnets 1,2
@@ -526,6 +537,7 @@ func TestTopicManager_RandomSubnetSelection(t *testing.T) {
 		AttestationEnabled:    true,
 		AttestationMaxSubnets: 64, // Allow up to 64 subnets
 	}
+
 	tm := ethereum.NewTopicManager(log, config)
 
 	// Test 1: Setting advertised subnets should select one randomly
@@ -533,8 +545,11 @@ func TestTopicManager_RandomSubnetSelection(t *testing.T) {
 	tm.SetAdvertisedSubnets(advertisedSubnets)
 
 	// Verify only the selected subnet is active
-	activeCount := 0
-	var activeSubnet int
+	var (
+		activeCount  = 0
+		activeSubnet int
+	)
+
 	for _, subnet := range advertisedSubnets {
 		if tm.IsActiveSubnet(uint64(subnet)) {
 			activeCount++
@@ -547,6 +562,7 @@ func TestTopicManager_RandomSubnetSelection(t *testing.T) {
 
 	// Test 2: Empty advertised subnets should result in no active subnet
 	tm.SetAdvertisedSubnets([]int{})
+
 	for i := 0; i < 64; i++ {
 		assert.False(t, tm.IsActiveSubnet(uint64(i)), "No subnet should be active when advertised list is empty")
 	}
@@ -567,23 +583,29 @@ func TestTopicManager_TooManySubnetsDisablesSelection(t *testing.T) {
 		AttestationEnabled:    true,
 		AttestationMaxSubnets: 2, // Only allow up to 2 subnets
 	}
+
 	tm := ethereum.NewTopicManager(log, config)
 
 	// Test 1: Within threshold - should select a subnet
 	tm.SetAdvertisedSubnets([]int{10, 20})
+
 	activeCount := 0
+
 	for i := 0; i < 64; i++ {
 		if tm.IsActiveSubnet(uint64(i)) {
 			activeCount++
 		}
 	}
+
 	assert.Equal(t, 1, activeCount, "Should have exactly one active subnet when within threshold")
 
 	// Test 2: Exceeding threshold - should not select any subnet
 	allSubnets := make([]int, 64)
+
 	for i := 0; i < 64; i++ {
 		allSubnets[i] = i
 	}
+
 	tm.SetAdvertisedSubnets(allSubnets)
 
 	for i := 0; i < 64; i++ {
@@ -608,6 +630,7 @@ func TestTopicManager_MismatchDetectionExcludesNotSelectedSubnets(t *testing.T) 
 		MismatchCooldown:        100 * time.Millisecond,
 		SubnetHighWaterMark:     2,
 	}
+
 	tm := ethereum.NewTopicManager(log, config)
 
 	// Set advertised subnets (e.g., 1, 2, 3, 4)

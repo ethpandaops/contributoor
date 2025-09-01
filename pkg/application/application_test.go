@@ -152,7 +152,9 @@ func TestWaitForHealthy(t *testing.T) {
 
 	// Test context cancellation
 	cancel()
+
 	healthy = app.WaitForHealthy(ctx, 1*time.Second)
+
 	assert.False(t, healthy)
 }
 

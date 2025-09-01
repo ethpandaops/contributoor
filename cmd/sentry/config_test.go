@@ -323,6 +323,7 @@ func TestCredentialsPrecedence(t *testing.T) {
 				os.Setenv("CONTRIBUTOOR_USERNAME", tt.envUser)
 				defer os.Unsetenv("CONTRIBUTOOR_USERNAME")
 			}
+
 			if tt.envPass != "" {
 				os.Setenv("CONTRIBUTOOR_PASSWORD", tt.envPass)
 				defer os.Unsetenv("CONTRIBUTOOR_PASSWORD")
@@ -342,9 +343,11 @@ func TestCredentialsPrecedence(t *testing.T) {
 
 			// Build args
 			args := []string{"app"}
+
 			if tt.cliUser != "" {
 				args = append(args, "--username", tt.cliUser)
 			}
+
 			if tt.cliPass != "" {
 				args = append(args, "--password", tt.cliPass)
 			}
@@ -458,6 +461,7 @@ func TestCreateConfigLogLevel(t *testing.T) {
 			}
 
 			var createdConfig *config.Config
+
 			app.Action = func(c *cli.Context) error {
 				cfg, err := createConfig(c)
 				if err != nil {
@@ -522,6 +526,7 @@ func TestApplyConfigOverridesFromFlagsErrors(t *testing.T) {
 			// Set env vars
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
+
 				defer os.Unsetenv(k)
 			}
 
@@ -604,6 +609,7 @@ func TestDebugFlag(t *testing.T) {
 	}
 
 	var debugMode bool
+
 	app.Action = func(c *cli.Context) error {
 		debugMode = c.Bool("debug")
 
@@ -686,10 +692,13 @@ func TestAttestationSubnetConfigOverride(t *testing.T) {
 			// Set env vars if provided
 			if tt.envEnabled != "" {
 				os.Setenv("CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED", tt.envEnabled)
+
 				defer os.Unsetenv("CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED")
 			}
+
 			if tt.envMaxSubnets != "" {
 				os.Setenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS", tt.envMaxSubnets)
+
 				defer os.Unsetenv("CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS")
 			}
 
@@ -706,9 +715,11 @@ func TestAttestationSubnetConfigOverride(t *testing.T) {
 
 			// Build args
 			args := []string{"app"}
+
 			if tt.cliEnabled {
 				args = append(args, "--attestation-subnet-check-enabled")
 			}
+
 			if tt.cliMaxSubnets >= 0 {
 				args = append(args, "--attestation-subnet-max-subnets", fmt.Sprintf("%d", tt.cliMaxSubnets))
 			}
@@ -767,6 +778,7 @@ func TestAttestationSubnetConfigErrors(t *testing.T) {
 			// Set env vars
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
+
 				defer os.Unsetenv(k)
 			}
 

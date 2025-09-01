@@ -53,12 +53,15 @@ func TestStartMetricsServer(t *testing.T) {
 				// Test that metrics endpoint is accessible
 				resp, err := http.Get("http://" + tt.metricsAddress + "/metrics")
 				require.NoError(t, err)
+
 				defer resp.Body.Close()
+
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 				// Clean up
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 				defer cancel()
+
 				app.stopServers(ctx)
 			} else {
 				assert.Nil(t, app.servers.metricsServer)
@@ -109,13 +112,16 @@ func TestStartHealthCheckServer(t *testing.T) {
 				// Test that health endpoint is accessible
 				resp, err := http.Get("http://" + tt.healthCheckAddress + "/healthz")
 				require.NoError(t, err)
+
 				defer resp.Body.Close()
+
 				// Should return 503 since no beacons are healthy
 				assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 
 				// Clean up
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 				defer cancel()
+
 				app.stopServers(ctx)
 			} else {
 				assert.Nil(t, app.servers.healthCheckServer)
@@ -164,11 +170,13 @@ func TestStopServers(t *testing.T) {
 	if err == nil {
 		resp.Body.Close()
 	}
+
 	assert.Error(t, err)
 
 	resp2, err := http.Get("http://" + cfg.HealthCheckAddress + "/healthz")
 	if err == nil {
 		resp2.Body.Close()
 	}
+
 	assert.Error(t, err)
 }

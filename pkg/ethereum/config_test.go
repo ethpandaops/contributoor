@@ -239,6 +239,7 @@ func TestConfig_EdgeCases(t *testing.T) {
 
 	t.Run("zero value config", func(t *testing.T) {
 		var config Config
+
 		err := config.Validate()
 		assert.Error(t, err)
 		assert.Equal(t, "beaconNodeAddress is required", err.Error())
