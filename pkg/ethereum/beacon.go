@@ -142,6 +142,13 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		if w.isHealthy.CompareAndSwap(false, true) {
 			w.log.WithField("trace_id", w.traceID).Info("Beacon node connection restored")
 
+			// Refresh the metadata to get the latest network information
+			if w.Metadata() != nil {
+				if err := w.Metadata().DeriveNetwork(ctx); err != nil {
+					w.log.WithError(err).WithField("trace_id", w.traceID).Warn("Failed to refresh network metadata")
+				}
+			}
+
 			// Upon reconnection, check if the node's attestation subnets have changed
 			if w.config.AttestationSubnetConfig.Enabled && w.topicManager != nil {
 				identity := NewNodeIdentity(w.log, w.config.BeaconNodeAddress, w.config.BeaconNodeHeaders)
@@ -463,6 +470,30 @@ func (w *BeaconWrapper) NeedsReconnection() <-chan struct{} {
 // GetTopicManager returns the topic manager for this beacon wrapper.
 func (w *BeaconWrapper) GetTopicManager() TopicManager {
 	return w.topicManager
+}
+
+// IsHealthy returns true if the beacon node connection is healthy AND has network metadata.
+// This overrides the embedded BeaconNode's IsHealthy to check actual connection state.
+func (w *BeaconWrapper) IsHealthy() bool {
+	// Check our tracked connection state first.
+	// This is updated by OnHealthCheckFailed/Succeeded events.
+	if !w.isHealthy.Load() {
+		return false
+	}
+
+	// Check underlying beacon node health.
+	if !w.BeaconNode.IsHealthy() {
+		return false
+	}
+
+	// Also verify we have network metadata.
+	if w.Metadata() == nil {
+		return false
+	}
+
+	network := w.Metadata().GetNetwork()
+
+	return network != nil && network.Name != "none"
 }
 
 // isSlotDifferenceTooLarge checks if the difference between two slots exceeds the

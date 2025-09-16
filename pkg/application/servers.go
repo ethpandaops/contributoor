@@ -66,26 +66,28 @@ func (a *Application) startPProfServer() error {
 	return nil
 }
 
-// startHealthCheckServer starts the health check server if configured.
+// startHealthCheckServer starts the health check server.
+// If no address is configured, it defaults to 127.0.0.1:9191.
 func (a *Application) startHealthCheckServer() error {
-	if a.config.HealthCheckAddress == "" {
-		a.log.Info("Health check server disabled")
-
-		return nil
+	address := a.config.HealthCheckAddress
+	if address == "" {
+		// Use default address if none configured
+		address = "127.0.0.1:9191"
+		a.log.WithField("address", address).Info("Starting health check server with default address")
+	} else {
+		a.log.WithField("address", address).Info("Starting health check server")
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", a.handleHealthCheck)
 
 	a.servers.healthCheckServer = &http.Server{
-		Addr:              a.config.HealthCheckAddress,
+		Addr:              address,
 		Handler:           mux,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
 	go func() {
-		a.log.WithField("address", a.config.HealthCheckAddress).Info("Starting health check server")
-
 		if err := a.servers.healthCheckServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			a.log.WithError(err).Error("Failed to start health check server")
 		}

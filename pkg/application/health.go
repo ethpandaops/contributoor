@@ -1,7 +1,7 @@
 package application
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
@@ -9,21 +9,21 @@ import (
 
 // handleHealthCheck handles the /healthz endpoint.
 // Returns 200 OK if at least one beacon node is healthy, 503 otherwise.
+// Response is in JSON format including network information.
 func (a *Application) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	// Check if at least one beacon is healthy
-	for traceID, instance := range a.beaconNodes {
-		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
-			w.WriteHeader(http.StatusOK)
+	status := a.GetHealthStatus()
 
-			fmt.Fprintf(w, "OK - beacon %s is healthy", traceID)
+	w.Header().Set("Content-Type", "application/json")
 
-			return
-		}
+	if status.Healthy {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 
-	// No healthy beacons found
-	w.WriteHeader(http.StatusServiceUnavailable)
-	fmt.Fprint(w, "No healthy beacons")
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		a.log.WithError(err).Error("Failed to encode health status")
+	}
 }
 
 // HealthStatus represents the health status of the application.
@@ -34,9 +34,9 @@ type HealthStatus struct {
 
 // BeaconHealth represents the health status of a single beacon node.
 type BeaconHealth struct {
-	Connected bool   `json:"connected"`
-	Healthy   bool   `json:"healthy"`
-	Address   string `json:"address"`
+	Address string `json:"address"`
+	Network string `json:"network,omitempty"`
+	ChainID uint64 `json:"chain_id,omitempty"` //nolint:tagliatelle // standard naming
 }
 
 // GetHealthStatus returns detailed health information about the application.
@@ -52,11 +52,17 @@ func (a *Application) GetHealthStatus() HealthStatus {
 		}
 
 		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok {
-			beaconHealth.Connected = true
-			beaconHealth.Healthy = node.IsHealthy()
-
-			if beaconHealth.Healthy {
+			// Check if node is healthy (has metadata)
+			if node.IsHealthy() {
 				status.Healthy = true
+			}
+
+			// Get network information from the metadata
+			if metadata := node.Metadata(); metadata != nil {
+				if network := metadata.GetNetwork(); network != nil && network.Name != "none" {
+					beaconHealth.Network = string(network.Name)
+					beaconHealth.ChainID = network.ID
+				}
 			}
 		}
 
