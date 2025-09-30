@@ -131,8 +131,8 @@ github.com/ethpandaops/ethwallclock v0.4.0 h1:+sgnhf4pk6hLPukP076VxkiLloE4L0Yk1y
 github.com/ethpandaops/ethwallclock v0.4.0/go.mod h1:y0Cu+mhGLlem19vnAV2x0hpFS5KZ7oOi2SWYayv9l24=
 github.com/ethpandaops/hermes v0.0.4-0.20250825223614-64bc20135f78 h1:jY69W8bzflBQSMuxcz8IlWBZ/XFug2pT31Dvw1b/No4=
 github.com/ethpandaops/hermes v0.0.4-0.20250825223614-64bc20135f78/go.mod h1:a9csatrEFBQvf5c3GwUwWbM5DcOGaDKJgg2mLJ+IsWY=
-github.com/ethpandaops/xatu v1.4.10 h1:mhzKjYkL8DaRHWUL/YCxas+IQK/+gMAu6z/5xcB6QDw=
-github.com/ethpandaops/xatu v1.4.10/go.mod h1:u9ZeDPWLUuDF5QbC0Zjq5it5djJWCUbBY8cJkFM3lew=
+github.com/ethpandaops/xatu v1.4.11-0.20250930021210-0668806911f5 h1:aLFRLE/svxN+8eOnNvc6m/uBfBgCpaJWG/DJvEdDMoY=
+github.com/ethpandaops/xatu v1.4.11-0.20250930021210-0668806911f5/go.mod h1:u9ZeDPWLUuDF5QbC0Zjq5it5djJWCUbBY8cJkFM3lew=
 github.com/ferranbt/fastssz v0.1.4 h1:OCDB+dYDEQDvAgtAGnTSidK1Pe2tW3nFV40XyMkTeDY=
 github.com/ferranbt/fastssz v0.1.4/go.mod h1:Ea3+oeoRGGLGm5shYAeDgu6PGUlcvQhE2fILyD9+tGg=
 github.com/filecoin-project/go-clock v0.1.0 h1:SFbYIM75M8NnFm1yMHhN9Ahy3W5bEZV9gd6MPfXbKVU=

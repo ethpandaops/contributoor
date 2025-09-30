@@ -2,7 +2,6 @@ module github.com/ethpandaops/contributoor
 
 go 1.24.5
 
-// PeerDAS branch
 replace github.com/probe-lab/hermes => github.com/ethpandaops/hermes v0.0.4-0.20250825223614-64bc20135f78
 
 require (
@@ -15,7 +14,7 @@ require (
 	github.com/ethpandaops/ethcore v0.0.0-20250901052647-6bbde4bce006
 	github.com/ethpandaops/ethereum-package-go v0.5.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/xatu v1.4.10
+	github.com/ethpandaops/xatu v1.4.11-0.20250930021210-0668806911f5
 	github.com/go-co-op/gocron/v2 v2.16.2
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0

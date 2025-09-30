@@ -7,16 +7,17 @@ import (
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/ethpandaops/contributoor/internal/events"
+	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // DataColumnSidecarEvent represents a data column sidecar event.
-// NOTE: The Decorated() method will be updated once xatu proto types (DecoratedEvent_EthV1EventsDataColumnSidecar) are available.
 type DataColumnSidecarEvent struct {
 	events.BaseEvent
 	log      logrus.FieldLogger
@@ -53,8 +54,6 @@ func (e *DataColumnSidecarEvent) Data() interface{} {
 }
 
 func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
-	// TODO: Update to use DecoratedEvent_EthV1EventsDataColumnSidecar once xatu proto types are available
-	// Currently only the event type enum is available, not the full proto message types
 	decorated := &xatu.DecoratedEvent{
 		Meta: e.Meta(),
 		Event: &xatu.Event{
@@ -62,7 +61,15 @@ func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
 			DateTime: timestamppb.New(e.recvTime),
 			Id:       uuid.New().String(),
 		},
-		// Data field will be populated once xatu supports data column sidecars
+		Data: &xatu.DecoratedEvent_EthV1EventsDataColumnSidecar{
+			EthV1EventsDataColumnSidecar: &xatuethv1.EventDataColumnSidecar{
+				BlockRoot: xatuethv1.RootAsString(e.data.BlockRoot),
+				Slot:      &wrapperspb.UInt64Value{Value: uint64(e.data.Slot)},
+				Index:     &wrapperspb.UInt64Value{Value: e.data.Index},
+				//nolint:gosec // KZG commitments count is bounded by protocol limits
+				KzgCommitmentsCount: &wrapperspb.UInt32Value{Value: uint32(len(e.data.KZGCommitments))},
+			},
+		},
 	}
 
 	if e.beacon == nil {
@@ -74,20 +81,21 @@ func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
 		epoch      = e.beacon.GetEpochFromSlot(uint64(e.data.Slot))
 	)
 
-	// Add basic metadata that's compatible with current xatu types
-	decorated.Meta.Client.AdditionalData = &xatu.ClientMeta_EthV1EventsHead{
-		EthV1EventsHead: &xatu.ClientMeta_AdditionalEthV1EventsHeadData{
-			Slot: &xatu.Slot{
-				Number:        columnSlot.Number(),
+	decorated.Meta.Client.AdditionalData = &xatu.ClientMeta_EthV1EventsDataColumnSidecar{
+		EthV1EventsDataColumnSidecar: &xatu.ClientMeta_AdditionalEthV1EventsDataColumnSidecarData{
+			Slot: &xatu.SlotV2{
+				Number:        &wrapperspb.UInt64Value{Value: columnSlot.Number()},
 				StartDateTime: timestamppb.New(columnSlot.TimeWindow().Start()),
 			},
-			Epoch: &xatu.Epoch{
-				Number:        epoch.Number(),
+			Epoch: &xatu.EpochV2{
+				Number:        &wrapperspb.UInt64Value{Value: epoch.Number()},
 				StartDateTime: timestamppb.New(epoch.TimeWindow().Start()),
 			},
-			Propagation: &xatu.Propagation{
-				//nolint:gosec // not concerned in reality
-				SlotStartDiff: uint64(e.recvTime.Sub(columnSlot.TimeWindow().Start()).Milliseconds()),
+			Propagation: &xatu.PropagationV2{
+				SlotStartDiff: &wrapperspb.UInt64Value{
+					//nolint:gosec // not concerned in reality
+					Value: uint64(e.recvTime.Sub(columnSlot.TimeWindow().Start()).Milliseconds()),
+				},
 			},
 		},
 	}
