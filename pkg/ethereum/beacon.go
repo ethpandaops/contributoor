@@ -300,6 +300,41 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		return w.handleDecoratedEvent(ctx, event)
 	})
 
+	// OnDataColumnSidecar handler - processes ALL data column sidecar events without subnet filtering
+	// TODO: Enable once upstream support is available in ethcore.BeaconNode
+	// The handler expects *beacon.DataColumnSidecarEvent which needs to be defined in the beacon package.
+	// Once available, uncomment and update the type:
+	/*
+		node.OnDataColumnSidecar(ctx, func(ctx context.Context, dataColumn *beacon.DataColumnSidecarEvent) error {
+			now := w.clockDrift.Now()
+
+			meta, err := w.createEventMeta(ctx)
+			if err != nil {
+				return err
+			}
+
+			// Convert beacon.DataColumnSidecarEvent to our internal type
+			eventData := &v1.DataColumnSidecarEventData{
+				BlockRoot:   dataColumn.BlockRoot,
+				Slot:        dataColumn.Slot,
+				ColumnIndex: dataColumn.ColumnIndex,
+			}
+
+			event := v1.NewDataColumnSidecarEvent(w.log, w, w.cache.BeaconETHV1EventsDataColumnSidecar, meta, eventData, now)
+
+			ignore, err := event.Ignore(ctx)
+			if err != nil || ignore {
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+
+			return w.handleDecoratedEvent(ctx, event)
+		})
+	*/
+
 	node.OnSingleAttestation(ctx, func(ctx context.Context, attestation *electra.SingleAttestation) error {
 		now := w.clockDrift.Now()
 
