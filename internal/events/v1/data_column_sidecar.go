@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/ethpandaops/contributoor/internal/events"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"
@@ -14,23 +15,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// DataColumnSidecarEventData is a placeholder for the actual data column sidecar event type.
-// This will be replaced with eth2v1.DataColumnSidecarEvent once upstream support is available.
-type DataColumnSidecarEventData struct {
-	BlockRoot   [32]byte
-	Slot        uint64
-	ColumnIndex uint64
-}
-
 // DataColumnSidecarEvent represents a data column sidecar event.
-// NOTE: This implementation is prepared for upstream support. Once available:
-// - Replace DataColumnSidecarEventData with eth2v1.DataColumnSidecarEvent
-// - Update the Decorated() method to use proper xatu types
-// - Update Type() method to use xatu.Event_BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR.
+// NOTE: The Decorated() method will be updated once xatu proto types (DecoratedEvent_EthV1EventsDataColumnSidecar) are available.
 type DataColumnSidecarEvent struct {
 	events.BaseEvent
 	log      logrus.FieldLogger
-	data     *DataColumnSidecarEventData // Will be replaced with *eth2v1.DataColumnSidecarEvent
+	data     *eth2v1.DataColumnSidecarEvent
 	beacon   events.BeaconDataProvider
 	cache    *ttlcache.Cache[string, time.Time]
 	recvTime time.Time
@@ -41,7 +31,7 @@ func NewDataColumnSidecarEvent(
 	beacon events.BeaconDataProvider,
 	cache *ttlcache.Cache[string, time.Time],
 	meta *xatu.Meta,
-	data *DataColumnSidecarEventData, // Will be replaced with *eth2v1.DataColumnSidecarEvent
+	data *eth2v1.DataColumnSidecarEvent,
 	recvTime time.Time,
 ) *DataColumnSidecarEvent {
 	return &DataColumnSidecarEvent{
@@ -50,13 +40,12 @@ func NewDataColumnSidecarEvent(
 		beacon:    beacon,
 		cache:     cache,
 		recvTime:  recvTime,
-		log:       log.WithField("event", "BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR"),
+		log:       log.WithField("event", xatu.Event_BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR.String()),
 	}
 }
 
 func (e *DataColumnSidecarEvent) Type() string {
-	// Placeholder until xatu.Event_BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR is available
-	return "BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR"
+	return xatu.Event_BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR.String()
 }
 
 func (e *DataColumnSidecarEvent) Data() interface{} {
@@ -64,12 +53,12 @@ func (e *DataColumnSidecarEvent) Data() interface{} {
 }
 
 func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
-	// For now, return a minimal decorated event
-	// This will be properly implemented once upstream support is available
+	// TODO: Update to use DecoratedEvent_EthV1EventsDataColumnSidecar once xatu proto types are available
+	// Currently only the event type enum is available, not the full proto message types
 	decorated := &xatu.DecoratedEvent{
 		Meta: e.Meta(),
 		Event: &xatu.Event{
-			Name:     xatu.Event_BEACON_API_ETH_V1_EVENTS_UNKNOWN, // Placeholder
+			Name:     xatu.Event_BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR,
 			DateTime: timestamppb.New(e.recvTime),
 			Id:       uuid.New().String(),
 		},
@@ -81,8 +70,8 @@ func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
 	}
 
 	var (
-		columnSlot = e.beacon.GetSlot(e.data.Slot)
-		epoch      = e.beacon.GetEpochFromSlot(e.data.Slot)
+		columnSlot = e.beacon.GetSlot(uint64(e.data.Slot))
+		epoch      = e.beacon.GetEpochFromSlot(uint64(e.data.Slot))
 	)
 
 	// Add basic metadata that's compatible with current xatu types
@@ -115,7 +104,7 @@ func (e *DataColumnSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 	}
 
 	// Check if event is from an unexpected network based on slot
-	if e.beacon.IsSlotFromUnexpectedNetwork(e.data.Slot) {
+	if e.beacon.IsSlotFromUnexpectedNetwork(uint64(e.data.Slot)) {
 		e.log.WithField("slot", e.data.Slot).Warn("Ignoring data column sidecar event from unexpected network")
 
 		return true, nil
@@ -133,7 +122,7 @@ func (e *DataColumnSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 			"hash":                  hash,
 			"time_since_first_item": time.Since(item.Value()),
 			"slot":                  e.data.Slot,
-			"column_index":          e.data.ColumnIndex,
+			"column_index":          e.data.Index,
 		}).Debug("Duplicate data column sidecar event received")
 
 		return true, nil
