@@ -74,6 +74,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			validate: func(t *testing.T, cfg *config.Config) {
 				t.Helper()
 				require.NotNil(t, cfg.OutputServer)
+
 				expected := base64.StdEncoding.EncodeToString([]byte("user:pass"))
 				assert.Equal(t, expected, cfg.OutputServer.Credentials)
 			},
@@ -145,6 +146,7 @@ func TestApplyConfigOverridesFromFlags(t *testing.T) {
 			validate: func(t *testing.T, cfg *config.Config) {
 				t.Helper()
 				require.NotNil(t, cfg.OutputServer)
+
 				expected := base64.StdEncoding.EncodeToString([]byte("user:pass!@#$%^&*()"))
 				assert.Equal(t, expected, cfg.OutputServer.Credentials)
 

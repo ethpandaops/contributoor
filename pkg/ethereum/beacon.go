@@ -300,6 +300,28 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		return w.handleDecoratedEvent(ctx, event)
 	})
 
+	node.OnDataColumnSidecar(ctx, func(ctx context.Context, dataColumn *eth2v1.DataColumnSidecarEvent) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewDataColumnSidecarEvent(w.log, w, w.cache.BeaconETHV1EventsDataColumnSidecar, meta, dataColumn, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
 	node.OnSingleAttestation(ctx, func(ctx context.Context, attestation *electra.SingleAttestation) error {
 		now := w.clockDrift.Now()
 

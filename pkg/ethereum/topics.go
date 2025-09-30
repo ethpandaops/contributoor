@@ -8,6 +8,7 @@ const (
 	TopicBlobSidecar         = "blob_sidecar"
 	TopicChainReorg          = "chain_reorg"
 	TopicSingleAttestation   = "single_attestation"
+	TopicDataColumnSidecar   = "data_column_sidecar"
 )
 
 // Define all available topics.
@@ -19,6 +20,7 @@ var defaultAllTopics = []string{
 	TopicBlobSidecar,
 	TopicChainReorg,
 	TopicSingleAttestation,
+	TopicDataColumnSidecar,
 }
 
 // Define opt-in topics.
