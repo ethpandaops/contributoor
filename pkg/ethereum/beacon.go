@@ -300,7 +300,6 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		return w.handleDecoratedEvent(ctx, event)
 	})
 
-	// OnDataColumnSidecar handler - processes ALL data column sidecar events without subnet filtering
 	node.OnDataColumnSidecar(ctx, func(ctx context.Context, dataColumn *eth2v1.DataColumnSidecarEvent) error {
 		now := w.clockDrift.Now()
 

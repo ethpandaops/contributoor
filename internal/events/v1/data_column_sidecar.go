@@ -136,9 +136,5 @@ func (e *DataColumnSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	// IMPORTANT: NO subnet filtering logic here
-	// Unlike single_attestation, we process ALL data column sidecar events
-	// No calls to RecordSeenSubnet() or IsActiveSubnet()
-
 	return false, nil
 }
