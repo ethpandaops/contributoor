@@ -1,6 +1,6 @@
 module github.com/ethpandaops/contributoor
 
-go 1.24.5
+go 1.25.1
 
 replace github.com/probe-lab/hermes => github.com/ethpandaops/hermes v0.0.4-0.20250825223614-64bc20135f78
 
