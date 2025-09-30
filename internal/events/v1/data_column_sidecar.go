@@ -93,7 +93,7 @@ func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
 			},
 			Propagation: &xatu.PropagationV2{
 				SlotStartDiff: &wrapperspb.UInt64Value{
-					//nolint:gosec // not concerned in reality
+					//nolint:gosec // safe.
 					Value: uint64(e.recvTime.Sub(columnSlot.TimeWindow().Start()).Milliseconds()),
 				},
 			},
