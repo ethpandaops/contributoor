@@ -1,11 +1,11 @@
 # CI-specific Dockerfile that builds contributoor from source
 # This is used for integration testing in GitHub Actions
-# 
+#
 # Why this exists:
 # - The main Dockerfile expects a pre-built binary (built by GoReleaser)
 # - CI needs to build from source to test the current PR's code changes
 # - This ensures we test the actual code being submitted, not a released version
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download

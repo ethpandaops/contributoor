@@ -232,6 +232,7 @@ func TestCLIApp(t *testing.T) {
 					if c.String("network") != "" && cfg != nil {
 						assert.Equal(t, c.String("network"), cfg.NetworkName)
 					}
+
 					if c.String("beacon-node-address") != "" && cfg != nil {
 						assert.Equal(t, c.String("beacon-node-address"), cfg.BeaconNodeAddress)
 					}
@@ -296,6 +297,7 @@ func TestCreateConfig(t *testing.T) {
 				// Create temp config file
 				tmpFile, err := os.CreateTemp("", "config*.yaml")
 				require.NoError(t, err)
+
 				defer tmpFile.Close()
 
 				configContent := `
