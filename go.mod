@@ -6,17 +6,17 @@ go 1.25.1
 replace github.com/probe-lab/hermes => github.com/ethpandaops/hermes v0.0.4-0.20251001001342-3643aa32bc73
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.9-20250912141014-52f32327d4b0.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1
 	buf.build/go/protovalidate v1.0.0
 	github.com/attestantio/go-eth2-client v0.27.1
-	github.com/beevik/ntp v1.4.3
+	github.com/beevik/ntp v1.5.0
 	github.com/creasty/defaults v1.8.0
 	github.com/ethpandaops/beacon v0.65.0
 	github.com/ethpandaops/ethcore v0.0.0-20251001000135-f392e3493d0d
 	github.com/ethpandaops/ethereum-package-go v0.8.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/xatu v1.4.13
-	github.com/go-co-op/gocron/v2 v2.16.6
+	github.com/ethpandaops/xatu v1.4.15
+	github.com/go-co-op/gocron/v2 v2.17.0
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
@@ -27,7 +27,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v2 v2.27.7
 	go.uber.org/mock v0.6.0
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -224,13 +224,13 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792 // indirect
 	golang.org/x/mod v0.27.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/net v0.44.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.28.0 // indirect
+	golang.org/x/text v0.29.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b // indirect
