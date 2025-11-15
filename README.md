@@ -80,18 +80,27 @@ runMethod: RUN_METHOD_DOCKER
 All configuration options can be overridden via CLI flags:
 
 ```bash
---config string                    # Config file path
---debug                           # Enable debug mode
---network string                  # Ethereum network name (mainnet, sepolia, holesky)
---beacon-node-address string      # Address of the beacon node API (e.g. http://localhost:5052)
---metrics-address string          # Address of the metrics server (e.g. :9091)
---health-check-address string     # Address of the health check server (e.g. :9191)
---log-level string               # Log level (debug, info, warn, error)
---username string                # Username for the output server
---password string                # Password for the output server
---output-server-address string    # Address of the output server (e.g. xatu.primary.production.platform.ethpandaops.io:443)
---output-server-tls string       # Enable TLS for the output server (true/false)
---contributoor-directory string   # Directory where contributoor stores configuration and data
+GLOBAL OPTIONS:
+   --config value                                        config file path
+   --debug                                               debug mode (default: false)
+   --network value                                       ethereum network name (mainnet, sepolia, holesky)
+   --beacon-node-address value                           comma-separated addresses of beacon node apis (e.g. http://localhost:5052,http://localhost:5053)
+   --metrics-address value                               address of the metrics server
+   --health-check-address value                          address of the health check server
+   --log-level value                                     log level (debug, info, warn, error)
+   --output-server-address value                         address of the output server
+   --username value                                      username for the output server
+   --password value                                      password for the output server
+   --output-server-tls value                             enable TLS for the output server
+   --contributoor-directory value                        directory where contributoor stores configuration and data
+   --attestation-subnet-check-enabled                    enable attestation subnet checking for single_attestation topic filtering (default: false)
+   --attestation-subnet-max-subnets value                maximum number of subnets a node can be subscribed to before single_attestation topic is disabled (0-64) (default: -1)
+   --attestation-subnet-mismatch-detection-window value  number of slots to track for subnet activity (default: -1)
+   --attestation-subnet-mismatch-threshold value         number of mismatches required before triggering reconnection (default: -1)
+   --attestation-subnet-mismatch-cooldown-seconds value  cooldown period between reconnections in seconds (default: -1)
+   --attestation-subnet-high-water-mark value            number of additional temporary subnets allowed without triggering a restart (default: -1)
+   --release                                             print release and exit (default: false)
+   --help, -h                                            show help
 ```
 
 Example with multiple flags:
