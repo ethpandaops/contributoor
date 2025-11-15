@@ -57,6 +57,14 @@ logLevel: info
 # the beacon node's configuration.
 networkName: pectra-devnet-6
 
+# Enable or disable attestation subnet checking
+attestationSubnetCheck:
+    enabled: true
+    maxSubnets: 2
+    mismatchDetectionWindow: 2
+    mismatchThreshold: 1
+    subnetHighWaterMark: 5
+
 # The output server configuration (credentials are base64 encoded and required if a pandaops server is used).
 outputServer:
     address: xatu.primary.production.platform.ethpandaops.io:443
