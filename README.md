@@ -80,18 +80,25 @@ runMethod: RUN_METHOD_DOCKER
 All configuration options can be overridden via CLI flags:
 
 ```bash
---config string                    # Config file path
---debug                           # Enable debug mode
---network string                  # Ethereum network name (mainnet, sepolia, holesky)
---beacon-node-address string      # Address of the beacon node API (e.g. http://localhost:5052)
---metrics-address string          # Address of the metrics server (e.g. :9091)
---health-check-address string     # Address of the health check server (e.g. :9191)
---log-level string               # Log level (debug, info, warn, error)
---username string                # Username for the output server
---password string                # Password for the output server
---output-server-address string    # Address of the output server (e.g. xatu.primary.production.platform.ethpandaops.io:443)
---output-server-tls string       # Enable TLS for the output server (true/false)
---contributoor-directory string   # Directory where contributoor stores configuration and data
+--config string                                    # Config file path
+--debug                                            # Enable debug mode
+--network string                                   # Ethereum network name (mainnet, sepolia, holesky)
+--beacon-node-address string                       # Comma-separated addresses of beacon node APIs (e.g. http://localhost:5052,http://localhost:5053)
+--metrics-address string                           # Address of the metrics server (e.g. :9091)
+--health-check-address string                      # Address of the health check server (e.g. :9191)
+--log-level string                                 # Log level (debug, info, warn, error)
+--username string                                  # Username for the output server
+--password string                                  # Password for the output server
+--output-server-address string                     # Address of the output server (e.g. xatu.primary.production.platform.ethpandaops.io:443)
+--output-server-tls string                         # Enable TLS for the output server (true/false)
+--contributoor-directory string                    # Directory where contributoor stores configuration and data
+--attestation-subnet-check-enabled                 # Enable attestation subnet checking for single_attestation topic filtering
+--attestation-subnet-max-subnets int               # Maximum number of subnets before single_attestation topic is disabled (0-64)
+--attestation-subnet-mismatch-detection-window int # Number of slots to track for subnet activity
+--attestation-subnet-mismatch-threshold int        # Number of mismatches required before triggering reconnection
+--attestation-subnet-mismatch-cooldown-seconds int # Cooldown period between reconnections in seconds
+--attestation-subnet-high-water-mark int           # Number of additional temporary subnets allowed without triggering a restart
+--release                                          # Print release and exit
 ```
 
 Example with multiple flags:
