@@ -1,4 +1,4 @@
-name: fusaka-integration-tests
+name: client-integration-tests
 
 on:
   pull_request:
