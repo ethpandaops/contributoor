@@ -22,19 +22,19 @@ participants:
   # Nimbus beacon node
   - el_type: geth
     cl_type: nimbus
-    cl_image: ethpandaops/nimbus-eth2:fusaka-devnet-3
+    cl_image: ethpandaops/nimbus-eth2:multiarch-v25.11.1
     count: 1
 
   # Lodestar beacon node
   - el_type: geth
     cl_type: lodestar
-    cl_image: ethpandaops/lodestar:fusaka-devnet-3
+    cl_image: ethpandaops/lodestar:unstable
     count: 1
 
   # Grandine beacon node
   - el_type: geth
     cl_type: grandine
-    cl_image: ethpandaops/grandine:peerdas-fulu
+    cl_image: ethpandaops/grandine:develop
     count: 1
 
 additional_services: []
