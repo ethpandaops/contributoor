@@ -22,7 +22,7 @@ participants:
   # Nimbus beacon node
   - el_type: geth
     cl_type: nimbus
-    cl_image: ethpandaops/nimbus-eth2:multiarch-v25.11.1
+    cl_image: ethpandaops/nimbus-eth2:unstable
     count: 1
 
   # Lodestar beacon node
