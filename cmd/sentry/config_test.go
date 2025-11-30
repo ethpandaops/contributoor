@@ -323,11 +323,13 @@ func TestCredentialsPrecedence(t *testing.T) {
 			// Set env vars if provided
 			if tt.envUser != "" {
 				os.Setenv("CONTRIBUTOOR_USERNAME", tt.envUser)
+
 				defer os.Unsetenv("CONTRIBUTOOR_USERNAME")
 			}
 
 			if tt.envPass != "" {
 				os.Setenv("CONTRIBUTOOR_PASSWORD", tt.envPass)
+
 				defer os.Unsetenv("CONTRIBUTOOR_PASSWORD")
 			}
 
@@ -440,6 +442,7 @@ func TestCreateConfigLogLevel(t *testing.T) {
 			// Set env var if needed
 			if tt.envLogLevel != "" {
 				os.Setenv("CONTRIBUTOOR_LOG_LEVEL", tt.envLogLevel)
+
 				defer os.Unsetenv("CONTRIBUTOOR_LOG_LEVEL")
 			}
 
@@ -843,6 +846,7 @@ func TestContributoorDirectoryOverride(t *testing.T) {
 			// Set env var if provided
 			if tt.envValue != "" {
 				os.Setenv("CONTRIBUTOOR_DIRECTORY", tt.envValue)
+
 				defer os.Unsetenv("CONTRIBUTOOR_DIRECTORY")
 			}
 

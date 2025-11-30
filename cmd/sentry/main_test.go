@@ -38,6 +38,7 @@ func TestMain(t *testing.T) {
 		}
 
 		cmd := exec.Command(os.Args[0], "-test.run=TestMain/release_flag")
+
 		cmd.Env = append(os.Environ(), "BE_MAIN_TEST=1")
 		output, err := cmd.CombinedOutput()
 
@@ -608,6 +609,7 @@ func TestMainExitCodes(t *testing.T) {
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestMainExitCodes")
+
 	cmd.Env = append(os.Environ(), "BE_EXIT_TEST=1")
 	output, err := cmd.CombinedOutput()
 
@@ -848,6 +850,7 @@ func TestMainActionWithApplication(t *testing.T) {
 
 	// Run as subprocess
 	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionWithApplication")
+
 	cmd.Env = append(os.Environ(), "BE_MAIN_ACTION_TEST=1")
 
 	// Start the process
@@ -907,6 +910,7 @@ run_method: 3
 
 	// Run as subprocess
 	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionSystemd")
+
 	cmd.Env = append(os.Environ(), "BE_MAIN_SYSTEMD_TEST=1")
 
 	// Start the process
@@ -964,6 +968,7 @@ func TestMainActionInvalidLogLevel(t *testing.T) {
 
 	// Run as subprocess
 	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionInvalidLogLevel")
+
 	cmd.Env = append(os.Environ(), "BE_MAIN_LOGLEVEL_TEST=1")
 
 	// Start the process
@@ -1000,6 +1005,7 @@ func TestMainActionConfigError(t *testing.T) {
 
 	// Run as subprocess
 	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionConfigError")
+
 	cmd.Env = append(os.Environ(), "BE_MAIN_CONFIG_ERROR_TEST=1")
 
 	// Run and expect it to fail
@@ -1030,6 +1036,7 @@ func TestMainActionApplicationError(t *testing.T) {
 
 	// Run as subprocess
 	cmd := exec.Command(os.Args[0], "-test.run=TestMainActionApplicationError")
+
 	cmd.Env = append(os.Environ(), "BE_MAIN_APP_ERROR_TEST=1")
 
 	// Run and expect it to fail
