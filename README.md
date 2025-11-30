@@ -71,6 +71,14 @@ contributoorDirectory: /Users/username/.contributoor
 
 # The method to run contributoor (RUN_METHOD_DOCKER, RUN_METHOD_BINARY, RUN_METHOD_SYSTEMD).
 runMethod: RUN_METHOD_DOCKER
+
+# Attestation subnet check configuration (optional).
+# attestationSubnetCheck:
+#     enabled: true
+#     maxSubnets: 2
+#     mismatchDetectionWindow: 2
+#     mismatchThreshold: 1
+#     subnetHighWaterMark: 5
 ```
 </details>
 
@@ -92,6 +100,13 @@ All configuration options can be overridden via CLI flags:
 --output-server-address string    # Address of the output server (e.g. xatu.primary.production.platform.ethpandaops.io:443)
 --output-server-tls string       # Enable TLS for the output server (true/false)
 --contributoor-directory string   # Directory where contributoor stores configuration and data
+
+# Attestation subnet check flags (optional)
+--attestation-subnet-check-enabled              # Enable attestation subnet checking
+--attestation-subnet-max-subnets int            # Max subnets before disabling single_attestation (default: 2)
+--attestation-subnet-mismatch-detection-window int  # Slots to track for mismatch detection (default: 2)
+--attestation-subnet-mismatch-threshold int     # Mismatches before reconnection (default: 1)
+--attestation-subnet-high-water-mark int        # Extra subnet events allowed (default: 5)
 ```
 
 Example with multiple flags:
