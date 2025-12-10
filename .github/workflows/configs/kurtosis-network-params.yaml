@@ -34,7 +34,7 @@ participants:
   # Grandine beacon node
   - el_type: geth
     cl_type: grandine
-    cl_image: ethpandaops/grandine:develop
+    cl_image: sifrai/grandine:2.0.1
     count: 1
 
 additional_services: []
