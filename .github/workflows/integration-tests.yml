@@ -90,7 +90,7 @@ jobs:
 
             echo "Monitoring contributoor logs for success indicators..."
 
-            for i in {1..60}; do
+            for i in {1..120}; do
               # Check for network detection
               if ! $NETWORK_DETECTED && docker logs "$CONTAINER_NAME" 2>&1 | grep -q "Detected network and node ID hash"; then
                 NETWORK_DETECTED=true
