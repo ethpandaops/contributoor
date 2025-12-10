@@ -126,13 +126,21 @@ jobs:
                 break
               fi
 
-              # Show progress every 10 seconds
+              # Show progress every 10 seconds, and show any summaries we've received
               if [ $((i % 10)) -eq 0 ] && [ $i -ne 0 ]; then
                 echo "  ... still waiting (${i}s elapsed)"
+                # Show the latest summary line for debugging (even if empty)
+                LATEST_SUMMARY=$(docker logs "$CONTAINER_NAME" 2>&1 | grep "Summary of the last" | tail -1)
+                if [ -n "$LATEST_SUMMARY" ]; then
+                  echo "  Latest summary: $LATEST_SUMMARY"
+                fi
               fi
 
               sleep 1
             done
+
+            # Capture logs BEFORE stopping container (fix for "No such container" error)
+            CONTAINER_LOGS=$(docker logs "$CONTAINER_NAME" 2>&1 || echo "Failed to capture logs")
 
             # Stop and remove container
             docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
@@ -147,8 +155,11 @@ jobs:
               echo "  Beacon connected: $SERVICE_READY"
               echo "  Data collection: $SUMMARY_FOUND"
               echo ""
-              echo "Last 20 lines of log:"
-              docker logs "$CONTAINER_NAME" 2>&1 | tail -20 || true
+              echo "All summary lines received:"
+              echo "$CONTAINER_LOGS" | grep "Summary of the last" || echo "  (no summaries found)"
+              echo ""
+              echo "Last 30 lines of log:"
+              echo "$CONTAINER_LOGS" | tail -30
               exit 1
             fi
           done
