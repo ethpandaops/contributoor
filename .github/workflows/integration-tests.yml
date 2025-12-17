@@ -59,6 +59,11 @@ jobs:
           echo "Found beacon nodes:"
           echo -e "$BEACON_NODES"
 
+          # Wait for network to stabilize and start producing blocks
+          echo ""
+          echo "Waiting 30 seconds for network to stabilize..."
+          sleep 30
+
           # Test each beacon node
           echo -e "$BEACON_NODES" | grep -v "^$" | while read -r beacon; do
             NODE_NAME=$(echo "$beacon" | sed 's|http://||' | cut -d':' -f1)
@@ -153,7 +158,7 @@ jobs:
               docker logs "$CONTAINER_NAME" 2>&1 | grep 'event_stream_events=""' | wc -l | xargs -I{} echo "  Found {} empty summary logs"
               echo ""
               echo "Event subscription setup:"
-              docker logs "$CONTAINER_NAME" 2>&1 | grep -i "subscri\|Event" | head -10 || echo "  No subscription logs found"
+              docker logs "$CONTAINER_NAME" 2>&1 | grep -i "Event subscriptions setup\|Starting summary\|topics" | head -10 || echo "  No subscription logs found"
               echo ""
               echo "Error/Warning logs:"
               docker logs "$CONTAINER_NAME" 2>&1 | grep -iE "error|warn|fail" | tail -10 || echo "  No error/warning logs found"
