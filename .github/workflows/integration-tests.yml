@@ -134,11 +134,7 @@ jobs:
               sleep 1
             done
 
-            # Stop and remove container
-            docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
-            docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
-
-            # Check results
+            # Check results BEFORE stopping container
             if $SUCCESS; then
               echo "✓ Contributoor successfully connected to $NODE_NAME"
             else
@@ -147,8 +143,28 @@ jobs:
               echo "  Beacon connected: $SERVICE_READY"
               echo "  Data collection: $SUMMARY_FOUND"
               echo ""
-              echo "Last 20 lines of log:"
-              docker logs "$CONTAINER_NAME" 2>&1 | tail -20 || true
+              echo "Last 50 lines of log:"
+              docker logs "$CONTAINER_NAME" 2>&1 | tail -50 || true
+              echo ""
+              echo "Summary logs (if any):"
+              docker logs "$CONTAINER_NAME" 2>&1 | grep -i "Summary of the last" || echo "  No summary logs found"
+              echo ""
+              echo "Empty summaries (event_stream_events=\"\"):"
+              docker logs "$CONTAINER_NAME" 2>&1 | grep 'event_stream_events=""' | wc -l | xargs -I{} echo "  Found {} empty summary logs"
+              echo ""
+              echo "Event subscription setup:"
+              docker logs "$CONTAINER_NAME" 2>&1 | grep -i "subscri\|Event" | head -10 || echo "  No subscription logs found"
+              echo ""
+              echo "Error/Warning logs:"
+              docker logs "$CONTAINER_NAME" 2>&1 | grep -iE "error|warn|fail" | tail -10 || echo "  No error/warning logs found"
+            fi
+
+            # Stop and remove container AFTER capturing logs
+            docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
+            docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
+
+            # Exit if failed
+            if ! $SUCCESS; then
               exit 1
             fi
           done
