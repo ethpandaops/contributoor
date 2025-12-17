@@ -73,6 +73,25 @@ jobs:
             echo "Endpoint: $beacon"
             echo "======================================"
 
+            # Check if beacon node is producing blocks
+            echo "Checking beacon node status..."
+            INITIAL_SLOT=$(curl -s "${beacon}/eth/v1/beacon/headers/head" | jq -r '.data.header.message.slot // "unknown"')
+            echo "  Initial head slot: $INITIAL_SLOT"
+
+            # Wait a few slots and check again
+            sleep 15
+            CURRENT_SLOT=$(curl -s "${beacon}/eth/v1/beacon/headers/head" | jq -r '.data.header.message.slot // "unknown"')
+            echo "  Head slot after 15s: $CURRENT_SLOT"
+
+            if [ "$INITIAL_SLOT" = "$CURRENT_SLOT" ] && [ "$INITIAL_SLOT" != "unknown" ]; then
+              echo "  WARNING: Head slot not advancing! Network may be stuck."
+            fi
+
+            # Also check the event stream directly
+            echo "  Testing SSE event stream directly (5 second sample)..."
+            timeout 5 curl -s -N -H "Accept: text/event-stream" "${beacon}/eth/v1/events?topics=head" 2>/dev/null | head -20 || echo "  (no events received in 5s)"
+            echo ""
+
             # Run contributoor and capture logs
             CONTAINER_NAME="contributoor-test-${NODE_NAME}"
 
