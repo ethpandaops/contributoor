@@ -16,7 +16,7 @@ concurrency:
 jobs:
   beacon-integration-test:
     timeout-minutes: 20
-    runs-on: ubuntu-latest
+    runs-on: utility-xlarge
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.1
