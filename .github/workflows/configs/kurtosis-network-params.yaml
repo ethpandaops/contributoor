@@ -6,18 +6,21 @@ participants:
     cl_type: teku
     cl_image: ethpandaops/teku:master
     count: 1
+    supernode: true
 
   # Prysm beacon node
   - el_type: geth
     cl_type: prysm
     cl_image: ethpandaops/prysm-beacon-chain:develop
     count: 1
+    supernode: true
 
   # Lighthouse beacon node
   - el_type: geth
     cl_type: lighthouse
     cl_image: ethpandaops/lighthouse:unstable
     count: 1
+    supernode: true
 
   # Nimbus beacon node
   - el_type: geth
