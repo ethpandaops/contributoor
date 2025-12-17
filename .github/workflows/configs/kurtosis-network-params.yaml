@@ -4,37 +4,37 @@ participants:
   # Teku beacon node
   - el_type: geth
     cl_type: teku
-    cl_image: ethpandaops/teku:master
+    cl_image: consensys/teku:latest
     count: 1
 
   # Prysm beacon node
   - el_type: geth
     cl_type: prysm
-    cl_image: ethpandaops/prysm-beacon-chain:develop
+    cl_image: offchainlabs/prysm-beacon-chain:stable
     count: 1
 
   # Lighthouse beacon node
   - el_type: geth
     cl_type: lighthouse
-    cl_image: ethpandaops/lighthouse:unstable
+    cl_image: sigp/lighthouse:latest
     count: 1
 
   # Nimbus beacon node
   - el_type: geth
     cl_type: nimbus
-    cl_image: ethpandaops/nimbus-eth2:unstable
+    cl_image: statusim/nimbus-eth2:multiarch-latest
     count: 1
 
   # Lodestar beacon node
   - el_type: geth
     cl_type: lodestar
-    cl_image: ethpandaops/lodestar:unstable
+    cl_image: chainsafe/lodestar:latest
     count: 1
 
   # Grandine beacon node
   - el_type: geth
     cl_type: grandine
-    cl_image: ethpandaops/grandine:develop
+    cl_image: sifrai/grandine:latest
     count: 1
 
 additional_services: []
