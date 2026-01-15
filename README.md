@@ -40,6 +40,8 @@ If you encounter configuration issues, you can:
 
 ```yaml
 # The address of your beacon node's HTTP API.
+# Replace localhost IP by your local network IP in case your beacon is running direct on the OS,
+# you also might have to run contributoor using systemd and not docker
 beaconNodeAddress: http://127.0.0.1:64692
 
 # The address to serve metrics on (optional, disabled if empty).
