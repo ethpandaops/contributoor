@@ -219,10 +219,9 @@ func (a *Application) createTopicManager(ctx context.Context, log logrus.FieldLo
 			log.WithError(err).Warn("Failed to fetch node identity")
 		} else {
 			activeSubnets := identity.GetAttnets()
-			topicManager.RegisterCondition(
-				ethereum.TopicSingleAttestation,
-				ethereum.CreateAttestationSubnetCondition(len(activeSubnets), config.AttestationSubnetConfig.MaxSubnets),
-			)
+			attestationCondition := ethereum.CreateAttestationSubnetCondition(len(activeSubnets), config.AttestationSubnetConfig.MaxSubnets)
+			topicManager.RegisterCondition(ethereum.TopicSingleAttestation, attestationCondition)
+			topicManager.RegisterCondition(ethereum.TopicAggregateAttestation, attestationCondition)
 			topicManager.SetAdvertisedSubnets(activeSubnets)
 		}
 	}
