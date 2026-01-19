@@ -80,8 +80,8 @@ jobs:
               --output-server-address="localhost:8080" \
               --log-level=info \
               --network=kurtosis \
-              --attestation-subnet-check-enabled=true \
-              --attestation-subnet-check-max-subnets=64 \
+              --attestation-subnet-check-enabled \
+              --attestation-subnet-max-subnets=64 \
               > /dev/null 2>&1
 
             # Monitor logs for success indicators
