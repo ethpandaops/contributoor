@@ -8,6 +8,7 @@ import (
 	"time"
 
 	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/attestantio/go-eth2-client/spec/electra"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
@@ -331,6 +332,28 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		}
 
 		event := v1.NewSingleAttestationEvent(w.log, w, w.cache.BeaconETHV1EventsAttestationV2, meta, attestation, now)
+
+		ignore, err := event.Ignore(ctx)
+		if err != nil || ignore {
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnAttestation(ctx, func(ctx context.Context, attestation *spec.VersionedAttestation) error {
+		now := w.clockDrift.Now()
+
+		meta, err := w.createEventMeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		event := v1.NewAggregateAttestationEvent(w.log, w, w.cache.BeaconETHV1EventsAttestationV2, meta, attestation, now)
 
 		ignore, err := event.Ignore(ctx)
 		if err != nil || ignore {
