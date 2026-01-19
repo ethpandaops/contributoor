@@ -130,10 +130,13 @@ jobs:
                 exit 1
               fi
 
-              # Success if all indicators found
-              if $NETWORK_DETECTED && $SERVICE_READY && $SUMMARY_FOUND && $ATTESTATIONS_FOUND; then
+              # Success if core indicators found (attestations are optional since not all clients emit them at the same rate)
+              if $NETWORK_DETECTED && $SERVICE_READY && $SUMMARY_FOUND; then
                 SUCCESS=true
-                break
+                # Continue checking for attestations if not found yet
+                if $ATTESTATIONS_FOUND; then
+                  break
+                fi
               fi
 
               # Show progress every 10 seconds
@@ -150,13 +153,17 @@ jobs:
 
             # Check results
             if $SUCCESS; then
-              echo "✓ Contributoor successfully connected to $NODE_NAME"
+              if $ATTESTATIONS_FOUND; then
+                echo "✓ Contributoor successfully connected to $NODE_NAME (with attestation events)"
+              else
+                echo "✓ Contributoor successfully connected to $NODE_NAME (no attestation events within timeout - this is OK)"
+              fi
             else
               echo "✗ Contributoor failed verification for $NODE_NAME"
               echo "  Network detected: $NETWORK_DETECTED"
               echo "  Beacon connected: $SERVICE_READY"
               echo "  Data collection: $SUMMARY_FOUND"
-              echo "  Attestation events: $ATTESTATIONS_FOUND"
+              echo "  Attestation events: $ATTESTATIONS_FOUND (optional)"
               echo ""
               echo "Last 30 lines of log:"
               docker logs "$CONTAINER_NAME" 2>&1 | tail -30 || true
