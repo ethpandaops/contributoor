@@ -80,6 +80,8 @@ jobs:
               --output-server-address="localhost:8080" \
               --log-level=info \
               --network=kurtosis \
+              --attestation-subnet-check-enabled=true \
+              --attestation-subnet-check-max-subnets=64 \
               > /dev/null 2>&1
 
             # Monitor logs for success indicators
@@ -87,10 +89,11 @@ jobs:
             NETWORK_DETECTED=false
             SERVICE_READY=false
             SUMMARY_FOUND=false
+            ATTESTATIONS_FOUND=false
 
             echo "Monitoring contributoor logs for success indicators..."
 
-            for i in {1..60}; do
+            for i in {1..90}; do
               # Check for network detection
               if ! $NETWORK_DETECTED && docker logs "$CONTAINER_NAME" 2>&1 | grep -q "Detected network and node ID hash"; then
                 NETWORK_DETECTED=true
@@ -113,6 +116,13 @@ jobs:
                 docker logs "$CONTAINER_NAME" 2>&1 | grep -E "Summary of the last 10s.*event_stream_events=\"[a-zA-Z]" | tail -1
               fi
 
+              # Check for attestation events (single_attestation or attestation topics)
+              if ! $ATTESTATIONS_FOUND && docker logs "$CONTAINER_NAME" 2>&1 | grep -E "event_stream_events=.*attestation" > /dev/null 2>&1; then
+                ATTESTATIONS_FOUND=true
+                echo "  ✓ Attestation events confirmed"
+                docker logs "$CONTAINER_NAME" 2>&1 | grep -E "event_stream_events=.*attestation" | tail -1
+              fi
+
               # Check if container is still running
               if ! docker ps -q -f name="$CONTAINER_NAME" | grep -q .; then
                 echo "  ✗ Container stopped unexpectedly"
@@ -121,7 +131,7 @@ jobs:
               fi
 
               # Success if all indicators found
-              if $NETWORK_DETECTED && $SERVICE_READY && $SUMMARY_FOUND; then
+              if $NETWORK_DETECTED && $SERVICE_READY && $SUMMARY_FOUND && $ATTESTATIONS_FOUND; then
                 SUCCESS=true
                 break
               fi
@@ -146,9 +156,10 @@ jobs:
               echo "  Network detected: $NETWORK_DETECTED"
               echo "  Beacon connected: $SERVICE_READY"
               echo "  Data collection: $SUMMARY_FOUND"
+              echo "  Attestation events: $ATTESTATIONS_FOUND"
               echo ""
-              echo "Last 20 lines of log:"
-              docker logs "$CONTAINER_NAME" 2>&1 | tail -20 || true
+              echo "Last 30 lines of log:"
+              docker logs "$CONTAINER_NAME" 2>&1 | tail -30 || true
               exit 1
             fi
           done
