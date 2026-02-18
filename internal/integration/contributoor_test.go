@@ -66,7 +66,7 @@ func TestContributoor_AllClients(t *testing.T) {
 	require.NotEmpty(t, allCLs, "No consensus clients found in test network")
 
 	// Collect all beacon node URLs
-	beaconURLs := make([]string, 0)
+	beaconURLs := make([]string, 0, len(allCLs))
 	clientTypes := make(map[string]string) // URL -> client type mapping
 
 	for _, cl := range allCLs {
