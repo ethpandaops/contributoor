@@ -130,7 +130,7 @@ func (n *nodeIdentity) fetchIdentity(ctx context.Context) (*NodeIdentityData, er
 		req.Header.Set(key, value)
 	}
 
-	resp, err := n.httpClient.Do(req)
+	resp, err := n.httpClient.Do(req) //nolint:gosec // URL is constructed from a configured beacon node address, not user input.
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch identity: %w", err)
 	}
