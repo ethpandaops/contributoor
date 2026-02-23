@@ -1,13 +1,13 @@
 module github.com/ethpandaops/contributoor
 
-go 1.25.1
+go 1.25.7
 
 // release-xatu branch.
 replace github.com/probe-lab/hermes => github.com/ethpandaops/hermes v0.0.4-0.20251001001342-3643aa32bc73
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1
-	buf.build/go/protovalidate v1.1.2
+	buf.build/go/protovalidate v1.1.3
 	github.com/attestantio/go-eth2-client v0.28.0
 	github.com/beevik/ntp v1.5.0
 	github.com/creasty/defaults v1.8.0
@@ -15,7 +15,7 @@ require (
 	github.com/ethpandaops/ethcore v0.0.0-20260112064422-e7fe02956738
 	github.com/ethpandaops/ethereum-package-go v0.8.2-0.20260218210947-b86bea76c8e0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/xatu v1.8.9
+	github.com/ethpandaops/xatu v1.8.11
 	github.com/go-co-op/gocron/v2 v2.19.1
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0
