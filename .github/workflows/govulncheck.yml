@@ -37,15 +37,53 @@ jobs:
             exit 0
           fi
 
-          # Only GO-2026-4479 (pion/dtls/v2) is expected — it has no fix available.
-          # Check that this is the ONLY vulnerability reported.
-          if echo "$OUTPUT" | grep -q "Your code is affected by 1 vulnerability" && \
-             echo "$OUTPUT" | grep -q "GO-2026-4479"; then
+          # Known unfixable vulnerabilities (all indirect transitive deps with no patched version):
+          #
+          # GO-2026-4479: pion/dtls/v2 — no fix available.
+          #
+          # The following are pulled in via kurtosis-tech/kurtosis (through ethereum-package-go).
+          # Upstream needs to migrate path-compression from mholt/archiver v3 to v4,
+          # and api/golang from go-yaml/yaml v2 to gopkg.in/yaml.v3.
+          # These only affect integration test code paths, not production code.
+          #   GO-2025-4020: nwaples/rardecode (via mholt/archiver v3)
+          #   GO-2025-3605: mholt/archiver v3 path traversal via crafted ZIP
+          #   GO-2024-2698: mholt/archiver v3 path traversal
+          #   GO-2021-0061: go-yaml/yaml v2 denial of service
+          #   GO-2020-0036: go-yaml/yaml v2 excessive resource consumption
+          KNOWN_VULNS=(
+            "GO-2026-4479"
+            "GO-2025-4020"
+            "GO-2025-3605"
+            "GO-2024-2698"
+            "GO-2021-0061"
+            "GO-2020-0036"
+          )
+
+          # Extract vulnerability IDs from the output.
+          FOUND_VULNS=$(echo "$OUTPUT" | grep -oE 'GO-[0-9]+-[0-9]+' | sort -u)
+
+          # Check if every found vulnerability is in the known list.
+          UNKNOWN=""
+          for vuln in $FOUND_VULNS; do
+            MATCHED=false
+            for known in "${KNOWN_VULNS[@]}"; do
+              if [ "$vuln" = "$known" ]; then
+                MATCHED=true
+                break
+              fi
+            done
+            if [ "$MATCHED" = false ]; then
+              UNKNOWN="$UNKNOWN $vuln"
+            fi
+          done
+
+          if [ -z "$UNKNOWN" ]; then
             echo ""
-            echo "Only known unfixable vulnerability GO-2026-4479 (pion/dtls/v2) found — no fix available"
+            echo "Only known unfixable vulnerabilities found — all have no upstream fix available."
             exit 0
           fi
 
           echo ""
-          echo "New vulnerabilities found! Please fix them before merging."
+          echo "New vulnerabilities found:$UNKNOWN"
+          echo "Please fix them before merging."
           exit 1

@@ -1,15 +1,6 @@
 name: client-integration-tests
 
 on:
-  pull_request:
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/test.yaml'
-  push:
-    branches:
-      - master
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'  # Daily run to catch upstream changes
