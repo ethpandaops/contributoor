@@ -5,13 +5,22 @@ on:
     branches:
       - master
   pull_request:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.golangci.yml'
+      - '.golangci.yaml'
+      - '.github/workflows/golangci-lint.yaml'
 
 permissions:
   contents: read
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted-ghr
+      - size-m-x64
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

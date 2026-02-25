@@ -2,6 +2,11 @@ name: client-integration-tests
 
 on:
   pull_request:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/test.yaml'
   push:
     branches:
       - master
@@ -16,7 +21,9 @@ concurrency:
 jobs:
   beacon-integration-test:
     timeout-minutes: 20
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted-ghr
+      - size-m-x64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2

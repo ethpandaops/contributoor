@@ -5,6 +5,11 @@ on:
     branches:
       - master
   pull_request:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/test.yaml'
   workflow_dispatch:
   schedule:
     - cron: '0 0,12 * * *'  # Run every 12 hours to catch upstream changes
@@ -14,7 +19,9 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted-ghr
+      - size-m-x64
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/workflows/go-setup
