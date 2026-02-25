@@ -1,10 +1,6 @@
 name: client-integration-tests
 
 on:
-  pull_request:
-  push:
-    branches:
-      - master
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'  # Daily run to catch upstream changes
@@ -16,7 +12,9 @@ concurrency:
 jobs:
   beacon-integration-test:
     timeout-minutes: 20
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted-ghr
+      - size-m-x64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
