@@ -335,11 +335,11 @@ func (tm *topicManager) checkForMismatch() bool {
 		isAdvertised := false
 
 		for _, advertised := range tm.advertisedSubnets {
-			if uint64(advertised) == seenSubnet {
+			if advertised >= 0 && uint64(advertised) == seenSubnet {
 				isAdvertised = true
 
 				// Count advertised but not selected subnets
-				if tm.selectedSubnet >= 0 && uint64(tm.selectedSubnet) != seenSubnet { //nolint:gosec // selectedSubnet is guarded >= 0, always small subnet index.
+				if tm.selectedSubnet >= 0 && uint64(tm.selectedSubnet) != seenSubnet {
 					advertisedButNotSelected++
 				}
 
