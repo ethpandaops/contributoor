@@ -75,7 +75,7 @@ require (
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kurtosis-tech/kurtosis-portal/api/golang v0.0.0-20231031173452-349f1ec9a443 // indirect
-	github.com/kurtosis-tech/kurtosis/api/golang v1.15.2 // indirect
+	github.com/kurtosis-tech/kurtosis/api/golang v1.16.6 // indirect
 	github.com/kurtosis-tech/kurtosis/contexts-config-store v0.0.0-20260210032812-a84896be5b94 // indirect
 	github.com/kurtosis-tech/kurtosis/grpc-file-transfer/golang v0.0.0-20260210032812-a84896be5b94 // indirect
 	github.com/kurtosis-tech/kurtosis/path-compression v0.0.0-20260210032812-a84896be5b94 // indirect
