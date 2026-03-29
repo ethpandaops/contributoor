@@ -49,7 +49,7 @@ func (e *FinalizedCheckpointEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_FINALIZED_CHECKPOINT_V2.String()
 }
 
-func (e *FinalizedCheckpointEvent) Data() interface{} {
+func (e *FinalizedCheckpointEvent) Data() any {
 	return e.data
 }
 

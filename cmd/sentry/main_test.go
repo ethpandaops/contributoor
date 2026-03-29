@@ -637,15 +637,13 @@ func TestConcurrentShutdown(t *testing.T) {
 	sigChan := make(chan os.Signal, 1)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 
 		<-sigChan
 
 		cancel()
-	}()
+	})
 
 	// Send multiple signals
 	sigChan <- syscall.SIGINT

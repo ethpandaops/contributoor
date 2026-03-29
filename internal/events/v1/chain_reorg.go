@@ -49,7 +49,7 @@ func (e *ChainReorgEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_CHAIN_REORG_V2.String()
 }
 
-func (e *ChainReorgEvent) Data() interface{} {
+func (e *ChainReorgEvent) Data() any {
 	return e.data
 }
 

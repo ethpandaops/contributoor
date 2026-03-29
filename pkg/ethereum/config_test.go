@@ -224,7 +224,7 @@ func TestConfig_EdgeCases(t *testing.T) {
 
 	t.Run("config with large headers map", func(t *testing.T) {
 		headers := make(map[string]string)
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			headers[string(rune('A'+i))] = string(rune('a' + i))
 		}
 

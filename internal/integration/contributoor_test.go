@@ -126,8 +126,8 @@ func TestContributoor_AllClients(t *testing.T) {
 	// Look for trace IDs in metrics
 	traceIDsWithEvents := make(map[string]int)
 
-	lines := strings.Split(metrics, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(metrics, "\n")
+	for line := range lines {
 		// Look for decorated event metrics with trace IDs
 		if strings.Contains(line, "decorated_event_total") && !strings.HasPrefix(line, "#") && strings.Contains(line, "} ") {
 			// Extract trace ID from metric name

@@ -29,7 +29,7 @@ func NewConfigFromPath(path string) (*Config, error) {
 		return nil, err
 	}
 
-	var yamlMap map[string]interface{}
+	var yamlMap map[string]any
 	if yerr := yaml.Unmarshal(data, &yamlMap); yerr != nil {
 		return nil, yerr
 	}
@@ -114,8 +114,8 @@ func ParseAddress(address, defaultHost, defaultPort string) (host, port string) 
 	}
 
 	// Handle ":port" format.
-	if strings.HasPrefix(address, ":") {
-		return defaultHost, strings.TrimPrefix(address, ":")
+	if after, ok := strings.CutPrefix(address, ":"); ok {
+		return defaultHost, after
 	}
 
 	// Parse as URL to handle http:// format.

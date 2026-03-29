@@ -143,7 +143,7 @@ func applyOutputServerCredentials(cfg *config.Config, c *cli.Context) error {
 		log.Infof("Setting output server credentials from env")
 		cfg.SetOutputServerCredentials(
 			base64.StdEncoding.EncodeToString(
-				[]byte(fmt.Sprintf("%s:%s", username, password)),
+				fmt.Appendf(nil, "%s:%s", username, password),
 			),
 		)
 	}
@@ -153,7 +153,7 @@ func applyOutputServerCredentials(cfg *config.Config, c *cli.Context) error {
 		log.Infof("Overriding output server credentials from CLI")
 		cfg.SetOutputServerCredentials(
 			base64.StdEncoding.EncodeToString(
-				[]byte(fmt.Sprintf("%s:%s", c.String("username"), c.String("password"))),
+				fmt.Appendf(nil, "%s:%s", c.String("username"), c.String("password")),
 			),
 		)
 	}

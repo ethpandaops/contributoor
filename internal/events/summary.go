@@ -140,7 +140,7 @@ func (s *Summary) Reset() {
 	s.failedEvents.Store(0)
 
 	// Clear the map by deleting all entries.
-	s.eventStreamEvents.Range(func(key, _ interface{}) bool {
+	s.eventStreamEvents.Range(func(key, _ any) bool {
 		s.eventStreamEvents.Delete(key)
 
 		return true
