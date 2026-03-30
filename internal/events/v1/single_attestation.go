@@ -49,7 +49,7 @@ func (e *SingleAttestationEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_ATTESTATION_V2.String()
 }
 
-func (e *SingleAttestationEvent) Data() interface{} {
+func (e *SingleAttestationEvent) Data() any {
 	return e.data
 }
 

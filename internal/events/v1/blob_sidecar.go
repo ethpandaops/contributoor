@@ -49,7 +49,7 @@ func (e *BlobSidecarEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_BLOB_SIDECAR.String()
 }
 
-func (e *BlobSidecarEvent) Data() interface{} {
+func (e *BlobSidecarEvent) Data() any {
 	return e.data
 }
 

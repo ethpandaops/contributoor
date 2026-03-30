@@ -49,7 +49,7 @@ func (e *DataColumnSidecarEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR.String()
 }
 
-func (e *DataColumnSidecarEvent) Data() interface{} {
+func (e *DataColumnSidecarEvent) Data() any {
 	return e.data
 }
 

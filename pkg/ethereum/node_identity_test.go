@@ -334,7 +334,7 @@ func TestParseAttnetsBitmask_BitOrdering(t *testing.T) {
 	// to ensure the fix for the MSB/LSB issue doesn't regress
 
 	// Test each bit position in a byte
-	for bitPos := 0; bitPos < 8; bitPos++ {
+	for bitPos := range 8 {
 		// Create a bitmask with only one bit set
 		byteValue := byte(1 << bitPos)
 		attnets := fmt.Sprintf("0x%02x00000000000000", byteValue)

@@ -49,7 +49,7 @@ func (e *HeadEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_HEAD_V2.String()
 }
 
-func (e *HeadEvent) Data() interface{} {
+func (e *HeadEvent) Data() any {
 	return e.data
 }
 

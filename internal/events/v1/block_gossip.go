@@ -49,7 +49,7 @@ func (e *BlockGossipEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_BLOCK_GOSSIP.String()
 }
 
-func (e *BlockGossipEvent) Data() interface{} {
+func (e *BlockGossipEvent) Data() any {
 	return e.data
 }
 

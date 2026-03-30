@@ -16,7 +16,7 @@ type mockEvent struct {
 
 func (e *mockEvent) Type() string                             { return e.eventType }
 func (e *mockEvent) Time() time.Time                          { return e.time }
-func (e *mockEvent) Data() interface{}                        { return e.decorated }
+func (e *mockEvent) Data() any                                { return e.decorated }
 func (e *mockEvent) Decorated() *xatu.DecoratedEvent          { return e.decorated }
 func (e *mockEvent) Meta() *xatu.Meta                         { return e.decorated.Meta }
 func (e *mockEvent) Ignore(ctx context.Context) (bool, error) { return false, nil }
