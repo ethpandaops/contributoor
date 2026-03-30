@@ -639,7 +639,6 @@ func TestConcurrentShutdown(t *testing.T) {
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-
 		<-sigChan
 
 		cancel()
