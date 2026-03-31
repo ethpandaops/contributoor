@@ -53,7 +53,7 @@ require (
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/dot v1.11.0 // indirect
-	github.com/ethereum/go-ethereum v1.17.1 // indirect
+	github.com/ethereum/go-ethereum v1.17.2 // indirect
 	github.com/ferranbt/fastssz v1.0.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-co-op/gocron v1.37.0 // indirect
@@ -82,9 +82,9 @@ require (
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kurtosis-tech/kurtosis-portal/api/golang v0.0.0-20231031173452-349f1ec9a443 // indirect
 	github.com/kurtosis-tech/kurtosis/api/golang v1.17.7 // indirect
-	github.com/kurtosis-tech/kurtosis/contexts-config-store v0.0.0-20260329180737-cb89eeac2baa // indirect
-	github.com/kurtosis-tech/kurtosis/grpc-file-transfer/golang v0.0.0-20260329180737-cb89eeac2baa // indirect
-	github.com/kurtosis-tech/kurtosis/path-compression v0.0.0-20260329180737-cb89eeac2baa // indirect
+	github.com/kurtosis-tech/kurtosis/contexts-config-store v0.0.0-20260330104232-f1e874f9194a // indirect
+	github.com/kurtosis-tech/kurtosis/grpc-file-transfer/golang v0.0.0-20260330104232-f1e874f9194a // indirect
+	github.com/kurtosis-tech/kurtosis/path-compression v0.0.0-20260330104232-f1e874f9194a // indirect
 	github.com/kurtosis-tech/stacktrace v0.0.0-20211028211901-1c67a77b5409 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -134,8 +134,8 @@ require (
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260319201613-d00831a3d3e7 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260319201613-d00831a3d3e7 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260330182312-d5a96adf58d8 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260330182312-d5a96adf58d8 // indirect
 	google.golang.org/grpc v1.79.3 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
