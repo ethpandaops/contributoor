@@ -13,7 +13,7 @@ require (
 	github.com/ethpandaops/ethereum-package-go v0.8.2-0.20260218210947-b86bea76c8e0
 	github.com/ethpandaops/ethwallclock v0.4.0
 	github.com/ethpandaops/xatu v1.8.11
-	github.com/go-co-op/gocron/v2 v2.19.1
+	github.com/go-co-op/gocron/v2 v2.20.0
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
