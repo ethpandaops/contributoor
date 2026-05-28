@@ -1,2 +1,2 @@
 [files]
-extend-exclude = ["pkg/ethereum/node_identity_test.go"]
+extend-exclude = ["pkg/ethereum/node_identity_test.go", "go.mod", "go.sum"]
