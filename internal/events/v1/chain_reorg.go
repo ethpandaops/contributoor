@@ -49,7 +49,7 @@ func (e *ChainReorgEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_CHAIN_REORG_V2.String()
 }
 
-func (e *ChainReorgEvent) Data() interface{} {
+func (e *ChainReorgEvent) Data() any {
 	return e.data
 }
 
@@ -117,9 +117,9 @@ func (e *ChainReorgEvent) Ignore(ctx context.Context) (bool, error) {
 	item, retrieved := e.cache.GetOrSet(fmt.Sprint(hash), e.recvTime, ttlcache.WithTTL[string, time.Time](ttlcache.DefaultTTL))
 	if retrieved {
 		e.log.WithFields(logrus.Fields{
-			"hash":                  hash,
-			"time_since_first_item": time.Since(item.Value()),
-			"slot":                  e.data.Slot,
+			logFieldHash:               hash,
+			logFieldTimeSinceFirstItem: time.Since(item.Value()),
+			logFieldSlot:               e.data.Slot,
 		}).Debug("Duplicate chain reorg event received")
 
 		return true, nil

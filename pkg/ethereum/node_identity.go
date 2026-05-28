@@ -173,7 +173,7 @@ func ParseAttnetsBitmask(attnets string) ([]int, error) {
 	// Max 64 subnets = 8 bytes
 	for byteIdx := 0; byteIdx < len(bytes) && byteIdx < 8; byteIdx++ {
 		b := bytes[byteIdx]
-		for bit := 0; bit < 8; bit++ {
+		for bit := range 8 {
 			if b&(1<<bit) != 0 {
 				subnetID := byteIdx*8 + bit
 				activeSubnets = append(activeSubnets, subnetID)

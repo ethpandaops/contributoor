@@ -50,10 +50,10 @@ func applyNetworkConfig(cfg *config.Config, c *cli.Context) error {
 		}
 	}
 
-	if c.String("network") != "" {
-		log.Infof("Overriding network from CLI to %s", c.String("network"))
+	if c.String(flagNetwork) != "" {
+		log.Infof("Overriding network from CLI to %s", c.String(flagNetwork))
 
-		if err := cfg.SetNetwork(c.String("network")); err != nil {
+		if err := cfg.SetNetwork(c.String(flagNetwork)); err != nil {
 			return errors.Wrap(err, "failed to set network from cli")
 		}
 	}
@@ -69,9 +69,9 @@ func applyServiceAddresses(cfg *config.Config, c *cli.Context) {
 		cfg.SetBeaconNodeAddress(addr)
 	}
 
-	if c.String("beacon-node-address") != "" {
+	if c.String(flagBeaconNodeAddress) != "" {
 		log.Infof("Overriding beacon node address from CLI")
-		cfg.SetBeaconNodeAddress(c.String("beacon-node-address"))
+		cfg.SetBeaconNodeAddress(c.String(flagBeaconNodeAddress))
 	}
 
 	// Metrics address
@@ -80,9 +80,9 @@ func applyServiceAddresses(cfg *config.Config, c *cli.Context) {
 		cfg.SetMetricsAddress(addr)
 	}
 
-	if c.String("metrics-address") != "" {
-		log.Infof("Overriding metrics address from CLI to %s", c.String("metrics-address"))
-		cfg.SetMetricsAddress(c.String("metrics-address"))
+	if c.String(flagMetricsAddress) != "" {
+		log.Infof("Overriding metrics address from CLI to %s", c.String(flagMetricsAddress))
+		cfg.SetMetricsAddress(c.String(flagMetricsAddress))
 	}
 
 	// Health check address
@@ -91,9 +91,9 @@ func applyServiceAddresses(cfg *config.Config, c *cli.Context) {
 		cfg.SetHealthCheckAddress(addr)
 	}
 
-	if c.String("health-check-address") != "" {
-		log.Infof("Overriding health check address from CLI to %s", c.String("health-check-address"))
-		cfg.SetHealthCheckAddress(c.String("health-check-address"))
+	if c.String(flagHealthCheckAddress) != "" {
+		log.Infof("Overriding health check address from CLI to %s", c.String(flagHealthCheckAddress))
+		cfg.SetHealthCheckAddress(c.String(flagHealthCheckAddress))
 	}
 }
 
@@ -104,9 +104,9 @@ func applyLoggingConfig(cfg *config.Config, c *cli.Context) {
 		cfg.SetLogLevel(level)
 	}
 
-	if c.String("log-level") != "" {
-		log.Infof("Overriding log level from CLI to %s", c.String("log-level"))
-		cfg.SetLogLevel(c.String("log-level"))
+	if c.String(flagLogLevel) != "" {
+		log.Infof("Overriding log level from CLI to %s", c.String(flagLogLevel))
+		cfg.SetLogLevel(c.String(flagLogLevel))
 	}
 }
 
@@ -118,9 +118,9 @@ func applyOutputServerConfig(cfg *config.Config, c *cli.Context) error {
 		cfg.SetOutputServerAddress(addr)
 	}
 
-	if c.String("output-server-address") != "" {
+	if c.String(flagOutputServerAddress) != "" {
 		log.Infof("Overriding output server address from CLI")
-		cfg.SetOutputServerAddress(c.String("output-server-address"))
+		cfg.SetOutputServerAddress(c.String(flagOutputServerAddress))
 	}
 
 	// Credentials
@@ -143,17 +143,17 @@ func applyOutputServerCredentials(cfg *config.Config, c *cli.Context) error {
 		log.Infof("Setting output server credentials from env")
 		cfg.SetOutputServerCredentials(
 			base64.StdEncoding.EncodeToString(
-				[]byte(fmt.Sprintf("%s:%s", username, password)),
+				fmt.Appendf(nil, "%s:%s", username, password),
 			),
 		)
 	}
 
 	// CLI flags override env vars for credentials
-	if c.String("username") != "" || c.String("password") != "" {
+	if c.String(flagUsername) != "" || c.String(flagPassword) != "" {
 		log.Infof("Overriding output server credentials from CLI")
 		cfg.SetOutputServerCredentials(
 			base64.StdEncoding.EncodeToString(
-				[]byte(fmt.Sprintf("%s:%s", c.String("username"), c.String("password"))),
+				fmt.Appendf(nil, "%s:%s", c.String(flagUsername), c.String(flagPassword)),
 			),
 		)
 	}
@@ -174,10 +174,10 @@ func applyOutputServerTLS(cfg *config.Config, c *cli.Context) error {
 		cfg.SetOutputServerTLS(tlsBool)
 	}
 
-	if c.String("output-server-tls") != "" {
-		log.Infof("Overriding output server tls from CLI to %s", c.String("output-server-tls"))
+	if c.String(flagOutputServerTLS) != "" {
+		log.Infof("Overriding output server tls from CLI to %s", c.String(flagOutputServerTLS))
 
-		tls, err := strconv.ParseBool(c.String("output-server-tls"))
+		tls, err := strconv.ParseBool(c.String(flagOutputServerTLS))
 		if err != nil {
 			return errors.Wrap(err, "failed to parse output server tls flag")
 		}
@@ -195,9 +195,9 @@ func applyContributoorDirectory(cfg *config.Config, c *cli.Context) {
 		cfg.ContributoorDirectory = dir
 	}
 
-	if c.String("contributoor-directory") != "" {
-		log.Infof("Overriding contributoor directory from CLI to %s", c.String("contributoor-directory"))
-		cfg.ContributoorDirectory = c.String("contributoor-directory")
+	if c.String(flagContributoorDirectory) != "" {
+		log.Infof("Overriding contributoor directory from CLI to %s", c.String(flagContributoorDirectory))
+		cfg.ContributoorDirectory = c.String(flagContributoorDirectory)
 	}
 }
 
@@ -237,7 +237,7 @@ func applyAttestationSubnetConfig(cfg *config.Config, c *cli.Context) error {
 	}
 
 	// CLI flag overrides env var for enabled
-	if c.Bool("attestation-subnet-check-enabled") {
+	if c.Bool(flagAttestationSubnetCheckEnabled) {
 		log.Infof("Setting attestation subnet check enabled from CLI to true")
 
 		if cfg.AttestationSubnetCheck == nil {
@@ -248,14 +248,14 @@ func applyAttestationSubnetConfig(cfg *config.Config, c *cli.Context) error {
 	}
 
 	// CLI flag overrides env var for max subnets
-	if c.Int("attestation-subnet-max-subnets") >= 0 { // -1 means not set
-		log.Infof("Setting attestation subnet max subnets from CLI to %d", c.Int("attestation-subnet-max-subnets"))
+	if c.Int(flagAttestationSubnetMaxSubnets) >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet max subnets from CLI to %d", c.Int(flagAttestationSubnetMaxSubnets))
 
 		if cfg.AttestationSubnetCheck == nil {
 			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
 		}
 
-		cfg.AttestationSubnetCheck.MaxSubnets = uint32(c.Int("attestation-subnet-max-subnets")) //nolint:gosec // conversion fine.
+		cfg.AttestationSubnetCheck.MaxSubnets = uint32(c.Int(flagAttestationSubnetMaxSubnets)) //nolint:gosec // conversion fine.
 	}
 
 	// Handle mismatch detection window
@@ -300,14 +300,14 @@ func applyMismatchDetectionWindow(cfg *config.Config, c *cli.Context) error {
 	}
 
 	// CLI flag overrides env var
-	if c.Int("attestation-subnet-mismatch-detection-window") >= 0 { // -1 means not set
-		log.Infof("Setting attestation subnet mismatch detection window from CLI to %d", c.Int("attestation-subnet-mismatch-detection-window"))
+	if c.Int(flagAttestationSubnetMismatchDetectionWin) >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet mismatch detection window from CLI to %d", c.Int(flagAttestationSubnetMismatchDetectionWin))
 
 		if cfg.AttestationSubnetCheck == nil {
 			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
 		}
 
-		cfg.AttestationSubnetCheck.MismatchDetectionWindow = uint32(c.Int("attestation-subnet-mismatch-detection-window")) //nolint:gosec // conversion fine.
+		cfg.AttestationSubnetCheck.MismatchDetectionWindow = uint32(c.Int(flagAttestationSubnetMismatchDetectionWin)) //nolint:gosec // conversion fine.
 	}
 
 	return nil
@@ -332,14 +332,14 @@ func applyMismatchThreshold(cfg *config.Config, c *cli.Context) error {
 	}
 
 	// CLI flag overrides env var
-	if c.Int("attestation-subnet-mismatch-threshold") >= 0 { // -1 means not set
-		log.Infof("Setting attestation subnet mismatch threshold from CLI to %d", c.Int("attestation-subnet-mismatch-threshold"))
+	if c.Int(flagAttestationSubnetMismatchThreshold) >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet mismatch threshold from CLI to %d", c.Int(flagAttestationSubnetMismatchThreshold))
 
 		if cfg.AttestationSubnetCheck == nil {
 			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
 		}
 
-		cfg.AttestationSubnetCheck.MismatchThreshold = uint32(c.Int("attestation-subnet-mismatch-threshold")) //nolint:gosec // conversion fine.
+		cfg.AttestationSubnetCheck.MismatchThreshold = uint32(c.Int(flagAttestationSubnetMismatchThreshold)) //nolint:gosec // conversion fine.
 	}
 
 	return nil
@@ -364,14 +364,14 @@ func applyMismatchCooldown(cfg *config.Config, c *cli.Context) error {
 	}
 
 	// CLI flag overrides env var
-	if c.Int("attestation-subnet-mismatch-cooldown-seconds") >= 0 { // -1 means not set
-		log.Infof("Setting attestation subnet mismatch cooldown from CLI to %d seconds", c.Int("attestation-subnet-mismatch-cooldown-seconds"))
+	if c.Int(flagAttestationSubnetMismatchCooldownSecs) >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet mismatch cooldown from CLI to %d seconds", c.Int(flagAttestationSubnetMismatchCooldownSecs))
 
 		if cfg.AttestationSubnetCheck == nil {
 			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
 		}
 
-		cfg.AttestationSubnetCheck.MismatchCooldownSeconds = uint32(c.Int("attestation-subnet-mismatch-cooldown-seconds")) //nolint:gosec // conversion fine.
+		cfg.AttestationSubnetCheck.MismatchCooldownSeconds = uint32(c.Int(flagAttestationSubnetMismatchCooldownSecs)) //nolint:gosec // conversion fine.
 	}
 
 	return nil
@@ -396,14 +396,14 @@ func applySubnetHighWaterMark(cfg *config.Config, c *cli.Context) error {
 	}
 
 	// CLI flag overrides env var
-	if c.Int("attestation-subnet-high-water-mark") >= 0 { // -1 means not set
-		log.Infof("Setting attestation subnet high water mark from CLI to %d", c.Int("attestation-subnet-high-water-mark"))
+	if c.Int(flagAttestationSubnetHighWaterMark) >= 0 { // -1 means not set
+		log.Infof("Setting attestation subnet high water mark from CLI to %d", c.Int(flagAttestationSubnetHighWaterMark))
 
 		if cfg.AttestationSubnetCheck == nil {
 			cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{}
 		}
 
-		cfg.AttestationSubnetCheck.SubnetHighWaterMark = uint32(c.Int("attestation-subnet-high-water-mark")) //nolint:gosec // conversion fine.
+		cfg.AttestationSubnetCheck.SubnetHighWaterMark = uint32(c.Int(flagAttestationSubnetHighWaterMark)) //nolint:gosec // conversion fine.
 	}
 
 	return nil

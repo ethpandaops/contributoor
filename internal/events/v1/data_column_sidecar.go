@@ -49,7 +49,7 @@ func (e *DataColumnSidecarEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_DATA_COLUMN_SIDECAR.String()
 }
 
-func (e *DataColumnSidecarEvent) Data() interface{} {
+func (e *DataColumnSidecarEvent) Data() any {
 	return e.data
 }
 
@@ -127,10 +127,10 @@ func (e *DataColumnSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 	item, retrieved := e.cache.GetOrSet(fmt.Sprint(hash), e.recvTime, ttlcache.WithTTL[string, time.Time](ttlcache.DefaultTTL))
 	if retrieved {
 		e.log.WithFields(logrus.Fields{
-			"hash":                  hash,
-			"time_since_first_item": time.Since(item.Value()),
-			"slot":                  e.data.Slot,
-			"column_index":          e.data.Index,
+			logFieldHash:               hash,
+			logFieldTimeSinceFirstItem: time.Since(item.Value()),
+			logFieldSlot:               e.data.Slot,
+			"column_index":             e.data.Index,
 		}).Debug("Duplicate data column sidecar event received")
 
 		return true, nil

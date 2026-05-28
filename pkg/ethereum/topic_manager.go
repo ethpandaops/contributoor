@@ -13,6 +13,8 @@ import (
 
 //go:generate mockgen -package mock -destination mock/topic_manager.mock.go github.com/ethpandaops/contributoor/pkg/ethereum TopicManager
 
+const logFieldSelectedSubnet = "selected_subnet"
+
 // TopicCondition is a function that determines if a topic should be subscribed to.
 type TopicCondition func(ctx context.Context) (bool, error)
 
@@ -215,7 +217,7 @@ func (tm *topicManager) SetAdvertisedSubnets(subnets []int) {
 			}
 
 			tm.log.WithFields(logrus.Fields{
-				"selected_subnet": tm.selectedSubnet,
+				logFieldSelectedSubnet: tm.selectedSubnet,
 			}).Info("Selected random subnet for forwarding")
 		} else {
 			// Attestations won't be enabled due to too many subnets
@@ -263,12 +265,12 @@ func (tm *topicManager) RecordAttestation(subnetID uint64, slot phase0.Slot) {
 	if tm.checkForMismatch() {
 		tm.mismatchCount++
 		tm.log.WithFields(logrus.Fields{
-			"mismatch_count":     tm.mismatchCount,
-			"threshold":          tm.mismatchThreshold,
-			"advertised_subnets": tm.advertisedSubnets,
-			"selected_subnet":    tm.selectedSubnet,
-			"seen_subnets":       tm.getSeenSubnetsList(),
-			"slot":               slot,
+			"mismatch_count":       tm.mismatchCount,
+			"threshold":            tm.mismatchThreshold,
+			"advertised_subnets":   tm.advertisedSubnets,
+			logFieldSelectedSubnet: tm.selectedSubnet,
+			"seen_subnets":         tm.getSeenSubnetsList(),
+			"slot":                 slot,
 		}).Warn("Subnet mismatch detected")
 
 		if tm.mismatchCount >= tm.mismatchThreshold {
@@ -335,7 +337,7 @@ func (tm *topicManager) checkForMismatch() bool {
 		isAdvertised := false
 
 		for _, advertised := range tm.advertisedSubnets {
-			if uint64(advertised) == seenSubnet { //nolint:gosec // conversion safe.
+			if advertised >= 0 && uint64(advertised) == seenSubnet {
 				isAdvertised = true
 
 				// Count advertised but not selected subnets
@@ -360,7 +362,7 @@ func (tm *topicManager) checkForMismatch() bool {
 			"advertised_but_not_selected": advertisedButNotSelected,
 			"high_water_mark":             tm.highWaterMark,
 			"advertised_subnets":          tm.advertisedSubnets,
-			"selected_subnet":             tm.selectedSubnet,
+			logFieldSelectedSubnet:        tm.selectedSubnet,
 		}).Warn("Approaching subnet high water mark threshold")
 	}
 
@@ -449,7 +451,7 @@ func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval 
 							}
 
 							tm.log.WithFields(logrus.Fields{
-								"selected_subnet": tm.selectedSubnet,
+								logFieldSelectedSubnet: tm.selectedSubnet,
 							}).Info("Re-selected random subnet for forwarding")
 						} else {
 							tm.selectedSubnet = -1

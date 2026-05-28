@@ -38,118 +38,118 @@ func main() {
 		Usage: "Contributoor node",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "config",
+				Name:     flagConfig,
 				Usage:    "config file path",
 				Required: false,
 			},
 			&cli.BoolFlag{
-				Name:  "debug",
+				Name:  flagDebug,
 				Usage: "debug mode",
 				Value: false,
 			},
 			&cli.StringFlag{
-				Name:     "network",
+				Name:     flagNetwork,
 				Usage:    "ethereum network name (mainnet, sepolia, holesky)",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "beacon-node-address",
+				Name:     flagBeaconNodeAddress,
 				Usage:    "comma-separated addresses of beacon node apis (e.g. http://localhost:5052,http://localhost:5053)",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "metrics-address",
+				Name:     flagMetricsAddress,
 				Usage:    "address of the metrics server",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "health-check-address",
+				Name:     flagHealthCheckAddress,
 				Usage:    "address of the health check server",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "log-level",
+				Name:     flagLogLevel,
 				Usage:    "log level (debug, info, warn, error)",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "output-server-address",
+				Name:     flagOutputServerAddress,
 				Usage:    "address of the output server",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "username",
+				Name:     flagUsername,
 				Usage:    "username for the output server",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "password",
+				Name:     flagPassword,
 				Usage:    "password for the output server",
 				Value:    "",
 				Required: false,
 			},
 			// Can't use bool flag here because it doesn't have a "nil" value.
 			&cli.StringFlag{
-				Name:     "output-server-tls",
+				Name:     flagOutputServerTLS,
 				Usage:    "enable TLS for the output server",
 				Value:    "",
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:     "contributoor-directory",
+				Name:     flagContributoorDirectory,
 				Usage:    "directory where contributoor stores configuration and data",
 				Required: false,
 			},
 			&cli.BoolFlag{
-				Name:     "attestation-subnet-check-enabled",
+				Name:     flagAttestationSubnetCheckEnabled,
 				Usage:    "enable attestation subnet checking for single_attestation topic filtering",
 				Required: false,
 			},
 			&cli.IntFlag{
-				Name:     "attestation-subnet-max-subnets",
+				Name:     flagAttestationSubnetMaxSubnets,
 				Usage:    "maximum number of subnets a node can be subscribed to before single_attestation topic is disabled (0-64)",
 				Value:    -1, // -1 indicates not set via CLI
 				Required: false,
 			},
 			&cli.IntFlag{
-				Name:     "attestation-subnet-mismatch-detection-window",
+				Name:     flagAttestationSubnetMismatchDetectionWin,
 				Usage:    "number of slots to track for subnet activity",
 				Value:    -1, // -1 indicates not set via CLI
 				Required: false,
 			},
 			&cli.IntFlag{
-				Name:     "attestation-subnet-mismatch-threshold",
+				Name:     flagAttestationSubnetMismatchThreshold,
 				Usage:    "number of mismatches required before triggering reconnection",
 				Value:    -1, // -1 indicates not set via CLI
 				Required: false,
 			},
 			&cli.IntFlag{
-				Name:     "attestation-subnet-mismatch-cooldown-seconds",
+				Name:     flagAttestationSubnetMismatchCooldownSecs,
 				Usage:    "cooldown period between reconnections in seconds",
 				Value:    -1, // -1 indicates not set via CLI
 				Required: false,
 			},
 			&cli.IntFlag{
-				Name:     "attestation-subnet-high-water-mark",
+				Name:     flagAttestationSubnetHighWaterMark,
 				Usage:    "number of additional temporary subnets allowed without triggering a restart",
 				Value:    -1, // -1 indicates not set via CLI
 				Required: false,
 			},
 			&cli.BoolFlag{
-				Name:     "release",
+				Name:     flagRelease,
 				Usage:    "print release and exit",
 				Required: false,
 			},
 		},
 		Before: func(c *cli.Context) error {
-			if c.Bool("release") {
+			if c.Bool(flagRelease) {
 				fmt.Printf("%s\n", contr.Release)
 				os.Exit(0)
 			}
@@ -191,7 +191,7 @@ func main() {
 			app, err := application.New(application.Options{
 				Config: cfg,
 				Logger: log.WithField("module", "contributoor"),
-				Debug:  c.Bool("debug"),
+				Debug:  c.Bool(flagDebug),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create application: %w", err)
@@ -232,7 +232,7 @@ func createConfig(c *cli.Context) (*config.Config, error) {
 	cfg := config.NewDefaultConfig()
 
 	// Load from file if specified
-	configLocation := c.String("config")
+	configLocation := c.String(flagConfig)
 	if configLocation != "" {
 		configFromFile, err := config.NewConfigFromPath(configLocation)
 		if err != nil {

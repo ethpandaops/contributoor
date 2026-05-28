@@ -455,7 +455,7 @@ func TestTopicManager_HighWaterMarkEdgeCases(t *testing.T) {
 		tm.SetAdvertisedSubnets([]int{1})
 
 		// Fill first window
-		for slot := uint64(0); slot < 5; slot++ {
+		for slot := range uint64(5) {
 			tm.RecordAttestation(1, phase0.Slot(slot))
 			tm.RecordAttestation(2, phase0.Slot(slot))
 		}
@@ -563,7 +563,7 @@ func TestTopicManager_RandomSubnetSelection(t *testing.T) {
 	// Test 2: Empty advertised subnets should result in no active subnet
 	tm.SetAdvertisedSubnets([]int{})
 
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		assert.False(t, tm.IsActiveSubnet(uint64(i)), "No subnet should be active when advertised list is empty")
 	}
 
@@ -591,7 +591,7 @@ func TestTopicManager_TooManySubnetsDisablesSelection(t *testing.T) {
 
 	activeCount := 0
 
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		if tm.IsActiveSubnet(uint64(i)) {
 			activeCount++
 		}
@@ -602,13 +602,13 @@ func TestTopicManager_TooManySubnetsDisablesSelection(t *testing.T) {
 	// Test 2: Exceeding threshold - should not select any subnet
 	allSubnets := make([]int, 64)
 
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		allSubnets[i] = i
 	}
 
 	tm.SetAdvertisedSubnets(allSubnets)
 
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		assert.False(t, tm.IsActiveSubnet(uint64(i)), "No subnet should be active when count exceeds threshold")
 	}
 

@@ -44,7 +44,7 @@ type Event interface {
 	// Time returns the time of the event.
 	Time() time.Time
 	// Data returns the data of the event.
-	Data() interface{}
+	Data() any
 	// Decorated returns the decorated event.
 	Decorated() *xatu.DecoratedEvent
 	// Ignore returns true if the event should be ignored.
