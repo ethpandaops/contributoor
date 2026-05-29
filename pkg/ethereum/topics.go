@@ -1,14 +1,15 @@
 package ethereum
 
 const (
-	TopicBlock               = "block"
-	TopicBlockGossip         = "block_gossip"
-	TopicHead                = "head"
-	TopicFinalizedCheckpoint = "finalized_checkpoint"
-	TopicBlobSidecar         = "blob_sidecar"
-	TopicChainReorg          = "chain_reorg"
-	TopicSingleAttestation   = "single_attestation"
-	TopicDataColumnSidecar   = "data_column_sidecar"
+	TopicBlock                = "block"
+	TopicBlockGossip          = "block_gossip"
+	TopicHead                 = "head"
+	TopicFinalizedCheckpoint  = "finalized_checkpoint"
+	TopicBlobSidecar          = "blob_sidecar"
+	TopicChainReorg           = "chain_reorg"
+	TopicSingleAttestation    = "single_attestation"
+	TopicAggregateAttestation = "attestation"
+	TopicDataColumnSidecar    = "data_column_sidecar"
 )
 
 // Define all available topics.
@@ -20,12 +21,14 @@ var defaultAllTopics = []string{
 	TopicBlobSidecar,
 	TopicChainReorg,
 	TopicSingleAttestation,
+	TopicAggregateAttestation,
 	TopicDataColumnSidecar,
 }
 
 // Define opt-in topics.
 var optInTopics = []string{
 	TopicSingleAttestation,
+	TopicAggregateAttestation,
 }
 
 // GetDefaultAllTopics returns all available topics.

@@ -126,7 +126,7 @@ func (e *BlobSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 			logFieldHash:               hash,
 			logFieldTimeSinceFirstItem: time.Since(item.Value()),
 			logFieldSlot:               e.data.Slot,
-			"index":                    e.data.Index,
+			logFieldIndex:              e.data.Index,
 		}).Debug("Duplicate blob sidecar event received")
 
 		return true, nil

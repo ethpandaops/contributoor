@@ -67,7 +67,7 @@ func TestContributoor_AllClients(t *testing.T) {
 
 	// Collect all beacon node URLs
 	beaconURLs := make([]string, 0, len(allCLs))
-	clientTypes := make(map[string]string) // URL -> client type mapping
+	clientTypes := make(map[string]string, len(allCLs)) // URL -> client type mapping
 
 	for _, cl := range allCLs {
 		beaconURL := cl.BeaconAPIURL()

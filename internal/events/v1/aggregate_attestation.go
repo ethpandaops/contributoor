@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/attestantio/go-eth2-client/spec/electra"
+	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/ethpandaops/contributoor/internal/events"
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
@@ -17,25 +17,26 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// SingleAttestationEvent represents a single attestation event.
-type SingleAttestationEvent struct {
+// AggregateAttestationEvent represents an aggregate attestation event.
+type AggregateAttestationEvent struct {
 	events.BaseEvent
 	log      logrus.FieldLogger
-	data     *electra.SingleAttestation
+	data     *spec.VersionedAttestation
 	beacon   events.BeaconDataProvider
 	cache    *ttlcache.Cache[string, time.Time]
 	recvTime time.Time
 }
 
-func NewSingleAttestationEvent(
+// NewAggregateAttestationEvent creates a new aggregate attestation event.
+func NewAggregateAttestationEvent(
 	log logrus.FieldLogger,
 	beacon events.BeaconDataProvider,
 	cache *ttlcache.Cache[string, time.Time],
 	meta *xatu.Meta,
-	data *electra.SingleAttestation,
+	data *spec.VersionedAttestation,
 	recvTime time.Time,
-) *SingleAttestationEvent {
-	return &SingleAttestationEvent{
+) *AggregateAttestationEvent {
+	return &AggregateAttestationEvent{
 		BaseEvent: events.NewBaseEvent(meta),
 		data:      data,
 		beacon:    beacon,
@@ -45,18 +46,33 @@ func NewSingleAttestationEvent(
 	}
 }
 
-func (e *SingleAttestationEvent) Type() string {
+// Type returns the event type.
+func (e *AggregateAttestationEvent) Type() string {
 	return xatu.Event_BEACON_API_ETH_V1_EVENTS_ATTESTATION_V2.String()
 }
 
-func (e *SingleAttestationEvent) Data() any {
+// Data returns the raw event data.
+func (e *AggregateAttestationEvent) Data() any {
 	return e.data
 }
 
-func (e *SingleAttestationEvent) Decorated() *xatu.DecoratedEvent {
+// Decorated returns the decorated event for export.
+func (e *AggregateAttestationEvent) Decorated() *xatu.DecoratedEvent {
+	attestData, err := e.data.Data()
+	if err != nil {
+		e.log.WithError(err).Error("Failed to get attestation data")
+
+		return nil
+	}
+
+	aggregationBits, err := e.data.AggregationBits()
+	if err != nil {
+		e.log.WithError(err).Error("Failed to get aggregation bits")
+
+		return nil
+	}
+
 	var (
-		singleAttest     = e.data
-		attestData       = singleAttest.Data
 		targetCheckpoint = attestData.Target
 		sourceCheckpoint = attestData.Source
 	)
@@ -70,18 +86,18 @@ func (e *SingleAttestationEvent) Decorated() *xatu.DecoratedEvent {
 		},
 		Data: &xatu.DecoratedEvent_EthV1EventsAttestationV2{
 			EthV1EventsAttestationV2: &xatuethv1.AttestationV2{
-				AggregationBits: "",
+				AggregationBits: xatuethv1.BytesToString(aggregationBits),
 				Data: &xatuethv1.AttestationDataV2{
 					Slot:            &wrapperspb.UInt64Value{Value: uint64(attestData.Slot)},
 					Index:           &wrapperspb.UInt64Value{Value: uint64(attestData.Index)},
 					BeaconBlockRoot: xatuethv1.RootAsString(attestData.BeaconBlockRoot),
 					Source: &xatuethv1.CheckpointV2{
-						Epoch: &wrapperspb.UInt64Value{Value: uint64(attestData.Source.Epoch)},
-						Root:  xatuethv1.RootAsString(attestData.Source.Root),
+						Epoch: &wrapperspb.UInt64Value{Value: uint64(sourceCheckpoint.Epoch)},
+						Root:  xatuethv1.RootAsString(sourceCheckpoint.Root),
 					},
 					Target: &xatuethv1.CheckpointV2{
-						Epoch: &wrapperspb.UInt64Value{Value: uint64(attestData.Target.Epoch)},
-						Root:  xatuethv1.RootAsString(attestData.Target.Root),
+						Epoch: &wrapperspb.UInt64Value{Value: uint64(targetCheckpoint.Epoch)},
+						Root:  xatuethv1.RootAsString(targetCheckpoint.Root),
 					},
 				},
 			},
@@ -126,49 +142,33 @@ func (e *SingleAttestationEvent) Decorated() *xatu.DecoratedEvent {
 					StartDateTime: timestamppb.New(sourceEpoch.TimeWindow().Start()),
 				},
 			},
-			AttestingValidator: &xatu.AttestingValidatorV2{
-				CommitteeIndex: &wrapperspb.UInt64Value{Value: uint64(singleAttest.CommitteeIndex)},
-				Index:          &wrapperspb.UInt64Value{Value: uint64(singleAttest.AttesterIndex)},
-			},
+			// Note: AttestingValidator is not set for aggregate attestations
+			// since they represent multiple validators' attestations combined.
 		},
 	}
 
 	return decorated
 }
 
-func (e *SingleAttestationEvent) Ignore(ctx context.Context) (bool, error) {
+// Ignore determines if the event should be ignored.
+func (e *AggregateAttestationEvent) Ignore(ctx context.Context) (bool, error) {
 	if err := e.beacon.Synced(ctx); err != nil {
 		return true, err
 	}
 
-	attestData := e.data.Data
+	attestData, err := e.data.Data()
+	if err != nil {
+		return true, fmt.Errorf("failed to get attestation data: %w", err)
+	}
 
-	// Check if event is from an unexpected network based on slot
+	// Check if event is from an unexpected network based on slot.
 	if e.beacon.IsSlotFromUnexpectedNetwork(uint64(attestData.Slot)) {
-		e.log.WithField("slot", attestData.Slot).Warn("Ignoring single attestation event from unexpected network")
+		e.log.WithField("slot", attestData.Slot).Warn("Ignoring aggregate attestation event from unexpected network")
 
 		return true, nil
 	}
 
-	// Filter by subnet ID - committee index modulo 64 gives us the subnet ID
-	subnetID := uint64(e.data.CommitteeIndex) % 64
-
-	// Record that we've seen this subnet
-	e.beacon.RecordSeenSubnet(subnetID, uint64(attestData.Slot))
-
-	if !e.beacon.IsActiveSubnet(subnetID) {
-		e.log.WithFields(logrus.Fields{
-			"committee_index": e.data.CommitteeIndex,
-			"subnet_id":       subnetID,
-		}).Debug("Ignoring attestation from inactive subnet")
-
-		return true, nil
-	} else {
-		e.log.WithFields(logrus.Fields{
-			"committee_index": e.data.CommitteeIndex,
-			"subnet_id":       subnetID,
-		}).Debug("Decorating attestation from active subnet")
-	}
+	// Note: No subnet filtering for aggregate attestations - they are broadcast globally.
 
 	hash, err := hashstructure.Hash(e.data, hashstructure.FormatV2, nil)
 	if err != nil {
@@ -182,7 +182,7 @@ func (e *SingleAttestationEvent) Ignore(ctx context.Context) (bool, error) {
 			logFieldTimeSinceFirstItem: time.Since(item.Value()),
 			logFieldSlot:               attestData.Slot,
 			logFieldIndex:              attestData.Index,
-		}).Debug("Duplicate single attestation event received")
+		}).Debug("Duplicate aggregate attestation event received")
 
 		return true, nil
 	}

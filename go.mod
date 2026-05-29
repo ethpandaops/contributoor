@@ -19,6 +19,7 @@ require (
 	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
+	github.com/prysmaticlabs/go-bitfield v0.0.0-20240618144021-706c95b2dd15
 	github.com/sirupsen/logrus v1.9.4
 	github.com/ssgreg/journalhook v0.0.0-20180529133218-9a0802d16187
 	github.com/stretchr/testify v1.11.1
