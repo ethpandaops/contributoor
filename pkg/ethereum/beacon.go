@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
-	"github.com/attestantio/go-eth2-client/spec/electra"
-	"github.com/attestantio/go-eth2-client/spec/phase0"
+	eth2v1 "github.com/ethpandaops/go-eth2-client/api/v1"
+	"github.com/ethpandaops/go-eth2-client/spec/electra"
+	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/internal/contributoor"

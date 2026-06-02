@@ -37,7 +37,7 @@ func NewXatuSink(log logrus.FieldLogger, config *config.Config, networkName stri
 		}
 	}
 
-	sink, err := xatu.New(networkName, conf, log, &pxatu.EventFilterConfig{}, processor.ShippingMethodAsync)
+	sink, err := xatu.New(networkName, conf, log.WithField("sink", "xatu"), &pxatu.EventFilterConfig{}, processor.ShippingMethodAsync)
 	if err != nil {
 		return nil, err
 	}

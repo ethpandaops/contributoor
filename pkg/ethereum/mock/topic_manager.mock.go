@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	phase0 "github.com/attestantio/go-eth2-client/spec/phase0"
+	phase0 "github.com/ethpandaops/go-eth2-client/spec/phase0"
 	ethereum "github.com/ethpandaops/contributoor/pkg/ethereum"
 	gomock "go.uber.org/mock/gomock"
 )

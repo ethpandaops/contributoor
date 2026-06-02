@@ -28,7 +28,7 @@ func NewStdoutSink(log logrus.FieldLogger, config *config.Config, networkName st
 		return nil, err
 	}
 
-	sink, err := stdout.New(networkName, conf, log, &pxatu.EventFilterConfig{}, processor.ShippingMethodAsync)
+	sink, err := stdout.New(networkName, conf, log.WithField("sink", "stdout"), &pxatu.EventFilterConfig{}, processor.ShippingMethodAsync)
 	if err != nil {
 		return nil, err
 	}

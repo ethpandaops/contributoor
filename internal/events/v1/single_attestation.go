@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/attestantio/go-eth2-client/spec/electra"
+	"github.com/ethpandaops/go-eth2-client/spec/electra"
 	"github.com/ethpandaops/contributoor/internal/events"
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
