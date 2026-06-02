@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethpandaops/go-eth2-client/spec/electra"
 	"github.com/ethpandaops/contributoor/internal/events"
+	"github.com/ethpandaops/go-eth2-client/spec/electra"
 	xatuethv1 "github.com/ethpandaops/xatu/pkg/proto/eth/v1"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/google/uuid"

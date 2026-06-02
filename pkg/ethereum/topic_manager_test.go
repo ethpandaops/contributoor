@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/contributoor/pkg/ethereum"
 	"github.com/ethpandaops/contributoor/pkg/ethereum/mock"
+	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

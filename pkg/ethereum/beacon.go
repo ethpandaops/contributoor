@@ -7,9 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	eth2v1 "github.com/ethpandaops/go-eth2-client/api/v1"
-	"github.com/ethpandaops/go-eth2-client/spec/electra"
-	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/beacon/pkg/beacon"
 	"github.com/ethpandaops/contributoor/internal/clockdrift"
 	"github.com/ethpandaops/contributoor/internal/contributoor"
@@ -18,6 +15,9 @@ import (
 	"github.com/ethpandaops/contributoor/internal/sinks"
 	ethcore "github.com/ethpandaops/ethcore/pkg/ethereum"
 	"github.com/ethpandaops/ethwallclock"
+	eth2v1 "github.com/ethpandaops/go-eth2-client/api/v1"
+	"github.com/ethpandaops/go-eth2-client/spec/electra"
+	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/sirupsen/logrus"
 )
