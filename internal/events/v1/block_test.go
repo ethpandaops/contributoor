@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	eth2v1 "github.com/attestantio/go-eth2-client/api/v1"
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/contributoor/internal/events/mock"
 	"github.com/ethpandaops/ethwallclock"
+	eth2v1 "github.com/ethpandaops/go-eth2-client/api/v1"
+	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/sirupsen/logrus"
