@@ -24,7 +24,7 @@ jobs:
           echo "Contributoor image is built."
       - name: Setup kurtosis testnet
         id: kurtosis-setup
-        uses: ethpandaops/kurtosis-assertoor-github-action@v1
+        uses: ethpandaops/kurtosis-assertoor-github-action@v1.0.1
         with:
           kurtosis_version: '1.18.3'
           ethereum_package_args: .github/workflows/configs/kurtosis-network-params.yaml
