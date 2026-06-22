@@ -11,8 +11,8 @@ require (
 	github.com/ethpandaops/ethcore v0.0.0-20260602043608-9e4238a516c7
 	github.com/ethpandaops/ethereum-package-go v0.10.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/go-eth2-client v0.1.3
-	github.com/ethpandaops/xatu v1.15.0
+	github.com/ethpandaops/go-eth2-client v0.1.4
+	github.com/ethpandaops/xatu v1.17.0
 	github.com/go-co-op/gocron/v2 v2.21.2
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0
