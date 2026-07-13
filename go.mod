@@ -3,7 +3,7 @@ module github.com/ethpandaops/contributoor
 go 1.26.3
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260709200747-435963d16310.1
 	buf.build/go/protovalidate v1.2.0
 	github.com/beevik/ntp v1.5.0
 	github.com/creasty/defaults v1.8.0
@@ -11,11 +11,11 @@ require (
 	github.com/ethpandaops/ethcore v0.0.0-20260602043608-9e4238a516c7
 	github.com/ethpandaops/ethereum-package-go v0.10.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/go-eth2-client v0.1.5
-	github.com/ethpandaops/xatu v1.15.0
-	github.com/go-co-op/gocron/v2 v2.21.2
+	github.com/ethpandaops/go-eth2-client v0.1.6
+	github.com/ethpandaops/xatu v1.21.0
+	github.com/go-co-op/gocron/v2 v2.22.0
 	github.com/google/uuid v1.6.0
-	github.com/jellydator/ttlcache/v3 v3.4.0
+	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
