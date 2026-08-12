@@ -91,6 +91,14 @@ func (w *BeaconWrapper) Start(ctx context.Context) error {
 	return nil
 }
 
+// IsHealthy reports whether the beacon connection is healthy right now. This overrides the
+// promoted ethcore.BeaconNode.IsHealthy, which only tracks whether the node has ever become
+// healthy and is never cleared on a live disconnect, only on Stop. isHealthy is updated on every
+// connection state transition, so this reflects the current state, not a one-time latch.
+func (w *BeaconWrapper) IsHealthy() bool {
+	return w.isHealthy.Load()
+}
+
 // Stop to handle sink lifecycle.
 func (w *BeaconWrapper) Stop(ctx context.Context) error {
 	// Mark as unhealthy to prevent health check logs
@@ -411,12 +419,14 @@ func (w *BeaconWrapper) handleDecoratedEvent(ctx context.Context, event events.E
 		}
 	}
 
-	// Update metrics and summary
-	w.metrics.AddDecoratedEvent(1, eventType, string(w.Metadata().GetNetwork().Name))
-	w.summary.AddEventsExported(1)
-
+	// Only count the event as exported if every sink accepted it. An event that failed to even
+	// enqueue is not going to be exported, so counting it as both exported and failed would
+	// overstate decorated_event_total and the summary's export count during a sink outage.
 	if failure {
 		w.summary.AddFailedEvents(1)
+	} else {
+		w.metrics.AddDecoratedEvent(1, eventType, string(w.Metadata().GetNetwork().Name))
+		w.summary.AddEventsExported(1)
 	}
 
 	return nil
