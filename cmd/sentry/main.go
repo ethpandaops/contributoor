@@ -212,8 +212,10 @@ func main() {
 			// Wait for shutdown
 			<-ctx.Done()
 
-			// Stop application
-			if err := app.Stop(context.Background()); err != nil {
+			// Stop application. Pass nil rather than a fresh background context so
+			// Application.Stop applies its own bounded shutdown deadline instead of waiting
+			// indefinitely for sinks to drain.
+			if err := app.Stop(nil); err != nil { //nolint:staticcheck // nil is intentional, see comment above.
 				log.WithError(err).Error("Failed to stop application")
 			}
 
