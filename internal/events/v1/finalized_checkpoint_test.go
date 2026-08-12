@@ -144,4 +144,45 @@ func TestFinalizedCheckpointEvent_Ignore(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, ignore)
 	})
+
+	t.Run("rollback allows re-delivery", func(t *testing.T) {
+		rollbackEpoch := epoch + 1
+		rollbackEpochSlot := rollbackEpoch * 32
+		rollbackCheckpoint := &eth2v1.FinalizedCheckpointEvent{
+			Block: blockRoot,
+			Epoch: phase0.Epoch(rollbackEpoch),
+		}
+
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(rollbackEpochSlot).Return(false).Times(2)
+
+		first := NewFinalizedCheckpointEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackCheckpoint,
+			now,
+		)
+
+		ignore, err := first.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore, "first delivery must be processed")
+
+		first.Rollback()
+
+		second := NewFinalizedCheckpointEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackCheckpoint,
+			now,
+		)
+
+		ignore, err = second.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore,
+			"after Rollback, a re-delivery of the same event must not be treated as a duplicate")
+	})
 }

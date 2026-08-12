@@ -149,4 +149,45 @@ func TestHeadEvent_Ignore(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, ignore)
 	})
+
+	t.Run("rollback allows re-delivery", func(t *testing.T) {
+		// Distinct slot/data from the subtests above, which share the outer cache and would
+		// otherwise register this as an unrelated duplicate.
+		rollbackSlot := slot + 1
+		rollbackHead := &eth2v1.HeadEvent{Slot: phase0.Slot(rollbackSlot), Block: blockRoot}
+
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(rollbackSlot).Return(false).Times(2)
+
+		first := NewHeadEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackHead,
+			now,
+		)
+
+		ignore, err := first.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore, "first delivery must be processed")
+
+		// The event failed to export (e.g. sink error, or a second sync check failing) -
+		// handleDecoratedEvent calls Rollback in that case.
+		first.Rollback()
+
+		second := NewHeadEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackHead,
+			now,
+		)
+
+		ignore, err = second.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore,
+			"after Rollback, a re-delivery of the same event must not be treated as a duplicate")
+	})
 }

@@ -389,6 +389,10 @@ func (w *BeaconWrapper) createEventMeta(ctx context.Context) (*xatu.Meta, error)
 func (w *BeaconWrapper) handleDecoratedEvent(ctx context.Context, event events.Event) error {
 	// Final sync check
 	if err := w.Synced(ctx); err != nil {
+		// The event passed Ignore's dedup check but is being dropped here without ever reaching
+		// a sink. Undo the dedup commit so a legitimate re-delivery isn't treated as a duplicate.
+		event.Rollback()
+
 		return err
 	}
 
@@ -409,6 +413,12 @@ func (w *BeaconWrapper) handleDecoratedEvent(ctx context.Context, event events.E
 
 			continue
 		}
+	}
+
+	if failure {
+		// At least one sink never accepted the event, so it did not reach the export pipeline.
+		// Undo the dedup commit for the same reason as the Synced check above.
+		event.Rollback()
 	}
 
 	// Update metrics and summary

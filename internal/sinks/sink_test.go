@@ -20,3 +20,4 @@ func (e *mockEvent) Data() any                                { return e.decorat
 func (e *mockEvent) Decorated() *xatu.DecoratedEvent          { return e.decorated }
 func (e *mockEvent) Meta() *xatu.Meta                         { return e.decorated.Meta }
 func (e *mockEvent) Ignore(ctx context.Context) (bool, error) { return false, nil }
+func (e *mockEvent) Rollback()                                {}
