@@ -161,4 +161,47 @@ func TestBlobSidecarEvent_Ignore(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, ignore)
 	})
+
+	t.Run("rollback allows re-delivery", func(t *testing.T) {
+		rollbackSlot := slot + 1
+		rollbackBlobSidecar := &eth2v1.BlobSidecarEvent{
+			Slot:          phase0.Slot(rollbackSlot),
+			BlockRoot:     blockRoot,
+			Index:         index,
+			KZGCommitment: kzgCommitment,
+			VersionedHash: versionedHash,
+		}
+
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(rollbackSlot).Return(false).Times(2)
+
+		first := NewBlobSidecarEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackBlobSidecar,
+			now,
+		)
+
+		ignore, err := first.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore, "first delivery must be processed")
+
+		first.Rollback()
+
+		second := NewBlobSidecarEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackBlobSidecar,
+			now,
+		)
+
+		ignore, err = second.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore,
+			"after Rollback, a re-delivery of the same event must not be treated as a duplicate")
+	})
 }

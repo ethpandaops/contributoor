@@ -1,11 +1,34 @@
 package ethereum
 
 import (
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// TestHandleDecoratedEvent_RollsBackOnDiscard is a structural regression test, not a behavioral
+// one. handleDecoratedEvent's own w.Synced(ctx) call requires a populated ethcore wallclock with
+// no test seam available (the same wall documented for the other handleDecoratedEvent-adjacent
+// tests in this file - NM-09/NM-12 in the nemesis triage), so the method can't be driven directly
+// from a unit test. What's verified here instead: event.Rollback() is called on both paths in the
+// current source where an event that passed Ignore is ultimately not exported - the Synced check
+// at the top, and the sink failure branch.
+func TestHandleDecoratedEvent_RollsBackOnDiscard(t *testing.T) {
+	out, err := exec.Command("grep", "-n", "-A", "3", "event.Rollback()", "beacon.go").CombinedOutput()
+	require.NoError(t, err, "grep must find event.Rollback() call sites in beacon.go")
+
+	block := string(out)
+	callSites := strings.Count(block, "event.Rollback()")
+
+	assert.Equal(t, 2, callSites,
+		"expected exactly two event.Rollback() call sites in handleDecoratedEvent - the Synced "+
+			"failure path and the sink failure path. If this fails, a rollback call was removed "+
+			"(regressing NM-03) or a new discard path was added without one.")
+}
 
 func TestIsSlotDifferenceTooLarge(t *testing.T) {
 	tests := []struct {

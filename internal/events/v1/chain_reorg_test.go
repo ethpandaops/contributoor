@@ -159,4 +159,46 @@ func TestChainReorgEvent_Ignore(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, ignore)
 	})
+
+	t.Run("rollback allows re-delivery", func(t *testing.T) {
+		rollbackSlot := slot + 1
+		rollbackReorg := &eth2v1.ChainReorgEvent{
+			Slot:         phase0.Slot(rollbackSlot),
+			Depth:        1,
+			OldHeadBlock: oldRoot,
+			NewHeadBlock: newRoot,
+		}
+
+		mockBeacon.EXPECT().Synced(gomock.Any()).Return(nil).Times(2)
+		mockBeacon.EXPECT().IsSlotFromUnexpectedNetwork(rollbackSlot).Return(false).Times(2)
+
+		first := NewChainReorgEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackReorg,
+			now,
+		)
+
+		ignore, err := first.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore, "first delivery must be processed")
+
+		first.Rollback()
+
+		second := NewChainReorgEvent(
+			logrus.New(),
+			mockBeacon,
+			cache,
+			&xatu.Meta{Client: &xatu.ClientMeta{}},
+			rollbackReorg,
+			now,
+		)
+
+		ignore, err = second.Ignore(context.Background())
+		require.NoError(t, err)
+		require.False(t, ignore,
+			"after Rollback, a re-delivery of the same event must not be treated as a duplicate")
+	})
 }

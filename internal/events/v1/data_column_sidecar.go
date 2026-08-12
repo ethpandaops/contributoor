@@ -25,6 +25,7 @@ type DataColumnSidecarEvent struct {
 	beacon   events.BeaconDataProvider
 	cache    *ttlcache.Cache[string, time.Time]
 	recvTime time.Time
+	dedupKey string
 }
 
 func NewDataColumnSidecarEvent(
@@ -124,7 +125,9 @@ func (e *DataColumnSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 		return true, err
 	}
 
-	item, retrieved := e.cache.GetOrSet(fmt.Sprint(hash), e.recvTime, ttlcache.WithTTL[string, time.Time](ttlcache.DefaultTTL))
+	key := fmt.Sprint(hash)
+
+	item, retrieved := e.cache.GetOrSet(key, e.recvTime, ttlcache.WithTTL[string, time.Time](ttlcache.DefaultTTL))
 	if retrieved {
 		e.log.WithFields(logrus.Fields{
 			logFieldHash:               hash,
@@ -136,5 +139,18 @@ func (e *DataColumnSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
+	e.dedupKey = key
+
 	return false, nil
+}
+
+// Rollback removes the dedup cache entry Ignore committed, if any. Call this when the event
+// ultimately fails to be exported, so a legitimate re-delivery is not dropped as a duplicate.
+func (e *DataColumnSidecarEvent) Rollback() {
+	if e.dedupKey == "" {
+		return
+	}
+
+	e.cache.Delete(e.dedupKey)
+	e.dedupKey = ""
 }

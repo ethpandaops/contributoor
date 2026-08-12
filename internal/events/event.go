@@ -49,6 +49,10 @@ type Event interface {
 	Decorated() *xatu.DecoratedEvent
 	// Ignore returns true if the event should be ignored.
 	Ignore(ctx context.Context) (bool, error)
+	// Rollback removes the event's dedup cache entry, if Ignore committed one. Call this when an
+	// event that passed Ignore ultimately fails to be exported, so a legitimate re-delivery of the
+	// same event is not dropped as a duplicate.
+	Rollback()
 }
 
 // BaseEvent provides common functionality for all events.
