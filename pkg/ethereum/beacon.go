@@ -2,6 +2,7 @@ package ethereum
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync/atomic"
@@ -15,6 +16,8 @@ import (
 	"github.com/ethpandaops/contributoor/internal/sinks"
 	ethcore "github.com/ethpandaops/ethcore/pkg/ethereum"
 	"github.com/ethpandaops/ethwallclock"
+	eth2client "github.com/ethpandaops/go-eth2-client"
+	"github.com/ethpandaops/go-eth2-client/api"
 	eth2v1 "github.com/ethpandaops/go-eth2-client/api/v1"
 	"github.com/ethpandaops/go-eth2-client/spec/electra"
 	"github.com/ethpandaops/go-eth2-client/spec/phase0"
@@ -53,6 +56,15 @@ type BeaconWrapper struct {
 	metrics      *events.Metrics
 	isHealthy    atomic.Bool // Track connection state for transition logging
 	topicManager TopicManager
+
+	// committeesPerSlot and slotsPerEpoch are cached, periodically refreshed values used to
+	// compute the correct attestation gossip subnet (see GetAttestationSubnetID). Zero means
+	// "not yet known" - there is no fetch cheap enough to do this per-event or even per-slot, so
+	// events are dropped rather than exported with a guessed value until the first successful
+	// fetch completes.
+	committeesPerSlot     atomic.Uint64
+	slotsPerEpoch         atomic.Uint64
+	committeesPerSlotStop context.CancelFunc
 }
 
 // Start to handle sink lifecycle.
@@ -86,6 +98,9 @@ func (w *BeaconWrapper) Start(ctx context.Context) error {
 
 		// Start refreshing every 30 seconds
 		w.topicManager.StartSubnetRefresh(ctx, 30*time.Second, fetcher)
+
+		// Needed to compute the correct attestation gossip subnet - see GetAttestationSubnetID.
+		w.startCommitteesPerSlotRefresh(ctx)
 	}
 
 	return nil
@@ -101,6 +116,10 @@ func (w *BeaconWrapper) Stop(ctx context.Context) error {
 		w.topicManager.StopSubnetRefresh()
 	}
 
+	if w.committeesPerSlotStop != nil {
+		w.committeesPerSlotStop()
+	}
+
 	// Stop upstream first.
 	if err := w.BeaconNode.Stop(ctx); err != nil {
 		w.log.WithError(err).Error("Failed to stop beacon node")
@@ -112,6 +131,98 @@ func (w *BeaconWrapper) Stop(ctx context.Context) error {
 			w.log.WithError(err).Errorf("Failed to stop sink %s", sink.Name())
 		}
 	}
+
+	return nil
+}
+
+// startCommitteesPerSlotRefresh periodically fetches the current epoch's committee count per
+// slot, needed to compute the correct attestation gossip subnet (see GetAttestationSubnetID).
+// There is no beacon API endpoint that returns just this count - the only way to get it is
+// BeaconCommitteesProvider.BeaconCommittees, which returns every committee (with full
+// validator-index lists) for a whole epoch. On mainnet that response is on the order of 10MB, so
+// this refreshes once per epoch, not more often.
+func (w *BeaconWrapper) startCommitteesPerSlotRefresh(ctx context.Context) {
+	spec, err := w.Node().Spec()
+	if err != nil || spec.SlotsPerEpoch == 0 {
+		w.log.WithError(err).Warn(
+			"Failed to determine epoch duration; committees-per-slot refresh disabled, " +
+				"single_attestation events will be dropped",
+		)
+
+		return
+	}
+
+	interval := time.Duration(spec.SlotsPerEpoch) * time.Duration(spec.SecondsPerSlot) //nolint:gosec // slots per epoch is always small.
+
+	refreshCtx, cancel := context.WithCancel(ctx)
+	w.committeesPerSlotStop = cancel
+
+	fetch := func() {
+		fetchCtx, fetchCancel := context.WithTimeout(refreshCtx, interval)
+		defer fetchCancel()
+
+		if err := w.refreshCommitteesPerSlot(fetchCtx); err != nil {
+			w.log.WithError(err).Warn("Failed to refresh committees per slot; keeping previous value")
+		}
+	}
+
+	// Warm the cache immediately rather than waiting a full epoch for the first tick.
+	go fetch()
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-refreshCtx.Done():
+				return
+			case <-ticker.C:
+				fetch()
+			}
+		}
+	}()
+}
+
+// refreshCommitteesPerSlot fetches the current epoch's beacon committees and derives
+// committees_per_slot from the response (every slot in an epoch has the same committee count, so
+// the total committee count for the epoch divided by slots-per-epoch is exact).
+func (w *BeaconWrapper) refreshCommitteesPerSlot(ctx context.Context) error {
+	provider, ok := w.Node().Service().(eth2client.BeaconCommitteesProvider)
+	if !ok {
+		return errors.New("beacon node client does not support fetching beacon committees")
+	}
+
+	spec, err := w.Node().Spec()
+	if err != nil {
+		return fmt.Errorf("failed to get spec: %w", err)
+	}
+
+	if spec.SlotsPerEpoch == 0 {
+		return errors.New("spec reports zero slots per epoch")
+	}
+
+	resp, err := provider.BeaconCommittees(ctx, &api.BeaconCommitteesOpts{State: "head"})
+	if err != nil {
+		return fmt.Errorf("failed to fetch beacon committees: %w", err)
+	}
+
+	if resp == nil || len(resp.Data) == 0 {
+		return errors.New("beacon committees response was empty")
+	}
+
+	committeesPerSlot := uint64(len(resp.Data)) / uint64(spec.SlotsPerEpoch)
+	if committeesPerSlot == 0 {
+		return errors.New("computed committees per slot of zero")
+	}
+
+	w.committeesPerSlot.Store(committeesPerSlot)
+	w.slotsPerEpoch.Store(uint64(spec.SlotsPerEpoch))
+
+	w.log.WithFields(logrus.Fields{
+		"committees_per_slot": committeesPerSlot,
+		"slots_per_epoch":     uint64(spec.SlotsPerEpoch),
+	}).Info("Refreshed committees per slot")
 
 	return nil
 }
@@ -471,6 +582,21 @@ func (w *BeaconWrapper) RecordSeenSubnet(subnetID uint64, slot uint64) {
 	}
 
 	w.topicManager.RecordAttestation(subnetID, phase0.Slot(slot))
+}
+
+// GetAttestationSubnetID computes the attestation gossip subnet using the full spec formula:
+// (committees_per_slot * (slot % SLOTS_PER_EPOCH) + committee_index) % 64. Returns false if
+// committees_per_slot hasn't been determined yet (e.g. during startup, before the first periodic
+// fetch completes) - callers must not fall back to a guessed value in that case.
+func (w *BeaconWrapper) GetAttestationSubnetID(slot, committeeIndex uint64) (uint64, bool) {
+	committeesPerSlot := w.committeesPerSlot.Load()
+	slotsPerEpoch := w.slotsPerEpoch.Load()
+
+	if committeesPerSlot == 0 || slotsPerEpoch == 0 {
+		return 0, false
+	}
+
+	return (committeesPerSlot*(slot%slotsPerEpoch) + committeeIndex) % 64, true
 }
 
 // NeedsReconnection returns a channel that signals when reconnection is needed.
