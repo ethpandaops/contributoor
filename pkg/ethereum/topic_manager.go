@@ -199,6 +199,12 @@ func (tm *topicManager) SetAdvertisedSubnets(subnets []int) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
+	// Subnets recorded as seen, and mismatches counted, against the OLD set are meaningless once
+	// the set changes - reset before scoring anything against the new one.
+	if !subnetsEqual(tm.advertisedSubnets, subnets) {
+		tm.resetSubnetTrackingLocked()
+	}
+
 	tm.advertisedSubnets = subnets
 
 	// Only select a random subnet if attestations will be enabled
@@ -220,13 +226,50 @@ func (tm *topicManager) SetAdvertisedSubnets(subnets []int) {
 				logFieldSelectedSubnet: tm.selectedSubnet,
 			}).Info("Selected random subnet for forwarding")
 		} else {
-			// Attestations won't be enabled due to too many subnets
+			// Attestations won't be enabled: the node advertises more subnets than
+			// attestationMaxSubnets allows. This drops 100% of attestation forwarding, so it must
+			// not be silent.
 			tm.selectedSubnet = -1
+
+			tm.log.WithFields(logrus.Fields{
+				"advertised_subnet_count": len(subnets),
+				"max_subnets":             tm.attestationMaxSubnets,
+			}).Warn("Advertised subnet count exceeds max subnets; attestation forwarding disabled")
 		}
 	} else {
 		tm.selectedSubnet = -1
 		tm.log.WithField("subnets", subnets).Warn("Missing advertised attestation subnets")
 	}
+}
+
+// subnetsEqual reports whether two subnet lists contain the same set of subnet IDs, ignoring
+// order - a refetch returning the same subnets in a different order should not be treated as a
+// change.
+func subnetsEqual(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	seen := make(map[int]bool, len(a))
+	for _, s := range a {
+		seen[s] = true
+	}
+
+	for _, s := range b {
+		if !seen[s] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// resetSubnetTrackingLocked clears the mismatch-detection state that's scoped to a specific
+// advertised set. Must be called with tm.mu already held.
+func (tm *topicManager) resetSubnetTrackingLocked() {
+	tm.seenSubnets = make(map[uint64]bool)
+	tm.mismatchCount = 0
+	tm.trackingStartSlot = 0
 }
 
 // RecordAttestation records an attestation for subnet tracking.
@@ -413,29 +456,17 @@ func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval 
 				// Fetch current subnets
 				newSubnets := nodeIdentityFetcher()
 				if newSubnets != nil {
-					// Check if subnets have changed
 					tm.mu.Lock()
 
-					changed := false
-
-					if len(newSubnets) != len(tm.advertisedSubnets) {
-						changed = true
-					} else {
-						for i, subnet := range newSubnets {
-							if i >= len(tm.advertisedSubnets) || subnet != tm.advertisedSubnets[i] {
-								changed = true
-
-								break
-							}
-						}
-					}
-
-					if changed {
+					if !subnetsEqual(tm.advertisedSubnets, newSubnets) {
 						tm.log.WithFields(logrus.Fields{
 							"old_subnets": tm.advertisedSubnets,
 							"new_subnets": newSubnets,
 						}).Info("Advertised subnets changed, updating")
 
+						// Subnets seen and mismatches counted against the old set are meaningless
+						// once the set changes.
+						tm.resetSubnetTrackingLocked()
 						tm.advertisedSubnets = newSubnets
 
 						// Re-select a random subnet when advertised subnets change
@@ -459,7 +490,7 @@ func (tm *topicManager) StartSubnetRefresh(ctx context.Context, refreshInterval 
 								tm.log.WithFields(logrus.Fields{
 									"subnet_count": len(newSubnets),
 									"max_subnets":  tm.attestationMaxSubnets,
-								}).Debug("Attestations disabled due to subnet count exceeding threshold")
+								}).Warn("Attestations disabled due to subnet count exceeding threshold")
 							}
 						}
 					}
