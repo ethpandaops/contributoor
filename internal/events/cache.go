@@ -61,3 +61,16 @@ func (d *DuplicateCache) Start() {
 	go d.BeaconETHV1EventsAttestationV2.Start()
 	go d.BeaconETHV1EventsDataColumnSidecar.Start()
 }
+
+// Stop stops the TTL eviction janitor for every topic cache. Safe to call even if Start was never
+// called.
+func (d *DuplicateCache) Stop() {
+	d.BeaconETHV1EventsBlock.Stop()
+	d.BeaconETHV1EventsBlockGossip.Stop()
+	d.BeaconETHV1EventsChainReorg.Stop()
+	d.BeaconETHV1EventsFinalizedCheckpoint.Stop()
+	d.BeaconETHV1EventsHead.Stop()
+	d.BeaconETHV1EventsBlobSidecar.Stop()
+	d.BeaconETHV1EventsAttestationV2.Stop()
+	d.BeaconETHV1EventsDataColumnSidecar.Stop()
+}

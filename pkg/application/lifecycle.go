@@ -88,17 +88,29 @@ func (a *Application) Stop(ctx context.Context) error {
 
 	// Stop beacon nodes and sinks
 	for traceID, instance := range a.beaconNodes {
-		if err := instance.Node.Stop(ctx); err != nil {
-			a.log.WithError(err).WithField("trace_id", traceID).Error("Failed to stop beacon")
+		instance.reconnectMutex.RLock()
+		node := instance.Node
+		sinks := instance.Sinks
+		cache := instance.Cache
+		instance.reconnectMutex.RUnlock()
+
+		if node != nil {
+			if err := node.Stop(ctx); err != nil {
+				a.log.WithError(err).WithField("trace_id", traceID).Error("Failed to stop beacon")
+			}
 		}
 
-		for _, sink := range instance.Sinks {
+		for _, sink := range sinks {
 			if err := sink.Stop(ctx); err != nil {
 				a.log.WithError(err).WithFields(logrus.Fields{
 					"trace_id": traceID,
 					"sink":     sink.Name(),
 				}).Error("Failed to stop sink")
 			}
+		}
+
+		if cache != nil {
+			cache.Stop()
 		}
 	}
 
@@ -134,13 +146,19 @@ func (a *Application) monitorBeaconInstance(ctx context.Context, instance *Beaco
 		case <-ticker.C:
 			// Check if we need to start the summary (only if not already started)
 			if !summaryStarted {
-				if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
+				instance.reconnectMutex.RLock()
+				node, ok := instance.Node.(*ethereum.BeaconWrapper)
+				healthy := ok && node.IsHealthy()
+				summary := instance.Summary
+				instance.reconnectMutex.RUnlock()
+
+				if healthy {
 					// Create a cancellable context for the summary
 					summaryCtx, cancel := context.WithCancel(ctx)
 					instance.summaryCancel = cancel
 
 					// Start summary with cancellable context
-					go instance.Summary.Start(summaryCtx)
+					go summary.Start(summaryCtx)
 
 					summaryStarted = true
 				}

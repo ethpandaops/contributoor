@@ -26,3 +26,10 @@ func NewMetrics(namespace string) *Metrics {
 func (m *Metrics) AddDecoratedEvent(count int, eventType, networkID string) {
 	m.decoratedEventTotal.WithLabelValues(eventType, networkID).Add(float64(count))
 }
+
+// Unregister removes this instance's collector from the default Prometheus registry. Call this
+// when replacing a Metrics instance (e.g. on beacon restart) so the old, now-dead series doesn't
+// stay registered and flat-line forever under its old namespace.
+func (m *Metrics) Unregister() {
+	prometheus.Unregister(m.decoratedEventTotal)
+}

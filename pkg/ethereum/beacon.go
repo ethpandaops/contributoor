@@ -81,7 +81,14 @@ func (w *BeaconWrapper) Start(ctx context.Context) error {
 				return nil
 			}
 
-			return identity.GetAttnets()
+			subnets, err := identity.GetAttnets()
+			if err != nil {
+				w.log.WithError(err).Debug("Failed to parse attnets during refresh")
+
+				return nil
+			}
+
+			return subnets
 		}
 
 		// Start refreshing every 30 seconds
@@ -147,9 +154,14 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 				identity := NewNodeIdentity(w.log, w.config.BeaconNodeAddress, w.config.BeaconNodeHeaders)
 				if err := identity.Start(ctx); err != nil {
 					w.log.WithError(err).Warn("Failed to fetch node identity on reconnection")
+				} else if newSubnets, attnetsErr := identity.GetAttnets(); attnetsErr != nil {
+					// Could not tell "genuinely zero subnets" apart from "attnets failed to
+					// parse" - keep the previous advertised set rather than risk wiping
+					// forwarding on what may just be a transient parse hiccup.
+					w.log.WithError(attnetsErr).Warn(
+						"Failed to parse attnets on reconnection; keeping previous advertised subnets",
+					)
 				} else {
-					newSubnets := identity.GetAttnets()
-
 					// Update the topic manager with the current subnets
 					// If these differ from what the beacon was previously advertising,
 					// the mismatch detection will catch it when we receive attestations
