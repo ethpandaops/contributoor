@@ -33,6 +33,10 @@ type BeaconDataProvider interface {
 	IsActiveSubnet(subnetID uint64) bool
 	// RecordSeenSubnet records that we've seen an attestation from a specific subnet.
 	RecordSeenSubnet(subnetID uint64, slot uint64)
+	// GetAttestationSubnetID computes the attestation gossip subnet for the given slot and
+	// committee index using the full spec formula. Returns false if the value needed to compute
+	// it (committees_per_slot) isn't known yet.
+	GetAttestationSubnetID(slot, committeeIndex uint64) (uint64, bool)
 }
 
 // Event is the interface that all events must implement.
