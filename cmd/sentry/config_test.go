@@ -745,6 +745,39 @@ func TestAttestationSubnetConfigOverride(t *testing.T) {
 	}
 }
 
+// TestAttestationSubnetCheckEnabledEnvDoesNotClobberMaxSubnets covers the case the table-driven
+// TestAttestationSubnetConfigOverride above doesn't: a config file (not an env var) already set
+// MaxSubnets, and only the enabled flag comes from the environment - a real, standard pattern for
+// containerized deployments. CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED must not touch
+// MaxSubnets at all; only CONTRIBUTOOR_ATTESTATION_SUBNET_MAX_SUBNETS (handled separately) should.
+func TestAttestationSubnetCheckEnabledEnvDoesNotClobberMaxSubnets(t *testing.T) {
+	cfg := config.NewDefaultConfig()
+	cfg.AttestationSubnetCheck = &config.AttestationSubnetCheck{
+		Enabled:    false,
+		MaxSubnets: 5, // as if set by the config file
+	}
+
+	os.Setenv("CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED", "true")
+
+	defer os.Unsetenv("CONTRIBUTOOR_ATTESTATION_SUBNET_CHECK_ENABLED")
+
+	app := cli.NewApp()
+	app.Flags = []cli.Flag{
+		&cli.BoolFlag{Name: "attestation-subnet-check-enabled"},
+		&cli.IntFlag{Name: "attestation-subnet-max-subnets", Value: -1},
+	}
+	app.Action = func(c *cli.Context) error {
+		return applyConfigOverridesFromFlags(cfg, c)
+	}
+
+	require.NoError(t, app.Run([]string{"app"}))
+
+	require.NotNil(t, cfg.AttestationSubnetCheck)
+	assert.True(t, cfg.AttestationSubnetCheck.Enabled)
+	assert.Equal(t, uint32(5), cfg.AttestationSubnetCheck.MaxSubnets,
+		"enabling the check via env var must not overwrite a MaxSubnets already set elsewhere")
+}
+
 func TestAttestationSubnetConfigErrors(t *testing.T) {
 	tests := []struct {
 		name          string

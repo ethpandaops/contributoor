@@ -23,8 +23,10 @@ type NodeIdentity interface {
 	Start(ctx context.Context) error
 	// Stop performs cleanup.
 	Stop() error
-	// GetAttnets returns the list of subscribed attestation subnet IDs.
-	GetAttnets() []int
+	// GetAttnets returns the list of subscribed attestation subnet IDs. An error means the attnets
+	// bitmask could not be determined (identity not fetched yet, or the bitmask failed to parse) -
+	// callers must not treat that the same as a legitimate empty result.
+	GetAttnets() ([]int, error)
 }
 
 // NodeIdentityData represents the beacon node identity response.
@@ -83,9 +85,14 @@ func (n *nodeIdentity) Start(ctx context.Context) error {
 	n.identity = identity
 	n.mu.Unlock()
 
+	attnets, attnetsErr := n.GetAttnets()
+	if attnetsErr != nil {
+		n.log.WithError(attnetsErr).Warn("Fetched node identity but failed to parse attnets")
+	}
+
 	n.log.WithFields(logrus.Fields{
 		"peer_id":     identity.PeerID,
-		"attnets":     n.GetAttnets(),
+		"attnets":     attnets,
 		"attnets_hex": identity.Metadata.Attnets,
 	}).Info("Node identity fetched successfully")
 
@@ -97,23 +104,23 @@ func (n *nodeIdentity) Stop() error {
 	return nil
 }
 
-// GetAttnets returns the list of subscribed attestation subnet IDs.
-func (n *nodeIdentity) GetAttnets() []int {
+// GetAttnets returns the list of subscribed attestation subnet IDs. An error means the bitmask
+// could not be determined - a nil error with an empty slice means the node genuinely advertises
+// zero subnets right now.
+func (n *nodeIdentity) GetAttnets() ([]int, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 
 	if n.identity == nil {
-		return nil
+		return nil, errors.New("identity not fetched yet")
 	}
 
 	subnets, err := ParseAttnetsBitmask(n.identity.Metadata.Attnets)
 	if err != nil {
-		n.log.WithError(err).Warn("Failed to parse attnets bitmask")
-
-		return nil
+		return nil, fmt.Errorf("failed to parse attnets bitmask: %w", err)
 	}
 
-	return subnets
+	return subnets, nil
 }
 
 // fetchIdentity fetches the node identity from the beacon node.

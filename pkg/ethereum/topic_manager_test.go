@@ -10,6 +10,7 @@ import (
 	"github.com/ethpandaops/contributoor/pkg/ethereum/mock"
 	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/sirupsen/logrus"
+	logrustest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -227,10 +228,13 @@ func TestCreateAttestationSubnetCondition(t *testing.T) {
 				subnets[i] = i
 			}
 
-			mockIdentity.EXPECT().GetAttnets().Return(subnets).AnyTimes()
+			mockIdentity.EXPECT().GetAttnets().Return(subnets, nil).AnyTimes()
 
 			// Create condition
-			condition := ethereum.CreateAttestationSubnetCondition(len(mockIdentity.GetAttnets()), tt.maxSubnets)
+			gotSubnets, err := mockIdentity.GetAttnets()
+			require.NoError(t, err)
+
+			condition := ethereum.CreateAttestationSubnetCondition(len(gotSubnets), tt.maxSubnets)
 			require.NotNil(t, condition)
 
 			// Test the condition
@@ -617,6 +621,36 @@ func TestTopicManager_TooManySubnetsDisablesSelection(t *testing.T) {
 	assert.True(t, tm.IsActiveSubnet(30), "Single subnet within threshold should be active")
 }
 
+func TestTopicManager_TooManySubnetsLogsWarning(t *testing.T) {
+	log, hook := logrustest.NewNullLogger()
+
+	tm := ethereum.NewTopicManager(log, &ethereum.TopicConfig{
+		AttestationEnabled:    true,
+		AttestationMaxSubnets: 2,
+	})
+
+	allSubnets := make([]int, 64)
+	for i := range 64 {
+		allSubnets[i] = i
+	}
+
+	tm.SetAdvertisedSubnets(allSubnets)
+
+	var found bool
+
+	for _, entry := range hook.AllEntries() {
+		if entry.Level == logrus.WarnLevel {
+			found = true
+
+			break
+		}
+	}
+
+	assert.True(t, found,
+		"exceeding max subnets must log at Warn - previously this branch had no log at all above "+
+			"Debug, so a 100% attestation drop was invisible to an operator watching logs")
+}
+
 func TestTopicManager_MismatchDetectionExcludesNotSelectedSubnets(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
@@ -664,5 +698,54 @@ func TestTopicManager_MismatchDetectionExcludesNotSelectedSubnets(t *testing.T) 
 		// Expected - advertised-but-not-selected subnets don't count
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Expected reconnection when non-advertised subnets exceed high water mark")
+	}
+}
+
+func TestTopicManager_ResetsTrackingOnAdvertisedSetChange(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+
+	tm := ethereum.NewTopicManager(log, &ethereum.TopicConfig{
+		AttestationEnabled:      true,
+		AttestationMaxSubnets:   64, // large enough that both old and new sets stay "enabled"
+		MismatchDetectionWindow: 1000,
+		MismatchThreshold:       1,
+		MismatchCooldown:        0,
+		SubnetHighWaterMark:     2, // small, so a handful of stale entries would be enough to breach it
+	})
+
+	// Node initially advertises subnets {1,2,3}.
+	tm.SetAdvertisedSubnets([]int{1, 2, 3})
+
+	// Attestations on subnets legitimately within the advertised set must not trip mismatch
+	// detection - that is exactly the traffic the tolerance exists to allow.
+	slot := phase0.Slot(1)
+	tm.RecordAttestation(1, slot)
+	tm.RecordAttestation(2, slot)
+	tm.RecordAttestation(3, slot)
+
+	select {
+	case <-tm.NeedsReconnection():
+		t.Fatal("legitimate traffic on the advertised set must not trigger reconnection")
+	default:
+	}
+
+	// The node's subnet assignment changes to a disjoint set {10,11} - e.g. the periodic refresh,
+	// or a reconnect handler picking up a new identity.
+	tm.SetAdvertisedSubnets([]int{10, 11})
+
+	// A single, perfectly legitimate attestation on the new set arrives.
+	tm.RecordAttestation(10, slot)
+
+	select {
+	case <-tm.NeedsReconnection():
+		t.Fatal(
+			"BUG NM-08 regressed: reconnection was triggered by subnets {1,2,3} that were " +
+				"entirely legitimate under the PREVIOUS advertised set - SetAdvertisedSubnets " +
+				"must reset seenSubnets/mismatchCount/trackingStartSlot when the set changes, so " +
+				"stale entries are not scored as non-advertised against the new set",
+		)
+	case <-time.After(100 * time.Millisecond):
+		// Expected: no spurious reconnection.
 	}
 }
