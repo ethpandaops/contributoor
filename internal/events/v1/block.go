@@ -54,6 +54,21 @@ func (e *BlockEvent) Data() any {
 }
 
 func (e *BlockEvent) Decorated() *xatu.DecoratedEvent {
+	payload := &xatuethv1.EventBlockV2{
+		Slot:                &wrapperspb.UInt64Value{Value: uint64(e.data.Slot)},
+		Block:               xatuethv1.RootAsString(e.data.Block),
+		ExecutionOptimistic: e.data.ExecutionOptimistic,
+	}
+
+	// builder_index and block_hash are only sent from Gloas onwards.
+	if e.data.BuilderIndex != nil {
+		payload.BuilderIndex = &wrapperspb.UInt64Value{Value: *e.data.BuilderIndex}
+	}
+
+	if e.data.BlockHash != nil {
+		payload.BlockHash = e.data.BlockHash.String()
+	}
+
 	decorated := &xatu.DecoratedEvent{
 		Meta: e.Meta(),
 		Event: &xatu.Event{
@@ -62,11 +77,7 @@ func (e *BlockEvent) Decorated() *xatu.DecoratedEvent {
 			Id:       uuid.New().String(),
 		},
 		Data: &xatu.DecoratedEvent_EthV1EventsBlockV2{
-			EthV1EventsBlockV2: &xatuethv1.EventBlockV2{
-				Slot:                &wrapperspb.UInt64Value{Value: uint64(e.data.Slot)},
-				Block:               xatuethv1.RootAsString(e.data.Block),
-				ExecutionOptimistic: e.data.ExecutionOptimistic,
-			},
+			EthV1EventsBlockV2: payload,
 		},
 	}
 

@@ -72,7 +72,8 @@ jobs:
             -e DOCKER_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }} \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e RELEASE_SUFFIX=${{ env.RELEASE_SUFFIX }} \
-            goreleaser/goreleaser-cross:v1.26.3 release --clean --config .goreleaser.yaml.new
+            -e GOTOOLCHAIN=go1.26.8 \
+            goreleaser/goreleaser-cross:v1.26.5 release --clean --config .goreleaser.yaml.new
 
   trigger-installer-update:
     needs: [goreleaser]

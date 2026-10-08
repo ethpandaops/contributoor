@@ -17,6 +17,7 @@ import (
 	"github.com/ethpandaops/ethwallclock"
 	eth2v1 "github.com/ethpandaops/go-eth2-client/api/v1"
 	"github.com/ethpandaops/go-eth2-client/spec/electra"
+	"github.com/ethpandaops/go-eth2-client/spec/gloas"
 	"github.com/ethpandaops/go-eth2-client/spec/phase0"
 	"github.com/ethpandaops/xatu/pkg/proto/xatu"
 	"github.com/sirupsen/logrus"
@@ -278,28 +279,6 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		return w.handleDecoratedEvent(ctx, event)
 	})
 
-	node.OnBlobSidecar(ctx, func(ctx context.Context, blob *eth2v1.BlobSidecarEvent) error {
-		now := w.clockDrift.Now()
-
-		meta, err := w.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewBlobSidecarEvent(w.log, w, w.cache.BeaconETHV1EventsBlobSidecar, meta, blob, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return w.handleDecoratedEvent(ctx, event)
-	})
-
 	node.OnDataColumnSidecar(ctx, func(ctx context.Context, dataColumn *eth2v1.DataColumnSidecarEvent) error {
 		now := w.clockDrift.Now()
 
@@ -344,9 +323,86 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		return w.handleDecoratedEvent(ctx, event)
 	})
 
+	node.OnFastConfirmation(ctx, func(ctx context.Context, confirmation *eth2v1.FastConfirmationEvent) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewFastConfirmationEvent(w.log, w, w.cache.BeaconETHV1EventsFastConfirmation, meta, confirmation, now)
+		})
+	})
+
+	w.setupGloasEventSubscriptions(ctx, node)
+
 	w.log.Info("Event subscriptions setup successfully")
 
 	return nil
+}
+
+// setupGloasEventSubscriptions wires the Gloas (EIP-7732) SSE topics. The
+// beacon node only emits these once Gloas is active.
+func (w *BeaconWrapper) setupGloasEventSubscriptions(ctx context.Context, node beacon.Node) {
+	node.OnHeadV2(ctx, func(ctx context.Context, head *eth2v1.HeadEventV2) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewHeadV2Event(w.log, w, w.cache.BeaconETHV1EventsHeadV2, meta, head, now)
+		})
+	})
+
+	node.OnExecutionPayload(ctx, func(ctx context.Context, payload *eth2v1.ExecutionPayloadEvent) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewExecutionPayloadEvent(w.log, w, w.cache.BeaconETHV1EventsExecutionPayload, meta, payload, now)
+		})
+	})
+
+	node.OnExecutionPayloadGossip(ctx, func(ctx context.Context, payload *eth2v1.ExecutionPayloadEvent) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewExecutionPayloadGossipEvent(w.log, w, w.cache.BeaconETHV1EventsExecutionPayloadGossip, meta, payload, now)
+		})
+	})
+
+	node.OnExecutionPayloadAvailable(ctx, func(ctx context.Context, available *eth2v1.ExecutionPayloadAvailableEvent) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewExecutionPayloadAvailableEvent(w.log, w, w.cache.BeaconETHV1EventsExecutionPayloadAvailable, meta, available, now)
+		})
+	})
+
+	node.OnExecutionPayloadBid(ctx, func(ctx context.Context, bid *gloas.SignedExecutionPayloadBid) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewExecutionPayloadBidEvent(w.log, w, w.cache.BeaconETHV1EventsExecutionPayloadBid, meta, bid, now)
+		})
+	})
+
+	node.OnPayloadAttestationMessage(ctx, func(ctx context.Context, msg *gloas.PayloadAttestationMessage) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewPayloadAttestationEvent(w.log, w, w.cache.BeaconETHV1EventsPayloadAttestation, meta, msg, now)
+		})
+	})
+
+	node.OnProposerPreferences(ctx, func(ctx context.Context, prefs *gloas.SignedProposerPreferences) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewProposerPreferencesEvent(w.log, w, w.cache.BeaconETHV1EventsProposerPreferences, meta, prefs, now)
+		})
+	})
+}
+
+// forwardEvent builds an event with fresh metadata, applies its ignore rules
+// and hands it to the sinks.
+func (w *BeaconWrapper) forwardEvent(
+	ctx context.Context,
+	build func(meta *xatu.Meta, now time.Time) events.Event,
+) error {
+	now := w.clockDrift.Now()
+
+	meta, err := w.createEventMeta(ctx)
+	if err != nil {
+		return err
+	}
+
+	event := build(meta, now)
+
+	ignore, err := event.Ignore(ctx)
+	if err != nil || ignore {
+		return err
+	}
+
+	return w.handleDecoratedEvent(ctx, event)
 }
 
 // createEventMeta creates Xatu metadata for events.

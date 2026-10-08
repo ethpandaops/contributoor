@@ -75,6 +75,12 @@ func (e *ChainReorgEvent) Decorated() *xatu.DecoratedEvent {
 		epoch = e.beacon.GetEpochFromSlot(uint64(e.data.Slot))
 	)
 
+	// Nimbus omits epoch, which go-eth2-client leaves at zero; derive it from
+	// the slot like the xatu sentry does.
+	if e.data.Epoch == 0 {
+		decorated.GetEthV1EventsChainReorgV2().Epoch = &wrapperspb.UInt64Value{Value: epoch.Number()}
+	}
+
 	decorated.Meta.Client.AdditionalData = &xatu.ClientMeta_EthV1EventsChainReorgV2{
 		EthV1EventsChainReorgV2: &xatu.ClientMeta_AdditionalEthV1EventsChainReorgV2Data{
 			Slot: &xatu.SlotV2{

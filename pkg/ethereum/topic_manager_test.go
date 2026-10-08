@@ -124,7 +124,7 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 		},
 		{
 			name:      "multiple conditions",
-			allTopics: []string{"block", "head", "single_attestation", "blob_sidecar"},
+			allTopics: []string{"block", "head", "single_attestation", "data_column_sidecar"},
 			conditions: map[string]ethereum.TopicCondition{
 				"single_attestation": func(ctx context.Context) (bool, error) {
 					return false, nil
@@ -133,7 +133,7 @@ func TestTopicManager_GetEnabledTopics(t *testing.T) {
 					return false, nil
 				},
 			},
-			expectedTopics: []string{"block", "blob_sidecar"},
+			expectedTopics: []string{"block", "data_column_sidecar"},
 		},
 		{
 			name:      "condition with error excludes topic",
