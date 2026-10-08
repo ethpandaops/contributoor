@@ -105,10 +105,10 @@ github.com/ethpandaops/ethereum-package-go v0.10.0 h1:q/TTZGWMjZmcuweASv14TEXxdP
 github.com/ethpandaops/ethereum-package-go v0.10.0/go.mod h1:t/JxwHlHCATh0FfQTiE5+kn1yg6wQ3NJtiBQ0n5MW84=
 github.com/ethpandaops/ethwallclock v0.4.0 h1:+sgnhf4pk6hLPukP076VxkiLloE4L0Yk1yat+ZyHh1g=
 github.com/ethpandaops/ethwallclock v0.4.0/go.mod h1:y0Cu+mhGLlem19vnAV2x0hpFS5KZ7oOi2SWYayv9l24=
-github.com/ethpandaops/go-eth2-client v0.1.9-0.20261008014355-3a3fbe4e94bb h1:Aylqhv812TE7xj+rm8GHKDzamiw3WMfcKSXAIN1+Ovo=
-github.com/ethpandaops/go-eth2-client v0.1.9-0.20261008014355-3a3fbe4e94bb/go.mod h1:sIVbaug0GsltsJS+hj8ID4dmWBIt8TXoNIesvuBCGt0=
-github.com/ethpandaops/xatu v1.24.4-0.20261008015433-fae9b90b4e28 h1:Turdz1PqQ/kFZ19AR+lM7FyaPgLJoT0ZkR1cobA0ICU=
-github.com/ethpandaops/xatu v1.24.4-0.20261008015433-fae9b90b4e28/go.mod h1:Ajt/s2caYrXxRY3Awal3OAOB42H4crcW41A5jmvClQg=
+github.com/ethpandaops/go-eth2-client v0.1.9 h1:HUTD75jjrquxR6ND0hvKJ7cEZLD7eLj6MzKa3vNspZI=
+github.com/ethpandaops/go-eth2-client v0.1.9/go.mod h1:sIVbaug0GsltsJS+hj8ID4dmWBIt8TXoNIesvuBCGt0=
+github.com/ethpandaops/xatu v1.24.4-0.20261008022742-66ee7676d00a h1:6V4xhnFjo1Xjzax9ntnhdJH9Zp5/Zbsf5hJVbK8viRU=
+github.com/ethpandaops/xatu v1.24.4-0.20261008022742-66ee7676d00a/go.mod h1:titmKvrfR1funcJjKwXXMpbtn5Bv329TxGvBAd5U6/0=
 github.com/failsafe-go/failsafe-go v0.9.6 h1:vPSH2cry0Ee5cnR9wc9qshCDO6jdrMA9elBJNwyo4Uk=
 github.com/failsafe-go/failsafe-go v0.9.6/go.mod h1:IeRpglkcwzKagjDMh90ZhN2l4Ovt3+jemQBUbThag54=
 github.com/felixge/httpsnoop v1.1.0 h1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=
