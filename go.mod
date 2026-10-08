@@ -3,23 +3,23 @@ module github.com/ethpandaops/contributoor
 go 1.26.8
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1
-	buf.build/go/protovalidate v1.2.0
-	github.com/beevik/ntp v1.5.0
-	github.com/creasty/defaults v1.8.0
-	github.com/ethpandaops/beacon v0.71.0
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2
+	buf.build/go/protovalidate v1.4.0
+	github.com/beevik/ntp v1.6.0
+	github.com/creasty/defaults v1.11.0
+	github.com/ethpandaops/beacon v0.72.0
 	github.com/ethpandaops/ethcore v0.0.0-20260807105509-b0a20c27b6e7
 	github.com/ethpandaops/ethereum-package-go v0.10.0
 	github.com/ethpandaops/ethwallclock v0.4.0
-	github.com/ethpandaops/go-eth2-client v0.1.7
-	github.com/ethpandaops/xatu v1.23.1
+	github.com/ethpandaops/go-eth2-client v0.1.9-0.20261008014355-3a3fbe4e94bb
+	github.com/ethpandaops/xatu v1.24.4-0.20261008015433-fae9b90b4e28
 	github.com/go-co-op/gocron/v2 v2.22.0
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.24.1
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.2
 	github.com/ssgreg/journalhook v0.0.0-20180529133218-9a0802d16187
 	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v2 v2.27.7
@@ -29,7 +29,8 @@ require (
 )
 
 require (
-	cel.dev/expr v0.25.2 // indirect
+	cel.dev/cel-go v0.32.0 // indirect
+	cel.dev/expr v0.25.3 // indirect
 	github.com/ClickHouse/ch-go v0.72.0 // indirect
 	github.com/IBM/sarama v1.50.1 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
@@ -66,7 +67,6 @@ require (
 	github.com/go-yaml/yaml v2.1.0+incompatible // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/golang/snappy v1.0.1-0.20260716114414-9ae09f520e93 // indirect
-	github.com/google/cel-go v0.28.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
@@ -109,8 +109,8 @@ require (
 	github.com/pascaldekloe/name v1.0.1 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
-	github.com/pk910/dynamic-ssz v1.3.3-0.20260812091520-ef568569f9c1 // indirect
-	github.com/pk910/hashtree-bindings v0.2.5 // indirect
+	github.com/pk910/dynamic-ssz v1.3.3-0.20260921152246-990798fa9718 // indirect
+	github.com/pk910/hashtree-bindings v0.2.6 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
@@ -148,13 +148,13 @@ require (
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/crypto v0.56.0 // indirect
-	golang.org/x/exp v0.0.0-20260718201538-764159d718ef // indirect
-	golang.org/x/mod v0.39.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/exp v0.0.0-20260820142414-ca536658362e // indirect
+	golang.org/x/mod v0.41.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
