@@ -40,9 +40,9 @@ func TestDefaultTopics_Gloas(t *testing.T) {
 		ethereum.TopicBlockGossip,
 		ethereum.TopicHead,
 		ethereum.TopicFinalizedCheckpoint,
-		ethereum.TopicBlobSidecar,
 		ethereum.TopicChainReorg,
 		ethereum.TopicDataColumnSidecar,
+		ethereum.TopicFastConfirmation,
 	} {
 		require.Contains(t, enabled, topic)
 	}

@@ -279,28 +279,6 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		return w.handleDecoratedEvent(ctx, event)
 	})
 
-	node.OnBlobSidecar(ctx, func(ctx context.Context, blob *eth2v1.BlobSidecarEvent) error {
-		now := w.clockDrift.Now()
-
-		meta, err := w.createEventMeta(ctx)
-		if err != nil {
-			return err
-		}
-
-		event := v1.NewBlobSidecarEvent(w.log, w, w.cache.BeaconETHV1EventsBlobSidecar, meta, blob, now)
-
-		ignore, err := event.Ignore(ctx)
-		if err != nil || ignore {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		return w.handleDecoratedEvent(ctx, event)
-	})
-
 	node.OnDataColumnSidecar(ctx, func(ctx context.Context, dataColumn *eth2v1.DataColumnSidecarEvent) error {
 		now := w.clockDrift.Now()
 
@@ -343,6 +321,12 @@ func (w *BeaconWrapper) setupEventSubscriptions(ctx context.Context) error {
 		}
 
 		return w.handleDecoratedEvent(ctx, event)
+	})
+
+	node.OnFastConfirmation(ctx, func(ctx context.Context, confirmation *eth2v1.FastConfirmationEvent) error {
+		return w.forwardEvent(ctx, func(meta *xatu.Meta, now time.Time) events.Event {
+			return v1.NewFastConfirmationEvent(w.log, w, w.cache.BeaconETHV1EventsFastConfirmation, meta, confirmation, now)
+		})
 	})
 
 	w.setupGloasEventSubscriptions(ctx, node)

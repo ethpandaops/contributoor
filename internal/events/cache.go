@@ -12,9 +12,9 @@ type DuplicateCache struct {
 	BeaconETHV1EventsChainReorg          *ttlcache.Cache[string, time.Time]
 	BeaconETHV1EventsFinalizedCheckpoint *ttlcache.Cache[string, time.Time]
 	BeaconETHV1EventsHead                *ttlcache.Cache[string, time.Time]
-	BeaconETHV1EventsBlobSidecar         *ttlcache.Cache[string, time.Time]
 	BeaconETHV1EventsAttestationV2       *ttlcache.Cache[string, time.Time]
 	BeaconETHV1EventsDataColumnSidecar   *ttlcache.Cache[string, time.Time]
+	BeaconETHV1EventsFastConfirmation    *ttlcache.Cache[string, time.Time]
 
 	// Gloas (EIP-7732) topics.
 	BeaconETHV1EventsHeadV2                    *ttlcache.Cache[string, time.Time]
@@ -48,13 +48,13 @@ func NewDuplicateCache() *DuplicateCache {
 		BeaconETHV1EventsHead: ttlcache.New(
 			ttlcache.WithTTL[string, time.Time](TTL),
 		),
-		BeaconETHV1EventsBlobSidecar: ttlcache.New(
-			ttlcache.WithTTL[string, time.Time](TTL),
-		),
 		BeaconETHV1EventsAttestationV2: ttlcache.New(
 			ttlcache.WithTTL[string, time.Time](TTL),
 		),
 		BeaconETHV1EventsDataColumnSidecar: ttlcache.New(
+			ttlcache.WithTTL[string, time.Time](TTL),
+		),
+		BeaconETHV1EventsFastConfirmation: ttlcache.New(
 			ttlcache.WithTTL[string, time.Time](TTL),
 		),
 		BeaconETHV1EventsHeadV2: ttlcache.New(
@@ -87,9 +87,9 @@ func (d *DuplicateCache) Start() {
 	go d.BeaconETHV1EventsChainReorg.Start()
 	go d.BeaconETHV1EventsFinalizedCheckpoint.Start()
 	go d.BeaconETHV1EventsHead.Start()
-	go d.BeaconETHV1EventsBlobSidecar.Start()
 	go d.BeaconETHV1EventsAttestationV2.Start()
 	go d.BeaconETHV1EventsDataColumnSidecar.Start()
+	go d.BeaconETHV1EventsFastConfirmation.Start()
 	go d.BeaconETHV1EventsHeadV2.Start()
 	go d.BeaconETHV1EventsExecutionPayload.Start()
 	go d.BeaconETHV1EventsExecutionPayloadGossip.Start()

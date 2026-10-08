@@ -66,6 +66,8 @@ func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
 				BlockRoot: xatuethv1.RootAsString(e.data.BlockRoot),
 				Slot:      &wrapperspb.UInt64Value{Value: uint64(e.data.Slot)},
 				Index:     &wrapperspb.UInt64Value{Value: e.data.Index},
+				// kzg_commitments is optional (beacon-APIs #583); omitted is recorded
+				// as 0, like the xatu sentry. xatu rejects a nil count.
 				//nolint:gosec // KZG commitments count is bounded by protocol limits
 				KzgCommitmentsCount: &wrapperspb.UInt32Value{Value: uint32(len(e.data.KZGCommitments))},
 			},
@@ -104,7 +106,7 @@ func (e *DataColumnSidecarEvent) Decorated() *xatu.DecoratedEvent {
 }
 
 // Ignore determines if the event should be ignored.
-// Following the blob sidecar pattern - NO subnet filtering, only sync/network/duplicate checks.
+// NO subnet filtering, only sync/network/duplicate checks.
 func (e *DataColumnSidecarEvent) Ignore(ctx context.Context) (bool, error) {
 	// Check if beacon node is synced
 	if err := e.beacon.Synced(ctx); err != nil {

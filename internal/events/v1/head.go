@@ -69,6 +69,7 @@ func (e *HeadEvent) Decorated() *xatu.DecoratedEvent {
 				EpochTransition:           e.data.EpochTransition,
 				PreviousDutyDependentRoot: xatuethv1.RootAsString(e.data.PreviousDutyDependentRoot),
 				CurrentDutyDependentRoot:  xatuethv1.RootAsString(e.data.CurrentDutyDependentRoot),
+				ExecutionOptimistic:       e.data.ExecutionOptimistic,
 			},
 		},
 	}

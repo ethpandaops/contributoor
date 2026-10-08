@@ -63,9 +63,10 @@ func (e *FinalizedCheckpointEvent) Decorated() *xatu.DecoratedEvent {
 		},
 		Data: &xatu.DecoratedEvent_EthV1EventsFinalizedCheckpointV2{
 			EthV1EventsFinalizedCheckpointV2: &xatuethv1.EventFinalizedCheckpointV2{
-				Epoch: &wrapperspb.UInt64Value{Value: uint64(e.data.Epoch)},
-				State: xatuethv1.RootAsString(e.data.State),
-				Block: xatuethv1.RootAsString(e.data.Block),
+				Epoch:               &wrapperspb.UInt64Value{Value: uint64(e.data.Epoch)},
+				State:               xatuethv1.RootAsString(e.data.State),
+				Block:               xatuethv1.RootAsString(e.data.Block),
+				ExecutionOptimistic: e.data.ExecutionOptimistic,
 			},
 		},
 	}

@@ -5,10 +5,10 @@ const (
 	TopicBlockGossip         = "block_gossip"
 	TopicHead                = "head"
 	TopicFinalizedCheckpoint = "finalized_checkpoint"
-	TopicBlobSidecar         = "blob_sidecar"
 	TopicChainReorg          = "chain_reorg"
 	TopicSingleAttestation   = "single_attestation"
 	TopicDataColumnSidecar   = "data_column_sidecar"
+	TopicFastConfirmation    = "fast_confirmation"
 
 	// Gloas (EIP-7732) topics. Beacon nodes only emit these once Gloas is
 	// active; before that the subscriptions simply stay quiet. A beacon node
@@ -29,10 +29,10 @@ var defaultAllTopics = []string{
 	TopicBlockGossip,
 	TopicHead,
 	TopicFinalizedCheckpoint,
-	TopicBlobSidecar,
 	TopicChainReorg,
 	TopicSingleAttestation,
 	TopicDataColumnSidecar,
+	TopicFastConfirmation,
 	TopicHeadV2,
 	TopicExecutionPayload,
 	TopicExecutionPayloadGossip,
