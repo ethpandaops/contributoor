@@ -73,7 +73,7 @@ jobs:
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e RELEASE_SUFFIX=${{ env.RELEASE_SUFFIX }} \
             -e GOTOOLCHAIN=go1.26.10 \
-            goreleaser/goreleaser-cross:v1.26.5 release --clean --config .goreleaser.yaml.new
+            goreleaser/goreleaser-cross:v1.27.3 release --clean --config .goreleaser.yaml.new
 
   trigger-installer-update:
     needs: [goreleaser]
