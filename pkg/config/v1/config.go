@@ -10,6 +10,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,7 +23,11 @@ const (
 	defaultHealthCheckPort = "9191"
 )
 
-// NewConfigFromPath loads a config from a YAML file and validates it.
+// NewConfigFromPath loads a config from a YAML file, layers it over the default
+// config, and validates the result. Any field the file does not set keeps its
+// default value rather than falling back to the proto zero value - this matters
+// most for OutputServer.Tls, where a silently-lost default would downgrade the
+// output connection to plaintext.
 func NewConfigFromPath(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -34,7 +39,12 @@ func NewConfigFromPath(path string) (*Config, error) {
 		return nil, yerr
 	}
 
-	jsonBytes, err := json.Marshal(yamlMap)
+	merged, err := mergeWithDefaults(yamlMap)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonBytes, err := json.Marshal(merged)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +64,94 @@ func NewConfigFromPath(path string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// mergeWithDefaults layers fileValues (parsed from the user's YAML config) over
+// the default config, so that any field the file omits keeps its default rather
+// than being reset to the proto zero value. Nested messages are merged
+// recursively, so partially-specified nested fields (eg. outputServer.address
+// without outputServer.tls) also keep their unspecified siblings' defaults.
+func mergeWithDefaults(fileValues map[string]any) (map[string]any, error) {
+	defaultBytes, err := protojson.Marshal(NewDefaultConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	var defaultValues map[string]any
+	if err := json.Unmarshal(defaultBytes, &defaultValues); err != nil {
+		return nil, err
+	}
+
+	// protojson.Unmarshal accepts both a field's original proto name
+	// (snake_case) and its JSON name (camelCase), and config files in the wild
+	// use both. Normalize fileValues onto the same JSON names defaultValues
+	// already uses, so the two sides of the merge line up on identical keys -
+	// otherwise a key like beacon_node_address would sit alongside
+	// beaconNodeAddress as an unrelated key instead of overriding it, and
+	// protojson.Unmarshal would then reject the merged result as a duplicate
+	// field.
+	normalizedFileValues := normalizeKeys((&Config{}).ProtoReflect().Descriptor(), fileValues)
+
+	return deepMergeMaps(defaultValues, normalizedFileValues), nil
+}
+
+// normalizeKeys rewrites m's keys to the canonical JSON name for the
+// corresponding field in md, recursing into nested message values. Keys that
+// don't match any field of md are left untouched, so unknown fields still
+// surface as a protojson error later rather than being silently dropped here.
+func normalizeKeys(md protoreflect.MessageDescriptor, m map[string]any) map[string]any {
+	fields := md.Fields()
+	normalized := make(map[string]any, len(m))
+
+	for k, v := range m {
+		fd := fields.ByJSONName(k)
+		if fd == nil {
+			fd = fields.ByTextName(k)
+		}
+
+		if fd == nil {
+			normalized[k] = v
+
+			continue
+		}
+
+		if nested, ok := v.(map[string]any); ok && fd.Kind() == protoreflect.MessageKind {
+			v = normalizeKeys(fd.Message(), nested)
+		}
+
+		normalized[fd.JSONName()] = v
+	}
+
+	return normalized
+}
+
+// deepMergeMaps returns a new map with overrides layered on top of defaults.
+// Where both maps have a nested object at the same key, it merges recursively;
+// otherwise the override value wins outright.
+func deepMergeMaps(defaults, overrides map[string]any) map[string]any {
+	merged := make(map[string]any, len(defaults)+len(overrides))
+
+	for k, v := range defaults {
+		merged[k] = v
+	}
+
+	for k, overrideVal := range overrides {
+		defaultVal, exists := merged[k]
+		if exists {
+			defaultNested, defaultIsMap := defaultVal.(map[string]any)
+			overrideNested, overrideIsMap := overrideVal.(map[string]any)
+
+			if defaultIsMap && overrideIsMap {
+				merged[k] = deepMergeMaps(defaultNested, overrideNested)
+
+				continue
+			}
+		}
+
+		merged[k] = overrideVal
+	}
+
+	return merged
 }
 
 // NewDefaultConfig returns a new default config.
