@@ -8,7 +8,7 @@ require (
 	github.com/beevik/ntp v1.6.0
 	github.com/creasty/defaults v1.11.0
 	github.com/ethpandaops/beacon v0.72.0
-	github.com/ethpandaops/ethcore v0.0.0-20260807105509-b0a20c27b6e7
+	github.com/ethpandaops/ethcore v0.0.0-20261030022349-e83829650499
 	github.com/ethpandaops/ethereum-package-go v0.10.0
 	github.com/ethpandaops/ethwallclock v0.4.0
 	github.com/ethpandaops/go-eth2-client v0.1.10
