@@ -1,12 +1,14 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestNewConfigFromPath(t *testing.T) {
@@ -25,8 +27,9 @@ runMethod: RUN_METHOD_DOCKER
 			expectError: false,
 		},
 		{
-			name: "missing required field",
+			name: "explicit invalid run method",
 			config: `version: 0.0.2
+runMethod: RUN_METHOD_UNSPECIFIED
 `,
 			expectError: true,
 		},
@@ -62,6 +65,130 @@ runMethod: RUN_METHOD_DOCKER
 				require.Equal(t, "http://localhost:5052", cfg.BeaconNodeAddress)
 				require.Equal(t, "/tmp/contributoor", cfg.ContributoorDirectory)
 			}
+		})
+	}
+}
+
+func TestNewConfigFromPath_PreservesDefaultsForOmittedFields(t *testing.T) {
+	// A minimal config file that only overrides beaconNodeAddress. Every other
+	// field, including the security-sensitive outputServer.tls, must keep its
+	// default rather than falling back to the Go zero value.
+	config := `version: 0.0.2
+beaconNodeAddress: http://custom-node:5052
+`
+
+	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(tmpFile, []byte(config), 0o600))
+
+	cfg, err := NewConfigFromPath(tmpFile)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	defaults := NewDefaultConfig()
+
+	assert.Equal(t, "http://custom-node:5052", cfg.BeaconNodeAddress, "explicit override must win")
+	assert.Equal(t, defaults.LogLevel, cfg.LogLevel)
+	assert.Equal(t, defaults.RunMethod, cfg.RunMethod)
+	assert.Equal(t, defaults.ContributoorDirectory, cfg.ContributoorDirectory)
+	require.NotNil(t, cfg.OutputServer)
+	assert.Equal(t, defaults.OutputServer.Address, cfg.OutputServer.Address)
+	assert.True(t, cfg.OutputServer.Tls,
+		"BUG NM-23 regression check: omitting outputServer.tls from the config file must not "+
+			"silently downgrade the output connection to plaintext")
+}
+
+func TestNewConfigFromPath_ExplicitOverridesWinOverDefaults(t *testing.T) {
+	// outputServer.address is overridden but outputServer.tls is explicitly
+	// disabled - the explicit false must be respected, not treated as absent.
+	config := `version: 0.0.2
+outputServer:
+  address: custom.example.com:443
+  tls: false
+`
+
+	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(tmpFile, []byte(config), 0o600))
+
+	cfg, err := NewConfigFromPath(tmpFile)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	require.NotNil(t, cfg.OutputServer)
+	assert.Equal(t, "custom.example.com:443", cfg.OutputServer.Address)
+	assert.False(t, cfg.OutputServer.Tls, "an explicit false must override the true default")
+}
+
+func TestMergeWithDefaults(t *testing.T) {
+	t.Run("nested object merges field by field", func(t *testing.T) {
+		merged, err := mergeWithDefaults(map[string]any{
+			"outputServer": map[string]any{
+				"address": "override.example.com:443",
+			},
+		})
+		require.NoError(t, err)
+
+		outputServer, ok := merged["outputServer"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "override.example.com:443", outputServer["address"])
+		assert.Equal(t, true, outputServer["tls"])
+	})
+
+	t.Run("empty overrides returns the defaults untouched", func(t *testing.T) {
+		merged, err := mergeWithDefaults(map[string]any{})
+		require.NoError(t, err)
+
+		defaultBytes, err := protojson.Marshal(NewDefaultConfig())
+		require.NoError(t, err)
+
+		var defaultValues map[string]any
+		require.NoError(t, json.Unmarshal(defaultBytes, &defaultValues))
+
+		assert.Equal(t, defaultValues, merged)
+	})
+}
+
+func TestDeepMergeMaps(t *testing.T) {
+	tests := []struct {
+		name      string
+		defaults  map[string]any
+		overrides map[string]any
+		expected  map[string]any
+	}{
+		{
+			name:      "override wins for scalar fields",
+			defaults:  map[string]any{"a": "default", "b": "default"},
+			overrides: map[string]any{"a": "override"},
+			expected:  map[string]any{"a": "override", "b": "default"},
+		},
+		{
+			name: "nested maps merge recursively",
+			defaults: map[string]any{
+				"nested": map[string]any{"x": "default-x", "y": "default-y"},
+			},
+			overrides: map[string]any{
+				"nested": map[string]any{"x": "override-x"},
+			},
+			expected: map[string]any{
+				"nested": map[string]any{"x": "override-x", "y": "default-y"},
+			},
+		},
+		{
+			name:      "override with a new key not in defaults is added",
+			defaults:  map[string]any{"a": "default"},
+			overrides: map[string]any{"c": "new"},
+			expected:  map[string]any{"a": "default", "c": "new"},
+		},
+		{
+			name:      "type mismatch lets the override replace the default outright",
+			defaults:  map[string]any{"a": map[string]any{"x": "default-x"}},
+			overrides: map[string]any{"a": "not-a-map"},
+			expected:  map[string]any{"a": "not-a-map"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, deepMergeMaps(tt.defaults, tt.overrides))
 		})
 	}
 }
