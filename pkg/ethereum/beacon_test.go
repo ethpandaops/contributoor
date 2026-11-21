@@ -1,10 +1,12 @@
 package ethereum
 
 import (
+	"os/exec"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsSlotDifferenceTooLarge(t *testing.T) {
@@ -128,6 +130,72 @@ func TestBeaconWrapper_IsActiveSubnet(t *testing.T) {
 		assert.True(t, w.IsActiveSubnet(63))
 		assert.False(t, w.IsActiveSubnet(62))
 	})
+}
+
+// TestBeaconWrapper_GetAttestationSubnetID proves the full spec formula against the exact vector
+// used during the nemesis triage to PoC-confirm the old committee_index%64 code was wrong on every
+// real network: committees_per_slot=45 (a plausible mainnet-scale value; mainnet is never 64),
+// slot=100, committee_index=10. The old code would have answered 10 (committee_index%64); the
+// correct spec answer is 62.
+func TestBeaconWrapper_GetAttestationSubnetID(t *testing.T) {
+	t.Run("not yet known before the first fetch completes", func(t *testing.T) {
+		w := &BeaconWrapper{}
+
+		_, ok := w.GetAttestationSubnetID(100, 10)
+		assert.False(t, ok, "must report unknown, not fall back to a guessed value")
+	})
+
+	t.Run("known but slotsPerEpoch missing", func(t *testing.T) {
+		w := &BeaconWrapper{}
+		w.committeesPerSlot.Store(45)
+
+		_, ok := w.GetAttestationSubnetID(100, 10)
+		assert.False(t, ok)
+	})
+
+	t.Run("computes the full spec formula once both values are known", func(t *testing.T) {
+		w := &BeaconWrapper{}
+		w.committeesPerSlot.Store(45)
+		w.slotsPerEpoch.Store(32)
+
+		subnetID, ok := w.GetAttestationSubnetID(100, 10)
+		require.True(t, ok)
+
+		// (committees_per_slot * (slot % SLOTS_PER_EPOCH) + committee_index) % 64
+		//   = (45 * (100 % 32) + 10) % 64 = (45*4 + 10) % 64 = 190 % 64 = 62
+		assert.Equal(t, uint64(62), subnetID)
+
+		oldFormula := uint64(10) % 64
+		assert.NotEqual(t, oldFormula, subnetID,
+			"BUG NM-07 regression check: the old committee_index%%64 code would have answered %d "+
+				"here, not the spec-correct %d - if these match again, the fix regressed",
+			oldFormula, subnetID)
+	})
+}
+
+// TestRefreshCommitteesPerSlot_UsesBeaconCommitteesAndSlotsPerEpoch is a structural regression
+// test, not a behavioral one. Node().Service() and Node().Spec() both require a live, fully
+// bootstrapped ethcore.BeaconNode to return anything usable (confirmed directly: on a freshly
+// constructed, never-Start()ed BeaconWrapper, Service() is nil and Spec() returns "spec is not
+// available") - the same live-state wall already documented elsewhere in this codebase's tests
+// (NM-02/09/12 in the nemesis triage). What's verified here: the exact fetch-and-derive logic is
+// present, unchanged, in the current source.
+func TestRefreshCommitteesPerSlot_UsesBeaconCommitteesAndSlotsPerEpoch(t *testing.T) {
+	out, err := exec.Command("grep", "-n", "-A", "3", "func (w \\*BeaconWrapper) refreshCommitteesPerSlot", "beacon.go").
+		CombinedOutput()
+	require.NoError(t, err, "grep must find refreshCommitteesPerSlot in beacon.go")
+
+	block := string(out)
+	assert.Contains(t, block, "BeaconCommitteesProvider",
+		"must fetch via BeaconCommitteesProvider - there is no lighter endpoint for this value")
+
+	out2, err := exec.Command("grep", "-n", "len(resp.Data)) / uint64(spec.SlotsPerEpoch)", "beacon.go").
+		CombinedOutput()
+	require.NoError(t, err, "grep must find the committees-per-slot derivation in beacon.go")
+	assert.NotEmpty(t, string(out2),
+		"expected committeesPerSlot to be derived as total committees for the epoch divided by "+
+			"SlotsPerEpoch - if this fails, the derivation changed and this test needs updating "+
+			"alongside it, or (if it was removed) NM-07 has regressed")
 }
 
 func TestCalculateSubnetID(t *testing.T) {

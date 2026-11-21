@@ -150,8 +150,18 @@ func (e *SingleAttestationEvent) Ignore(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	// Filter by subnet ID - committee index modulo 64 gives us the subnet ID
-	subnetID := uint64(e.data.CommitteeIndex) % 64
+	// Filter by subnet ID, computed with the full spec formula (committees_per_slot * (slot %
+	// SLOTS_PER_EPOCH) + committee_index) % 64. committees_per_slot is only known once the
+	// periodic refresh has completed at least once - until then, drop the event rather than
+	// export it with a guessed or wrong subnet.
+	subnetID, ok := e.beacon.GetAttestationSubnetID(uint64(attestData.Slot), uint64(e.data.CommitteeIndex))
+	if !ok {
+		e.log.WithField("slot", attestData.Slot).Debug(
+			"Ignoring single attestation event: committees-per-slot not yet known",
+		)
+
+		return true, nil
+	}
 
 	// Record that we've seen this subnet
 	e.beacon.RecordSeenSubnet(subnetID, uint64(attestData.Slot))
