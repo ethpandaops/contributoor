@@ -25,7 +25,21 @@ type beaconComponents struct {
 
 // initBeacons initializes all beacon node instances from the configuration.
 func (a *Application) initBeacons(ctx context.Context) error {
-	addresses := strings.Split(a.config.BeaconNodeAddress, ",")
+	rawAddresses := strings.Split(a.config.BeaconNodeAddress, ",")
+
+	addresses := make([]string, len(rawAddresses))
+	seen := make(map[string]bool, len(rawAddresses))
+
+	for i, address := range rawAddresses {
+		address = strings.TrimSpace(address)
+		addresses[i] = address
+
+		if seen[address] {
+			return fmt.Errorf("duplicate beacon node address: %s", address)
+		}
+
+		seen[address] = true
+	}
 
 	traceIDs, err := generateBeaconTraceIDs(addresses)
 	if err != nil {
@@ -41,7 +55,6 @@ func (a *Application) initBeacons(ctx context.Context) error {
 	}).Info("Initializing beacons")
 
 	for i, address := range addresses {
-		address = strings.TrimSpace(address)
 		traceID := traceIDs[i]
 
 		logCtx := a.log.WithField("trace_id", traceID)
@@ -212,13 +225,17 @@ func (a *Application) createTopicManager(ctx context.Context, log logrus.FieldLo
 		SubnetHighWaterMark:     config.AttestationSubnetConfig.SubnetHighWaterMark,
 	})
 
-	// Check for attestation subnet participation if enabled
+	// Check for attestation subnet participation if enabled. The SSE topic list is computed once,
+	// right after this returns (see BeaconFactory.CreateBeacon), so this is the only chance to
+	// register single_attestation for the life of this connection - worth a bounded retry rather
+	// than giving up on the first transient failure.
 	if config.AttestationSubnetConfig.Enabled {
-		identity := ethereum.NewNodeIdentity(log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
-		if err := identity.Start(ctx); err != nil {
-			log.WithError(err).Warn("Failed to fetch node identity")
+		activeSubnets, err := fetchNodeIdentityAttnetsWithRetry(ctx, log, config.BeaconNodeAddress, config.BeaconNodeHeaders)
+		if err != nil {
+			log.WithError(err).Error(
+				"Failed to fetch node identity after retries; single_attestation will not be available for this connection",
+			)
 		} else {
-			activeSubnets := identity.GetAttnets()
 			topicManager.RegisterCondition(
 				ethereum.TopicSingleAttestation,
 				ethereum.CreateAttestationSubnetCondition(len(activeSubnets), config.AttestationSubnetConfig.MaxSubnets),
@@ -228,6 +245,49 @@ func (a *Application) createTopicManager(ctx context.Context, log logrus.FieldLo
 	}
 
 	return topicManager, nil
+}
+
+// fetchNodeIdentityAttnetsWithRetry fetches the node's identity and attnets, retrying a bounded
+// number of times on either the fetch or the attnets parse failing, since a beacon node that's
+// still warming up alongside contributoor at startup is a normal, not exceptional, occurrence.
+func fetchNodeIdentityAttnetsWithRetry(
+	ctx context.Context,
+	log logrus.FieldLogger,
+	address string,
+	headers map[string]string,
+) ([]int, error) {
+	const (
+		maxAttempts = 3
+		retryDelay  = 2 * time.Second
+	)
+
+	var lastErr error
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		identity := ethereum.NewNodeIdentity(log, address, headers)
+
+		if err := identity.Start(ctx); err != nil {
+			lastErr = err
+		} else if subnets, attnetsErr := identity.GetAttnets(); attnetsErr != nil {
+			lastErr = attnetsErr
+		} else {
+			return subnets, nil
+		}
+
+		if attempt == maxAttempts {
+			break
+		}
+
+		log.WithError(lastErr).WithField("attempt", attempt).Warn("Failed to fetch node identity, retrying")
+
+		select {
+		case <-time.After(retryDelay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	return nil, lastErr
 }
 
 // initCache creates a new duplicate event cache.
@@ -248,16 +308,12 @@ func (a *Application) initSummary(log logrus.FieldLogger, traceID string) (*even
 }
 
 // RestartWithoutSingleAttestation restarts the beacon node without the single_attestation topic.
-// This method ensures proper cleanup of the old beacon instance before creating a new one.
-// Resources that are cleaned up:
-// - Summary goroutine (cancelled via summaryCancel).
-// - Monitoring goroutines (signaled via stopMonitor channel).
-// - Beacon node connection (stopped via Node.Stop()).
-// - Old Metrics and Summary instances (replaced with new ones).
-// Resources that are reused:
-// - Cache (shared across restarts).
-// - Sinks (shared across restarts).
-// - Log instance.
+// The replacement instance (new node, cache, sinks, metrics, summary) is built and started fully
+// before anything about the current instance is touched. If building or starting the replacement
+// fails, the current instance is left completely untouched and keeps running - a failed restart
+// no longer orphans the beacon. Only once the replacement is confirmed live does this swap it in
+// and tear down everything the old instance owned (node, sinks, cache janitors, Prometheus
+// collector).
 func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context) error {
 	b.reconnectMutex.Lock()
 	defer b.reconnectMutex.Unlock()
@@ -274,54 +330,45 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 		return nil
 	}
 
+	// Record the attempt regardless of outcome, so a failed restart still respects the cooldown
+	// before the next attempt instead of retrying in a tight loop.
+	b.lastReconnect = time.Now()
+
 	b.log.Warn("Restarting beacon")
 
-	// Cancel the summary goroutine if it's running
+	// Use a modified traceID to avoid metrics collision with the instance being replaced.
+	newTraceID := fmt.Sprintf("%s-nosub", b.traceID)
+	newLog := b.log.WithField("trace_id", newTraceID)
+
+	// Exclude single_attestation topic when creating new beacon.
+	excludedTopics := []string{ethereum.TopicSingleAttestation}
+
+	// Build and start the replacement before touching the current instance.
+	newInstance, err := b.app.createBeaconInstance(ctx, newLog, b.Address, newTraceID, excludedTopics)
+	if err != nil {
+		return fmt.Errorf("failed to create new beacon instance: %w", err)
+	}
+
+	newInstance.Cache.Start()
+
+	if err := newInstance.Node.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start new beacon node: %w", err)
+	}
+
+	// The replacement is live. Retire the current instance's monitoring and summary goroutines
+	// before swapping the fields they read.
 	if b.summaryCancel != nil {
 		b.summaryCancel()
 		b.log.Debug("Cancelled old summary goroutine")
 	}
 
-	// Signal monitoring goroutines to stop
 	close(b.stopMonitor)
 
-	// Stop the current beacon node (this will also stop all sinks via BeaconWrapper.Stop())
-	if err := b.Node.Stop(ctx); err != nil {
-		b.log.WithError(err).Error("Failed to stop beacon node")
-	}
-
-	// Important: Set old node to nil to help GC and prevent accidental reuse
 	oldNode := b.Node
+	oldSinks := b.Sinks
+	oldCache := b.Cache
 	oldMetrics := b.Metrics
-	oldSummary := b.Summary
-	b.Node = nil
-	b.Metrics = nil
-	b.Summary = nil
 
-	// Create a new beacon node without single_attestation.
-	// Use a modified traceID to avoid metrics collision.
-	newTraceID := fmt.Sprintf("%s-nosub", b.traceID)
-	b.log = b.log.WithField("trace_id", newTraceID)
-
-	// Exclude single_attestation topic when creating new beacon.
-	excludedTopics := []string{ethereum.TopicSingleAttestation}
-
-	// Create new beacon instance with excluded topics.
-	newInstance, err := b.app.createBeaconInstance(ctx, b.log, b.Address, newTraceID, excludedTopics)
-	if err != nil {
-		b.log.WithError(err).Error("Failed to create new beacon instance")
-
-		return fmt.Errorf("failed to create new beacon instance: %w", err)
-	}
-
-	// Start the new beacon node.
-	if err := newInstance.Node.Start(ctx); err != nil {
-		b.log.WithError(err).Error("Failed to start new beacon node")
-
-		return fmt.Errorf("failed to start new beacon node: %w", err)
-	}
-
-	// Replace the node reference and update components.
 	b.Node = newInstance.Node
 	b.Metrics = newInstance.Metrics
 	b.Summary = newInstance.Summary
@@ -329,23 +376,28 @@ func (b *BeaconNodeInstance) RestartWithoutSingleAttestation(ctx context.Context
 	b.Sinks = newInstance.Sinks
 	b.Cache = newInstance.Cache
 	b.traceID = newTraceID
-	b.lastReconnect = time.Now()
-
-	// Create new stopMonitor channel for the new instance.
+	b.log = newLog
 	b.stopMonitor = make(chan struct{})
 	b.summaryCancel = nil // Will be set when summary starts.
-
-	// Clean up old components that are no longer needed.
-	// The old Node, Metrics, and Summary have been replaced.
-	// The old Sinks have been stopped and replaced with new ones.
-	_ = oldNode
-	_ = oldMetrics
-	_ = oldSummary
 
 	// Restart monitoring goroutine for the new instance.
 	go b.app.monitorBeaconInstance(ctx, b)
 
 	b.log.Info("Restarted beacon node successfully")
+
+	// Tear down everything the retired instance owned, now that the replacement has taken over.
+	if err := oldNode.Stop(ctx); err != nil {
+		b.log.WithError(err).Error("Failed to stop old beacon node")
+	}
+
+	for _, sink := range oldSinks {
+		if err := sink.Stop(ctx); err != nil {
+			b.log.WithError(err).WithField("sink", sink.Name()).Error("Failed to stop old sink")
+		}
+	}
+
+	oldCache.Stop()
+	oldMetrics.Unregister()
 
 	return nil
 }

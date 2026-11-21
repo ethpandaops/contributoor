@@ -58,6 +58,20 @@ test3_decorated_event_total{network_id="network_3",type="event_type_1"} 3
 	))
 }
 
+func TestMetrics_Unregister(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	metrics := NewMetrics("test-restart")
+	metrics.Unregister()
+
+	// A second NewMetrics call under the same namespace would panic on a duplicate registration
+	// (prometheus.MustRegister) if the first one's collector was still registered - this is
+	// exactly what happens on a beacon restart before Unregister existed.
+	assert.NotPanics(t, func() {
+		NewMetrics("test-restart")
+	})
+}
+
 func TestMetrics_AddDecoratedEvent_MultipleTypes(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 

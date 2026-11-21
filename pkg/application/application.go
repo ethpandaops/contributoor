@@ -52,7 +52,7 @@ type BeaconNodeInstance struct {
 	// 3. The monitoring goroutine receives this signal and calls RestartWithoutSingleAttestation
 	// 4. RestartWithoutSingleAttestation creates a new beacon instance excluding the problematic topic
 	// 5. The BeaconFactory ensures consistent creation of both initial and restarted instances
-	reconnectMutex sync.Mutex
+	reconnectMutex sync.RWMutex
 	lastReconnect  time.Time
 	log            logrus.FieldLogger
 	traceID        string
@@ -130,17 +130,27 @@ func (a *Application) BeaconNodes() map[string]*BeaconNodeInstance {
 // Metrics returns the metrics for a specific beacon node by trace ID.
 // Returns nil if the trace ID is not found.
 func (a *Application) Metrics(traceID string) *events.Metrics {
-	if instance, ok := a.beaconNodes[traceID]; ok {
-		return instance.Metrics
+	instance, ok := a.beaconNodes[traceID]
+	if !ok {
+		return nil
 	}
 
-	return nil
+	instance.reconnectMutex.RLock()
+	defer instance.reconnectMutex.RUnlock()
+
+	return instance.Metrics
 }
 
 // IsHealthy returns true if at least one beacon node is healthy and connected.
 func (a *Application) IsHealthy() bool {
 	for _, instance := range a.beaconNodes {
-		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
+		instance.reconnectMutex.RLock()
+		node, ok := instance.Node.(*ethereum.BeaconWrapper)
+		healthy := ok && node.IsHealthy()
+
+		instance.reconnectMutex.RUnlock()
+
+		if healthy {
 			return true
 		}
 	}

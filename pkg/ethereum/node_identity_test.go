@@ -92,7 +92,10 @@ func TestNodeIdentity_Start(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedCount, len(identity.GetAttnets()))
+
+				subnets, attnetsErr := identity.GetAttnets()
+				require.NoError(t, attnetsErr)
+				assert.Equal(t, tt.expectedCount, len(subnets))
 			}
 
 			// Stop the service
@@ -106,8 +109,11 @@ func TestNodeIdentity_GetMethods(t *testing.T) {
 	log := logrus.New()
 	identity := ethereum.NewNodeIdentity(log, "http://localhost:5052", nil)
 
-	// Should return nil
-	assert.Nil(t, identity.GetAttnets())
+	// Should return an error, not a silent empty result - the identity was never fetched, which
+	// is a different case from "fetched, and genuinely has zero subnets."
+	subnets, err := identity.GetAttnets()
+	assert.Nil(t, subnets)
+	assert.Error(t, err)
 }
 
 func TestNodeIdentity_Headers(t *testing.T) {
@@ -198,10 +204,41 @@ func TestNodeIdentity_GetAttnets(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check the subnets
-			subnets := identity.GetAttnets()
+			subnets, err := identity.GetAttnets()
+			require.NoError(t, err)
 			assert.Equal(t, tt.expectedSubnets, subnets)
 		})
 	}
+
+	t.Run("unparseable attnets returns an error, not an empty result", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			response := `{
+				"data": {
+					"peer_id": "test-peer",
+					"enr": "test-enr",
+					"metadata": {
+						"attnets": "not-valid-hex"
+					}
+				}
+			}`
+
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(response))
+		}))
+		defer server.Close()
+
+		log := logrus.New()
+		identity := ethereum.NewNodeIdentity(log, server.URL, nil)
+
+		// Start itself succeeds - the HTTP fetch worked, it's the attnets hex that's bad.
+		require.NoError(t, identity.Start(context.Background()))
+
+		subnets, err := identity.GetAttnets()
+		assert.Nil(t, subnets)
+		require.Error(t, err,
+			"a parse failure must be distinguishable from a genuine zero-subnets result, "+
+				"otherwise callers can't tell the two apart and risk wiping real state on a hiccup")
+	})
 }
 
 func TestParseAttnetsBitmask(t *testing.T) {

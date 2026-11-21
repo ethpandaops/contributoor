@@ -12,7 +12,13 @@ import (
 func (a *Application) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	// Check if at least one beacon is healthy
 	for traceID, instance := range a.beaconNodes {
-		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok && node.IsHealthy() {
+		instance.reconnectMutex.RLock()
+		node, ok := instance.Node.(*ethereum.BeaconWrapper)
+		healthy := ok && node.IsHealthy()
+
+		instance.reconnectMutex.RUnlock()
+
+		if healthy {
 			w.WriteHeader(http.StatusOK)
 
 			fmt.Fprintf(w, "OK - beacon %s is healthy", traceID)
@@ -51,7 +57,10 @@ func (a *Application) GetHealthStatus() HealthStatus {
 			Address: instance.Address,
 		}
 
-		if node, ok := instance.Node.(*ethereum.BeaconWrapper); ok {
+		instance.reconnectMutex.RLock()
+		node, ok := instance.Node.(*ethereum.BeaconWrapper)
+
+		if ok {
 			beaconHealth.Connected = true
 			beaconHealth.Healthy = node.IsHealthy()
 
@@ -59,6 +68,8 @@ func (a *Application) GetHealthStatus() HealthStatus {
 				status.Healthy = true
 			}
 		}
+
+		instance.reconnectMutex.RUnlock()
 
 		status.BeaconNodes[traceID] = beaconHealth
 	}

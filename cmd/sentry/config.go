@@ -217,7 +217,6 @@ func applyAttestationSubnetConfig(cfg *config.Config, c *cli.Context) error {
 		}
 
 		cfg.AttestationSubnetCheck.Enabled = enabledBool
-		cfg.AttestationSubnetCheck.MaxSubnets = 2
 	}
 
 	// Handle max subnets from env
