@@ -1,17 +1,24 @@
 name: release
 
+# Releases build from a v* tag. A tag with a suffix (v0.1.2-attnets) is a
+# pre-release: GitHub marks it as one, and its images get <suffix>-latest
+# instead of latest.
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write      # GitHub release
+      packages: write      # push to ghcr.io/ethpandaops
+      id-token: write      # attest, and authenticate to the image mirror
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -44,11 +51,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
 
-      - name: Login to Docker Hub
+      - name: Login to GHCR
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Update GoReleaser config
         run: |
@@ -68,16 +76,22 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
-            -e DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} \
-            -e DOCKER_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }} \
+            -v "${HOME}/.docker:/root/.docker" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e RELEASE_SUFFIX=${{ env.RELEASE_SUFFIX }} \
             -e GOTOOLCHAIN=go1.26.10 \
             goreleaser/goreleaser-cross:v1.27.3 release --clean --config .goreleaser.yaml.new
 
+      - name: Mirror to Docker Hub
+        uses: ethpandaops/actions/mirror-image@dab9cb304b6a1dd648e2f1acef6169f7095f515e
+        with:
+          goreleaser-artifacts: dist/artifacts.json
+          mirror-url: ${{ secrets.IMAGE_MIRROR_URL }}
+
   trigger-installer-update:
     needs: [goreleaser]
     runs-on: ubuntu-latest
+    permissions: {}
     if: ${{ !contains(github.ref, '-') }}
     steps:
       - name: Get version
