@@ -1,10 +1,13 @@
 package ethereum
 
 import (
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsSlotDifferenceTooLarge(t *testing.T) {
@@ -128,6 +131,52 @@ func TestBeaconWrapper_IsActiveSubnet(t *testing.T) {
 		assert.True(t, w.IsActiveSubnet(63))
 		assert.False(t, w.IsActiveSubnet(62))
 	})
+}
+
+// TestBeaconWrapper_IsHealthy proves IsHealthy reflects the wrapper's own live isHealthy field,
+// not a one-time latch. A bare &BeaconWrapper{} has a nil embedded *ethcore.BeaconNode, so if
+// this resolved to the promoted ethcore method instead of the wrapper's own override, it would
+// panic here rather than return a value - the fact that it doesn't confirms the override is what
+// answers the call.
+func TestBeaconWrapper_IsHealthy(t *testing.T) {
+	w := &BeaconWrapper{}
+
+	assert.False(t, w.IsHealthy(), "zero value must be unhealthy")
+
+	w.isHealthy.Store(true)
+	assert.True(t, w.IsHealthy())
+
+	// A live disconnect must be reflected immediately, not latched until Stop.
+	w.isHealthy.Store(false)
+	assert.False(t, w.IsHealthy())
+
+	w.isHealthy.Store(true)
+	assert.True(t, w.IsHealthy(), "must be able to report healthy again after reconnecting")
+}
+
+// TestHandleDecoratedEvent_DoesNotDoubleCountFailedEvents is a structural regression test, not a
+// behavioral one. handleDecoratedEvent's very first line calls w.Synced(ctx), which is promoted
+// from the embedded *ethcore.BeaconNode and requires a populated wallclock (genesis and spec
+// fetched from a real beacon node) before it returns successfully - there is no test seam in
+// ethcore to fake that state, the same wall already documented for this method during the nemesis
+// triage (see .audit/findings/triage-report.md, NM-09/NM-12). What's verified here instead: the
+// exact conditional shape the fix depends on is present, unchanged, on the current source - that
+// an event which fails at any sink is counted via AddFailedEvents only, not also via
+// AddDecoratedEvent/AddEventsExported.
+func TestHandleDecoratedEvent_DoesNotDoubleCountFailedEvents(t *testing.T) {
+	out, err := exec.Command("grep", "-n", "-A", "2", "if failure {", "beacon.go").CombinedOutput()
+	require.NoError(t, err, "grep must find the failure branch in beacon.go")
+
+	block := string(out)
+
+	require.Contains(t, block, "AddFailedEvents(1)")
+	require.Contains(t, block, "} else {",
+		"the failure branch must be exactly one statement (AddFailedEvents) before the else - if "+
+			"this fails, either the shape changed or an exported/decorated-event call was added "+
+			"back into the failure branch, regressing the double-counting bug (NM-12)")
+
+	lines := strings.Split(strings.TrimSpace(block), "\n")
+	require.Len(t, lines, 3, "expected exactly: 'if failure {', the AddFailedEvents call, and '} else {'")
 }
 
 func TestCalculateSubnetID(t *testing.T) {

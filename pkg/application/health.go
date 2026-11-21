@@ -9,6 +9,10 @@ import (
 
 // handleHealthCheck handles the /healthz endpoint.
 // Returns 200 OK if at least one beacon node is healthy, 503 otherwise.
+//
+// This reflects beacon connectivity only. It does not know whether events are actually reaching
+// the output server - a sink can be failing to deliver while the beacon connection itself stays
+// healthy. See GetHealthStatus for per-beacon failed event counts if that visibility is needed.
 func (a *Application) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	// Check if at least one beacon is healthy
 	for traceID, instance := range a.beaconNodes {
@@ -37,6 +41,11 @@ type BeaconHealth struct {
 	Connected bool   `json:"connected"`
 	Healthy   bool   `json:"healthy"`
 	Address   string `json:"address"`
+	// FailedEvents is the number of events that failed to reach a sink during the current summary
+	// window (the same window Summary logs and resets on, by default every 10 seconds) - it is not
+	// a lifetime total. A nonzero value means something is wrong right now; it is not suitable for
+	// alerting math without accounting for the reset.
+	FailedEvents uint64 `json:"failed_events"` //nolint:tagliatelle // matches beacon_nodes' snake_case convention above.
 }
 
 // GetHealthStatus returns detailed health information about the application.
@@ -58,6 +67,10 @@ func (a *Application) GetHealthStatus() HealthStatus {
 			if beaconHealth.Healthy {
 				status.Healthy = true
 			}
+		}
+
+		if instance.Summary != nil {
+			beaconHealth.FailedEvents = instance.Summary.GetFailedEvents()
 		}
 
 		status.BeaconNodes[traceID] = beaconHealth
