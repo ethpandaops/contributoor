@@ -25,8 +25,8 @@ dockers:
     goarch: amd64
     dockerfile: Dockerfile
     image_templates:
-      - "ethpandaops/contributoor:{{ .Version }}-amd64"
-      - "ethpandaops/contributoor:latest-amd64"
+      - "ghcr.io/ethpandaops/contributoor:{{ .Version }}-amd64"
+      - "ghcr.io/ethpandaops/contributoor:{{ if .Env.RELEASE_SUFFIX }}{{ .Env.RELEASE_SUFFIX }}-{{ end }}latest-amd64"
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -40,8 +40,8 @@ dockers:
     goarch: arm64
     dockerfile: Dockerfile
     image_templates:
-      - "ethpandaops/contributoor:{{ .Version }}-arm64v8"
-      - "ethpandaops/contributoor:latest-arm64v8"
+      - "ghcr.io/ethpandaops/contributoor:{{ .Version }}-arm64v8"
+      - "ghcr.io/ethpandaops/contributoor:{{ if .Env.RELEASE_SUFFIX }}{{ .Env.RELEASE_SUFFIX }}-{{ end }}latest-arm64v8"
     build_flag_templates:
       - "--platform=linux/arm64/v8"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -51,14 +51,14 @@ dockers:
       - go.sum
 
 docker_manifests:
-  - name_template: ethpandaops/contributoor:{{ .Version }}
+  - name_template: ghcr.io/ethpandaops/contributoor:{{ .Version }}
     image_templates:
-      - ethpandaops/contributoor:{{ .Version }}-amd64
-      - ethpandaops/contributoor:{{ .Version }}-arm64v8
-  - name_template: ethpandaops/contributoor:latest
+      - ghcr.io/ethpandaops/contributoor:{{ .Version }}-amd64
+      - ghcr.io/ethpandaops/contributoor:{{ .Version }}-arm64v8
+  - name_template: ghcr.io/ethpandaops/contributoor:{{ if .Env.RELEASE_SUFFIX }}{{ .Env.RELEASE_SUFFIX }}-{{ end }}latest
     image_templates:
-      - ethpandaops/contributoor:latest-amd64
-      - ethpandaops/contributoor:latest-arm64v8
+      - ghcr.io/ethpandaops/contributoor:{{ if .Env.RELEASE_SUFFIX }}{{ .Env.RELEASE_SUFFIX }}-{{ end }}latest-amd64
+      - ghcr.io/ethpandaops/contributoor:{{ if .Env.RELEASE_SUFFIX }}{{ .Env.RELEASE_SUFFIX }}-{{ end }}latest-arm64v8
 
 archives:
   - format: tar.gz
