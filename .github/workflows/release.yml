@@ -15,9 +15,9 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     permissions:
-      contents: write      # GitHub release
-      packages: write      # push to ghcr.io/ethpandaops
-      id-token: write      # attest, and authenticate to the image mirror
+      contents: write
+      packages: write
+      id-token: write
       attestations: write
     steps:
       - name: Checkout
